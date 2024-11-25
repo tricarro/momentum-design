@@ -6,7 +6,8 @@ const config = {
     '@storybook/addon-essentials',
     '@storybook/addon-a11y',
     '@geometricpanda/storybook-addon-badges',
-    'storybook-addon-rtl'
+    'storybook-addon-rtl',
+    '@storybook/addon-designs',
   ],
   framework: {
     name: '@storybook/web-components-vite',
@@ -16,7 +17,8 @@ const config = {
     disableTelemetry: true, // 👈 Disables telemetry
   },
   docs: {
-    autodocs: 'tag',
+    autodocs: true,
+    defaultName: 'Spec',
   },
   staticDirs: ['./public'],
 };

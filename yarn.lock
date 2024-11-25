@@ -1677,6 +1677,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@figspec/components@npm:^1.0.1":
+  version: 1.0.3
+  resolution: "@figspec/components@npm:1.0.3"
+  dependencies:
+    lit: ^2.1.3
+  checksum: 2afe175510ccb9f544a70607063e4c1dbc17b2804a81f39562b985684013e7382d00c87b4ae80187ba926e588ef6b378fbc22fcb89ff6424ebcb3f83dc1f8d72
+  languageName: node
+  linkType: hard
+
+"@figspec/react@npm:^1.0.0":
+  version: 1.0.3
+  resolution: "@figspec/react@npm:1.0.3"
+  dependencies:
+    "@figspec/components": ^1.0.1
+    "@lit-labs/react": ^1.0.2
+  peerDependencies:
+    react: ^16.14.0 || ^17.0.0 || ^18.0.0
+  checksum: 8cfc1be1d8b6aa089fb4a7461a46bc96cdd4ad40ee49b0dea46507221d6036a81644b732ed5be0e8047ef6436e776036bcf0a72db724f0f9358837270f4278cf
+  languageName: node
+  linkType: hard
+
 "@geometricpanda/storybook-addon-badges@npm:^2.0.4":
   version: 2.0.4
   resolution: "@geometricpanda/storybook-addon-badges@npm:2.0.4"
@@ -2053,7 +2074,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@lit-labs/ssr-dom-shim@npm:^1.2.0":
+"@lit-labs/react@npm:^1.0.2":
+  version: 1.2.1
+  resolution: "@lit-labs/react@npm:1.2.1"
+  checksum: d4a544c475272630bee54d78a458630ea8b5fab74c18b922ae5046563cc359c8c505188f9f7614ab55e332863f82b179d7970d8b8bd425e77acc167a01657bed
+  languageName: node
+  linkType: hard
+
+"@lit-labs/ssr-dom-shim@npm:^1.0.0, @lit-labs/ssr-dom-shim@npm:^1.1.0, @lit-labs/ssr-dom-shim@npm:^1.2.0":
   version: 1.2.1
   resolution: "@lit-labs/ssr-dom-shim@npm:1.2.1"
   checksum: 5667c44f58e16edaa257fc3ae7f752250d5250d4eb1d071b65df0f1fce0b90b42e8528787cc2673998d76d993440143a2a20c3358ce125c62df4cd193784de8d
@@ -2075,6 +2103,15 @@ __metadata:
   peerDependencies:
     "@types/react": 17 || 18
   checksum: 5c3ae8e622c9af71538b91c7885704706a81d5fd833b4071af5d332cfaa07aad14fbdbed03e5d31c8ff8cd5048968a6f8b62af571ec905a163d482e89ed53d66
+  languageName: node
+  linkType: hard
+
+"@lit/reactive-element@npm:^1.3.0, @lit/reactive-element@npm:^1.6.0":
+  version: 1.6.3
+  resolution: "@lit/reactive-element@npm:1.6.3"
+  dependencies:
+    "@lit-labs/ssr-dom-shim": ^1.0.0
+  checksum: 79b58631c38effeabad090070324431da8a22cf0ff665f5e4de35e4d791f984742b3d340c9c7fce996d1124a8da95febc582471b4c237236c770b1300b56ef6e
   languageName: node
   linkType: hard
 
@@ -3041,6 +3078,32 @@ __metadata:
   peerDependencies:
     storybook: ^8.3.4
   checksum: 6cc4cfe7e5df22ef9ec4750be231989bbbe6ee6fa7424b4cbf90b269ef3104152ddbcdfdfb25dd724c624ceef5bd04c74fd9d9b6f0fee62185532475db27b108
+  languageName: node
+  linkType: hard
+
+"@storybook/addon-designs@npm:^8.0.3":
+  version: 8.0.3
+  resolution: "@storybook/addon-designs@npm:8.0.3"
+  dependencies:
+    "@figspec/react": ^1.0.0
+  peerDependencies:
+    "@storybook/blocks": ^8.0.0
+    "@storybook/components": ^8.0.0
+    "@storybook/theming": ^8.0.0
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+  peerDependenciesMeta:
+    "@storybook/blocks":
+      optional: true
+    "@storybook/components":
+      optional: true
+    "@storybook/theming":
+      optional: true
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: e255c0e008be12c6f0928b8a6b8e364da73e0e88848ee33c5875e04b6d49868d5a7dab28f5bb0f0b2514fc47c9ff8a36d562392cf998aa16a84a1b423b35196f
   languageName: node
   linkType: hard
 
@@ -10743,6 +10806,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lit-element@npm:^3.3.0":
+  version: 3.3.3
+  resolution: "lit-element@npm:3.3.3"
+  dependencies:
+    "@lit-labs/ssr-dom-shim": ^1.1.0
+    "@lit/reactive-element": ^1.3.0
+    lit-html: ^2.8.0
+  checksum: 29a596fa556e231cce7246ca3e5687ad238f299b0cb374a0934d5e6fe9adf1436e031d4fbd21b280aabfc0e21a66e6c4b52da558a908df2566d09d960f3ca93d
+  languageName: node
+  linkType: hard
+
 "lit-element@npm:^4.1.0":
   version: 4.1.0
   resolution: "lit-element@npm:4.1.0"
@@ -10754,12 +10828,32 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lit-html@npm:^2.8.0":
+  version: 2.8.0
+  resolution: "lit-html@npm:2.8.0"
+  dependencies:
+    "@types/trusted-types": ^2.0.2
+  checksum: 2d70df07248bcb2f502a3afb1e91d260735024fa669669ffb1417575aa39c3092779725ac1b90f5f39e4ce78c63f431f51176bc67f532389f0285a6991573255
+  languageName: node
+  linkType: hard
+
 "lit-html@npm:^3.2.0":
   version: 3.2.0
   resolution: "lit-html@npm:3.2.0"
   dependencies:
     "@types/trusted-types": ^2.0.2
   checksum: fa566878efab2492f2dc359216bc5ccd5164466f6760984b9f9b7122c4932be19891ddf10a611bc88718e59c49f83f18e9b9e32fe193dcdc37df28f9fe05630c
+  languageName: node
+  linkType: hard
+
+"lit@npm:^2.1.3":
+  version: 2.8.0
+  resolution: "lit@npm:2.8.0"
+  dependencies:
+    "@lit/reactive-element": ^1.6.0
+    lit-element: ^3.3.0
+    lit-html: ^2.8.0
+  checksum: 2480e733f7d022d3ecba91abc58a20968f0ca8f5fa30b3341ecf4bcf4845e674ad27b721a5ae53529cafc6ca603c015b80d0979ceb7a711e268ef20bb6bc7527
   languageName: node
   linkType: hard
 
@@ -12199,6 +12293,7 @@ __metadata:
     "@commitlint/cli": ^19.4.0
     "@commitlint/config-conventional": ^19.2.2
     "@momentum-design/automation": "workspace:^"
+    "@storybook/addon-designs": ^8.0.3
     "@typescript-eslint/eslint-plugin": ^5.43.0
     "@typescript-eslint/parser": ^5.43.0
     astro-eslint-parser: ^0.9.0
