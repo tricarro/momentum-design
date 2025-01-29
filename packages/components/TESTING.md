@@ -125,6 +125,15 @@ To update Visual Regression snapshots, follow the steps below to run E2E testing
      yarn components test:e2e:docker:update-snapshot XXX.e2e-test.ts # update snapshots
    ```
 
+8. To update snapshots for a **single** E2E Test in **specific** browser, run:
+
+   ```bash
+     yarn components test:e2e:docker:update-snapshot:chrome XXX.e2e-test.ts # run only on chrome with update snapshots
+     yarn components test:e2e:docker:update-snapshot:firefox XXX.e2e-test.ts # run only on firefox with update snapshots
+     yarn components test:e2e:docker:update-snapshot:webkit XXX.e2e-test.ts # run only on webkit with update snapshots
+     yarn components test:e2e:docker:update-snapshot:msedge XXX.e2e-test.ts # run only on msedge with update snapshots
+   ```
+
 #### Testing method
 
 ```bash
@@ -157,8 +166,8 @@ Since Docker runs on the `amd64` architecture, using Docker on Mac with M chips 
 2. Set the version to latest playwright version and build the new image to local :
 
    ```bash
-     "yarn components test:e2e:docker:build": "docker build --platform linux/amd64 -f ./config/playwright/docker/utils/Dockerfile.test.postbuild -t ghcr.io/momentum-design/momentum-design/docker-playwright:v1.47.2 ."
-     # replace all the v1.47.2 to the latest version of playwright and run this script to build new image
+     "yarn components test:e2e:docker:build": "docker build --platform linux/amd64 -f ./config/playwright/docker/utils/Dockerfile.test.postbuild -t ghcr.io/momentum-design/momentum-design/docker-playwright:v1.49.1 ."
+     # replace all the v1.49.1 to the latest version of playwright and run this script to build new image
    ```
 
 3. After the build is done, login to the docker ghrc.io:
@@ -170,8 +179,8 @@ Since Docker runs on the `amd64` architecture, using Docker on Mac with M chips 
 4. Now you can push the latest image to GHRC:
 
    ```bash
-     docker push ghcr.io/momentum-design/momentum-design/docker-playwright:v1.47.2
-     # replace the v1.47.2 to the version you want to push
+     docker push ghcr.io/momentum-design/momentum-design/docker-playwright:v1.49.1
+     # replace the v1.49.1 to the version you want to push
    ```
 
 5. You can check the image that you push here [Docker-Playwright](https://github.com/orgs/momentum-design/packages/container/package/momentum-design%2Fdocker-playwright)

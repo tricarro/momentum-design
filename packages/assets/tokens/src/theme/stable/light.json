@@ -597,8 +597,7 @@
           "disabled": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.core.black-alpha.11}",
-            "description": ""
+            "value": "{color.core.black-alpha.0}"
           }
         },
         "solid": {
@@ -1071,6 +1070,25 @@
             "value": "linear-gradient(123deg, {color.core.black-alpha.20} 0%, {color.core.black-alpha.30} 27.6%, {color.core.black-alpha.40} 58.85%, {color.core.black-alpha.50} 100%)",
             "description": "linear-gradient(123deg, #00000033 0%, #0000004d 27.6%, #00000066 58.85%, #00000080 100%)"
           }
+        },
+        "glass": {
+          "normal": {
+            "value": "{color.core.white-alpha.60}",
+            "type": "color",
+            "description": "Used for glass effect background for operation pop. "
+          },
+          "overlay": {
+            "normal": {
+              "value": "{color.core.white-alpha.80}",
+              "type": "color",
+              "description": "Used for operation pop: knocked-back effect when signle card is selected"
+            },
+            "inactive": {
+              "value": "{color.core.white-alpha.40}",
+              "type": "color",
+              "description": "Used for operation pop: knocked-back effect when signle card is selected"
+            }
+          }
         }
       },
       "button": {
@@ -1209,6 +1227,25 @@
             "type": "color",
             "value": "{color.core.blue.80}",
             "description": ""
+          }
+        },
+        "glass": {
+          "primary": {
+            "normal": {
+              "value": "{color.core.black-alpha.80}",
+              "type": "color",
+              "description": "Used for Operation pop button"
+            },
+            "hover": {
+              "value": "{color.core.black-alpha.70}",
+              "type": "color",
+              "description": "Used for Operation pop button"
+            },
+            "pressed": {
+              "value": "{color.core.black-alpha.60}",
+              "type": "color",
+              "description": "Used for Operation pop button"
+            }
           }
         }
       },
@@ -1375,7 +1412,7 @@
         "promotion": {
           "normal": {
             "type": "color",
-            "value": "linear-gradient(46deg, {color.decorative.purple.100} 0%, {color.decorative.pink.70} 100%)",
+            "value": "{color.decorative.purple.60}",
             "description": "Used for border of promotional banner"
           }
         },
@@ -1431,8 +1468,8 @@
             "normal": {
               "parent": "theme/stable/light",
               "type": "color",
-              "value": "{color.core.gray.50}",
-              "description": "Core Token: {color.core.gray.50}\nHEX: #8f8f8f\nUsed for progress indicator"
+              "value": "{color.core.gray.60}",
+              "description": "Core Token: {color.core.gray.60}\nHEX: #707070\nUsed for progress bar indicator"
             }
           }
         },
@@ -1440,26 +1477,22 @@
           "normal": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.core.black-alpha.0}",
-            "description": ""
+            "value": "{color.core.black-alpha.11}"
           },
           "hover": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.core.black-alpha.30}",
-            "description": ""
+            "value": "{color.core.black-alpha.20}"
           },
           "pressed": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.core.black-alpha.40}",
-            "description": ""
+            "value": "{color.core.black-alpha.30}"
           },
           "disabled": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.core.black-alpha.20}",
-            "description": "Core: {color.core.white-alpha.20} \nHEX: #ffffff 20%"
+            "value": "{color.core.black-alpha.7}"
           }
         }
       },
@@ -1924,6 +1957,12 @@
             "disabled": {
               "type": "color",
               "value": "{color.core.black-alpha.20}"
+            }
+          },
+          "warning": {
+            "normal": {
+              "value": "{color.core.yellow.40}",
+              "type": "color"
             }
           }
         },
@@ -2510,6 +2549,18 @@
         "pressed": {
           "value": "{color.core.black-alpha.20}",
           "type": "color"
+        },
+        "glass": {
+          "normal": {
+            "value": "{color.core.black-alpha.7}",
+            "type": "color",
+            "description": "Used for Operation pop"
+          },
+          "active": {
+            "value": "{color.core.white-alpha.80}",
+            "type": "color",
+            "description": "Used for Operation pop"
+          }
         }
       },
       "gradientdivider": {
@@ -2610,32 +2661,48 @@
             "value": "linear-gradient(90deg, {color.decorative.purple.70}00 0%,{color.decorative.purple.70}E6 22.4%, {color.decorative.purple.70}E6 76.04%, {color.decorative.purple.70}00 100%)",
             "description": "linear-gradient(90deg, #932099 0%, #932099 90%, #932099 90%, #fd884e 0%)\n"
           }
+        },
+        "vertical": {
+          "normal": {
+            "parent": "theme/stable/dark",
+            "type": "color",
+            "value": "linear-gradient(0deg, {color.core.black-alpha.0} 0%, {color.core.black-alpha.20} 22.4%, {color.core.black-alpha.20} 72.4%, {color.core.black-alpha.0} 100%)",
+            "description": "linear-gradient(0deg, #00000000 0%, #00000033 22.4%, #00000033 72.4%, #00000000 100%)\nUsed for default default on compose area in space"
+          },
+          "hover": {
+            "parent": "theme/stable/dark",
+            "type": "color",
+            "value": "linear-gradient(0deg, {color.core.black-alpha.0} 0%, {color.core.black-alpha.60} 22.4%, {color.core.black-alpha.60} 72.4%, {color.core.black-alpha.0} 100%)",
+            "description": "linear-gradient(0deg, #00000000 0%, #00000099 22.4%, #00000099 72.4%, #00000000 100%)\nUsed for hover state of gradient divider for spaces"
+          }
         }
       },
       "focus": {
-        "0": {
-          "value": "{color.core.white-alpha.100}",
-          "type": "color",
-          "description": "Used for focus ring effect"
-        },
-        "1": {
-          "value": "{color.core.blue.60}",
-          "type": "color",
-          "description": "Used for focus ring effect"
-        },
-        "2": {
-          "value": "{color.core.blue.60}",
-          "type": "color",
-          "$extensions": {
-            "studio.tokens": {
-              "modify": {
-                "type": "alpha",
-                "value": "0.35",
-                "space": "lch"
-              }
-            }
+        "default": {
+          "0": {
+            "value": "{color.core.white-alpha.100}",
+            "type": "color",
+            "description": "Used for focus ring effect"
           },
-          "description": "Used for focus ring effect"
+          "1": {
+            "value": "{color.core.blue.60}",
+            "type": "color",
+            "description": "Used for focus ring effect"
+          },
+          "2": {
+            "value": "{color.core.blue.60}",
+            "type": "color",
+            "$extensions": {
+              "studio.tokens": {
+                "modify": {
+                  "type": "alpha",
+                  "value": "0.35",
+                  "space": "lch"
+                }
+              }
+            },
+            "description": "Used for focus ring effect"
+          }
         }
       }
     }

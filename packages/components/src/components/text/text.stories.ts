@@ -1,12 +1,13 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { VALUES } from './text.constants';
+import { ifDefined } from 'lit/directives/if-defined.js';
+import { DEFAULTS, TYPE, VALID_TEXT_TAGS } from './text.constants';
 import { disableControls } from '../../../config/storybook/utils';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
 
 const render = (args: Args) => html`
-<mdc-text type="${args.type}" tagname="${args.tagname}">${args.children}</mdc-text>
+<mdc-text type="${args.type}" tagname="${ifDefined(args.tagname)}">${args.children}</mdc-text>
 `;
 
 const meta: Meta = {
@@ -23,10 +24,12 @@ const meta: Meta = {
       description: 'Children (passed into "default" slot)',
     },
     type: {
-      options: VALUES.TYPE,
+      control: 'select',
+      options: Object.values(TYPE),
     },
     tagname: {
-      options: VALUES.TAGNAME,
+      control: 'select',
+      options: Object.values(VALID_TEXT_TAGS),
     },
     ...classArgType,
     ...styleArgType,
@@ -38,10 +41,10 @@ const meta: Meta = {
 
 export default meta;
 
-export const Primary: StoryObj = {
+export const Example: StoryObj = {
   args: {
-    type: 'body-large-regular',
-    tagname: '',
-    children: 'The quick brown fox jumps over the lazy dog',
+    type: DEFAULTS.TYPE,
+    tagname: null,
+    children: DEFAULTS.CHILDREN,
   },
 };

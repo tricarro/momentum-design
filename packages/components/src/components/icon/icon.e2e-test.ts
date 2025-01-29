@@ -1,9 +1,10 @@
 import { expect } from '@playwright/test';
 import { ComponentsPage, test } from '../../../config/playwright/setup';
+import type { IconNames } from './icon.types';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
-  name: string;
+  name: IconNames;
   size?: number;
   ariaLabel?: string;
   lengthUnit?: string;
@@ -27,6 +28,23 @@ const setup = async (args: SetupOptions) => {
   return icon;
 };
 
+const visualTestingSetup = async (args: SetupOptions) => {
+  const { componentsPage, ...restArgs } = args;
+  await componentsPage.mount({
+    html: `
+    <div class="componentWrapper componentRowWrapper">
+      <mdc-icon name="${restArgs.name}"></mdc-icon>
+      <mdc-icon name="${restArgs.name}" size="2"></mdc-icon>
+      <mdc-icon name="${restArgs.name}" size="2" style="--mdc-icon-fill-color: red;"></mdc-icon>
+    </div>
+      `,
+    clearDocument: true,
+  });
+  const icon = componentsPage.page.locator('.componentRowWrapper');
+  await icon.waitFor();
+  return icon;
+};
+
 test('mdc-icon', async ({ componentsPage }) => {
   const name = 'accessibility-regular';
   const ariaLabel = 'test aria label';
@@ -39,7 +57,7 @@ test('mdc-icon', async ({ componentsPage }) => {
     await componentsPage.accessibility.checkForA11yViolations('icon-default');
   });
 
-  const iconWithAriaLabel = await setup({
+  await setup({
     componentsPage,
     name,
     ariaLabel,
@@ -53,27 +71,9 @@ test('mdc-icon', async ({ componentsPage }) => {
    * VISUAL REGRESSION
    */
   await test.step('visual-regression', async () => {
-    await test.step('matches screenshot of element with aria-label passed in', async () => {
-      await componentsPage.visualRegression.takeScreenshot('mdc-icon-default', { element: iconWithAriaLabel });
-    });
-
-    await test.step('matches screenshot of element with size set to 2', async () => {
-      await componentsPage.setAttributes(iconWithAriaLabel, {
-        size: '2',
-      });
-
-      await componentsPage.visualRegression.takeScreenshot('mdc-icon-scale', { element: iconWithAriaLabel });
-    });
-
-    await test.step('matches screenshot of element with icon color set to red using css property', async () => {
-      const iconWithColor = await setup({
-        componentsPage,
-        name,
-      });
-      await componentsPage.setAttributes(iconWithColor, {
-        style: '--mdc-icon-fill-color: red;',
-      });
-      await componentsPage.visualRegression.takeScreenshot('mdc-icon-color', { element: iconWithColor });
+    const visualIcons = await visualTestingSetup({ componentsPage, name });
+    await test.step('matches screenshot of elements with default, size equal 2 and color set to red', async () => {
+      await componentsPage.visualRegression.takeScreenshot('mdc-icon', { element: visualIcons });
     });
   });
 
@@ -84,20 +84,20 @@ test('mdc-icon', async ({ componentsPage }) => {
     await test.step('attributes should be present on component by default', async () => {
       const icon = await setup({ componentsPage, name });
       await expect(icon).toHaveAttribute('name', name);
-      await expect(icon).toHaveAttribute('style', 'width: 1em; height: 1em;');
+      await expect(icon).toHaveAttribute('style', '--computed-icon-size: 1em;');
     });
 
     await test.step('attributes should be present on component with size passed in', async () => {
       const icon = await setup({ componentsPage, name, size: 2 });
       await expect(icon).toHaveAttribute('name', name);
       await expect(icon).toHaveAttribute('size', '2');
-      await expect(icon).toHaveAttribute('style', 'width: 2em; height: 2em;');
+      await expect(icon).toHaveAttribute('style', '--computed-icon-size: 2em;');
     });
 
     await test.step('attribute length unit can be overridden to rem', async () => {
       const icon = await setup({ componentsPage, name, lengthUnit: 'rem' });
       await expect(icon).toHaveAttribute('name', name);
-      await expect(icon).toHaveAttribute('style', 'width: 1rem; height: 1rem;');
+      await expect(icon).toHaveAttribute('style', '--computed-icon-size: 1rem;');
     });
 
     await test.step('attributes should be present on component with aria-label passed in', async () => {
@@ -107,7 +107,7 @@ test('mdc-icon', async ({ componentsPage }) => {
         ariaLabel,
       });
       await expect(iconWithRole).toHaveAttribute('name', name);
-      await expect(iconWithRole).toHaveAttribute('style', 'width: 1em; height: 1em;');
+      await expect(iconWithRole).toHaveAttribute('style', '--computed-icon-size: 1em;');
       await expect(iconWithRole).toHaveAttribute('aria-label', ariaLabel);
       await expect(iconWithRole).toHaveAttribute('role', 'img');
     });
@@ -118,13 +118,18 @@ test('mdc-icon', async ({ componentsPage }) => {
         name,
       });
       await expect(iconWithoutRole).toHaveAttribute('name', name);
-      await expect(iconWithoutRole).toHaveAttribute('style', 'width: 1em; height: 1em;');
+      await expect(iconWithoutRole).toHaveAttribute('style', '--computed-icon-size: 1em;');
       await expect(iconWithoutRole).not.toHaveAttribute('role');
     });
 
     await test.step('attribute aria-hidden should always be set to true for SVG', async () => {
       const svgIcon = componentsPage.page.locator('svg');
       await expect(svgIcon).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    await test.step('attribute data-name should always be set same as the name attribute for SVG', async () => {
+      const svgIcon = componentsPage.page.locator('svg');
+      await expect(svgIcon).toHaveAttribute('data-name', name);
     });
   });
 });

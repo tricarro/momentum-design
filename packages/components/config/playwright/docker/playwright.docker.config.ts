@@ -25,6 +25,8 @@ const githubActionsReporterOptions: GitHubActionOptions = {
   includeResults: ['fail', 'flaky'],
 };
 
+const DEFAULT_TIMEOUT = 30 * 1000;
+const LONGER_TIMEOUT = DEFAULT_TIMEOUT * 1.5;
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -32,7 +34,7 @@ const config: PlaywrightTestConfig = {
   testDir: '../../../src',
   testMatch: /.*\.e2e-test\.ts/,
   /* Maximum time one test can run for. */
-  timeout: 30 * 1000,
+  timeout: DEFAULT_TIMEOUT,
   expect: {
     /**
      * Maximum time expect() should wait for the condition to be met.
@@ -84,21 +86,38 @@ const config: PlaywrightTestConfig = {
       use: {
         ...devices['Desktop Safari'],
       },
+      timeout: LONGER_TIMEOUT,
     },
 
     /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: {
-    //     ...devices['Pixel 5'],
-    //   },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: {
-    //     ...devices['iPhone 12'],
-    //   },
-    // },
+    {
+      name: 'mobile chrome',
+      use: {
+        ...devices['Galaxy S9+'],
+      },
+    },
+    {
+      name: 'mobile safari',
+      use: {
+        ...devices['iPhone 12'],
+      },
+      timeout: LONGER_TIMEOUT,
+    },
+
+    /* Test against tablet viewports. */
+    {
+      name: 'tablet chrome',
+      use: {
+        ...devices['Galaxy Tab A'],
+      },
+    },
+    {
+      name: 'tablet safari',
+      use: {
+        ...devices['iPad Pro 11'],
+      },
+      timeout: LONGER_TIMEOUT,
+    },
 
     /* Test against branded browsers. */
     {
@@ -112,7 +131,7 @@ const config: PlaywrightTestConfig = {
   /* Run your local dev server before starting the tests */
   webServer: [
     {
-      command: 'yarn test:e2e:setup',
+      command: 'yarn test:e2e:serve',
       url: 'http://localhost:4000',
       stdout: 'pipe',
       stderr: 'pipe',
@@ -120,7 +139,7 @@ const config: PlaywrightTestConfig = {
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: 'yarn test:e2e:docker:run',
+      command: 'yarn test:e2e:docker:serve',
       url: 'http://localhost:3000',
       stdout: 'pipe',
       stderr: 'pipe',

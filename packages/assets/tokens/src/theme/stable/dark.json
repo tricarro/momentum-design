@@ -599,8 +599,7 @@
           "disabled": {
             "parent": "theme/stable/dark",
             "type": "color",
-            "value": "{color.core.white-alpha.11}",
-            "description": ""
+            "value": "{color.core.white-alpha.0}"
           }
         },
         "solid": {
@@ -1071,6 +1070,25 @@
             "value": "linear-gradient(123deg, {color.core.white-alpha.20} 0%, {color.core.white-alpha.30} 33.85%, {color.core.white-alpha.40} 70.31%, {color.core.white-alpha.50} 100%)",
             "description": "linear-gradient(123deg, #ffffff33 0%, #ffffff4d 33.85%, #ffffff66 70.31%, #ffffff80 100%)\nUse for skeleton component"
           }
+        },
+        "glass": {
+          "normal": {
+            "value": "{color.core.black-alpha.40}",
+            "type": "color",
+            "description": "Used for glass effect background for operation pop. "
+          },
+          "overlay": {
+            "normal": {
+              "value": "{color.core.black-alpha.80}",
+              "type": "color",
+              "description": "Used for operation pop: knocked-back effect when signle card is selected"
+            },
+            "inactive": {
+              "value": "{color.core.black-alpha.40}",
+              "type": "color",
+              "description": "Used for operation pop: knocked-back effect when signle card is selected"
+            }
+          }
         }
       },
       "button": {
@@ -1209,6 +1227,25 @@
             "type": "color",
             "value": "{color.core.blue.80}",
             "description": ""
+          }
+        },
+        "glass": {
+          "primary": {
+            "normal": {
+              "value": "{color.core.white-alpha.80}",
+              "type": "color",
+              "description": "Used for Operation pop button"
+            },
+            "hover": {
+              "value": "{color.core.white-alpha.70}",
+              "type": "color",
+              "description": "Used for Operation pop button"
+            },
+            "pressed": {
+              "value": "{color.core.white-alpha.60}",
+              "type": "color",
+              "description": "Used for Operation pop button"
+            }
           }
         }
       },
@@ -1376,7 +1413,7 @@
         "promotion": {
           "normal": {
             "type": "color",
-            "value": "linear-gradient(46deg, {color.decorative.purple.60} 0%, {color.decorative.pink.60} 100%)",
+            "value": "{color.decorative.purple.60}",
             "description": "Used for border of promotional banner"
           }
         },
@@ -1441,26 +1478,22 @@
           "normal": {
             "parent": "theme/stable/dark",
             "type": "color",
-            "value": "{color.core.white-alpha.0}",
-            "description": ""
+            "value": "{color.core.white-alpha.11}"
           },
           "hover": {
             "parent": "theme/stable/dark",
             "type": "color",
-            "value": "{color.core.white-alpha.30}",
-            "description": ""
+            "value": "{color.core.white-alpha.20}"
           },
           "pressed": {
             "parent": "theme/stable/dark",
             "type": "color",
-            "value": "{color.core.white-alpha.40}",
-            "description": ""
+            "value": "{color.core.white-alpha.30}"
           },
           "disabled": {
             "parent": "theme/stable/dark",
             "type": "color",
-            "value": "{color.core.white-alpha.20}",
-            "description": "Core: {color.core.white-alpha.20} \nHEX: #ffffff 20%"
+            "value": "{color.core.white-alpha.7}"
           }
         }
       },
@@ -2509,6 +2542,20 @@
             "value": "linear-gradient(90deg, {color.decorative.purple.40}00 0%, {color.decorative.purple.40}E6 22.4%, {color.decorative.purple.40}E6 76.04%, {color.decorative.purple.40}00 100%)",
             "description": "linear-gradient(90deg, #f294f100 0%, #f294f1e6 22.4%, #f294f1e6 76.04%, #fc8b9800 100%, #f294f100 100%)"
           }
+        },
+        "vertical": {
+          "normal": {
+            "parent": "theme/stable/dark",
+            "type": "color",
+            "value": "linear-gradient(0deg, {color.core.white-alpha.0} 0%, {color.core.white-alpha.20} 22.4%, {color.core.white-alpha.20} 72.4%, {color.core.white-alpha.0} 100%)",
+            "description": "linear-gradient(0deg, #ffffff00 0%, #ffffff33 22.4%, #ffffff33 72.4%, #ffffff00 100%)\nUsed for default default on compose area in space"
+          },
+          "hover": {
+            "parent": "theme/stable/dark",
+            "type": "color",
+            "value": "linear-gradient(0deg, {color.core.white-alpha.0} 0%, {color.core.white-alpha.60} 22.4%, {color.core.white-alpha.60} 72.4%, {color.core.white-alpha.0} 100%)",
+            "description": "linear-gradient(0deg, #ffffff00 0%, #ffffff99 22.4%, #ffffff99 72.4%, #ffffff00 100%)\nUsed for hover state of gradient divider for spaces"
+          }
         }
       },
       "avatar": {
@@ -2593,32 +2640,46 @@
           "type": "color",
           "value": "{color.core.yellow.70}",
           "description": ""
+        },
+        "glass": {
+          "normal": {
+            "value": "{color.core.white-alpha.7}",
+            "type": "color",
+            "description": "Used for Operation pop"
+          },
+          "active": {
+            "value": "{color.core.white-alpha.80}",
+            "type": "color",
+            "description": "Used for Operation pop"
+          }
         }
       },
       "focus": {
-        "0": {
-          "value": "{color.core.black-alpha.100}",
-          "type": "color",
-          "description": "Used for focus ring effect"
-        },
-        "1": {
-          "value": "{color.core.blue.40}",
-          "type": "color",
-          "description": "Used for focus ring effect"
-        },
-        "2": {
-          "value": "{color.core.blue.40}",
-          "type": "color",
-          "$extensions": {
-            "studio.tokens": {
-              "modify": {
-                "type": "alpha",
-                "value": "0.35",
-                "space": "lch"
-              }
-            }
+        "default": {
+          "0": {
+            "value": "{color.core.black-alpha.100}",
+            "type": "color",
+            "description": "Used for focus ring effect"
           },
-          "description": "Used for focus ring effect"
+          "1": {
+            "value": "{color.core.blue.40}",
+            "type": "color",
+            "description": "Used for focus ring effect"
+          },
+          "2": {
+            "value": "{color.core.blue.40}",
+            "type": "color",
+            "$extensions": {
+              "studio.tokens": {
+                "modify": {
+                  "type": "alpha",
+                  "value": "0.35",
+                  "space": "lch"
+                }
+              }
+            },
+            "description": "Used for focus ring effect"
+          }
         }
       }
     }

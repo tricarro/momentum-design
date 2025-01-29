@@ -8,6 +8,9 @@ This package is currently under development. Contributions to this project will 
 - Node.js
 - React
 - Jest
+- Lit
+- Playwright
+- Storybook
 
 Specific tech:
 
@@ -44,7 +47,7 @@ More specific information is provided in each sub-package.
 
 ## Executing scripts in the packages
 
-This is a mono-repo (using yarn workspaces), to run scrips in each sub-package (like building, testing, etc.), run `yarn <PACKAGE_NAME> <SCRIPT_NAME>` from the root of the repository.
+This is a mono-repo (using yarn workspaces), to run scripts in each sub-package (like building, testing, etc.), run `yarn <PACKAGE_NAME> <SCRIPT_NAME>` from the root of the repository.
 
 For example,
     to build the icons package - `yarn icons build`

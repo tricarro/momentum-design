@@ -1,7 +1,5 @@
-import '@momentum-design/tokens/dist/css/theme/webex/dark-stable.css';
-import '@momentum-design/tokens/dist/css/theme/webex/light-stable.css';
-import '@momentum-design/tokens/dist/css/typography/complete.css';
 import '@momentum-design/fonts/dist/css/fonts.css';
+import '@momentum-design/tokens/dist/css/components/complete.css';
 
 import { setCustomElementsManifest } from '@storybook/web-components';
 import customElements from '../../dist/custom-elements.json';
@@ -10,15 +8,14 @@ import { withThemeProvider } from './provider/themeProvider';
 import { withIconProvider } from './provider/iconProvider';
 
 function refactorCustomElements(customElements) {
-  const toCamelCase = str => {
-    return str.replace(/-([a-z])/g, g => g[1].toUpperCase());
-  };
+  const toCamelCase = (str) => str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
 
-  customElements.modules.forEach(module => {
-    module.declarations.forEach(declaration => {
-      const attributesMap = new Set(declaration.attributes.map(attr => toCamelCase(attr.name)));
+  customElements.modules.forEach((module) => {
+    module.declarations.forEach((declaration) => {
+      const attributesMap = new Set(declaration?.attributes?.map((attr) => toCamelCase(attr.name)));
       // Filter members based on attributesMap
-      declaration.members = declaration.members.filter(member => !attributesMap.has(member.name));
+      const filteredMembers = declaration.members.filter((member) => !attributesMap.has(member.name));
+      Object.assign(declaration, { members: filteredMembers });
     });
   });
 
@@ -37,6 +34,11 @@ const preview = {
           type: 'tag',
           values: ['best-practice', 'wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'],
         },
+      },
+    },
+    docs: {
+      source: {
+        excludeDecorators: true,
       },
     },
     actions: { argTypesRegex: '^on[A-Z].*' },
@@ -116,9 +118,10 @@ const preview = {
     },
     options: {
       storySort: {
-        order: ['Consumption', 'Components', 'Work In Progress'],
+        order: ['Consumption', 'Styling', 'Components', 'Work In Progress'],
       },
     },
+    direction: 'ltr',
   },
   decorators: [withThemeProvider, withIconProvider],
   globalTypes: {

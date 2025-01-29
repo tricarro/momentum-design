@@ -6,6 +6,7 @@ import providerUtils from '../../utils/provider';
 import IconProvider from '../iconprovider/iconprovider.component';
 import { dynamicSVGImport } from './icon.utils';
 import { DEFAULTS } from './icon.constants';
+import type { IconNames } from './icon.types';
 
 /**
  * Icon component that dynamically displays SVG icons based on a valid name.
@@ -58,7 +59,7 @@ class Icon extends Component {
    * Name of the icon (= filename)
    */
   @property({ type: String, reflect: true })
-  name?: string = DEFAULTS.NAME;
+  name?: IconNames = DEFAULTS.NAME;
 
   /**
    * Size of the icon (works in combination with length unit)
@@ -80,25 +81,78 @@ class Icon extends Component {
 
   private readonly iconProviderContext = providerUtils.consume({ host: this, context: IconProvider.Context });
 
+  @state() private abortController: AbortController;
+
+  constructor() {
+    super();
+    this.abortController = new AbortController(); // Initialize AbortController
+  }
+
+  /**
+   * Dispatches a 'load' event on the component once the icon has been successfully loaded.
+   * This event bubbles and is cancelable.
+   */
+  private triggerIconLoaded(): void {
+    const loadEvent = new Event('load', {
+      bubbles: true,
+      cancelable: true,
+    });
+    this.dispatchEvent(loadEvent);
+  }
+
   /**
    * Get Icon Data function which will fetch the icon (currently only svg)
    * and sets state and attributes once fetched successfully
+   *
+   * This method uses abortController.signal to cancel the fetch request when the component is disconnected or updated.
+   * If the request is aborted after the fetch() call has been fulfilled but before the response body has been read,
+   * then attempting to read the response body will reject with an AbortError exception.
    */
   private async getIconData() {
     if (this.iconProviderContext.value) {
       const { fileExtension, url } = this.iconProviderContext.value;
       if (url && fileExtension && this.name) {
-        const iconHtml = await dynamicSVGImport(url, this.name, fileExtension);
-
-        // update iconData state once fetched:
-        this.iconData = iconHtml as HTMLElement;
-
-        // when icon got fetched, set role and aria-label:
-        this.setRoleOnIcon();
-        this.setAriaLabelOnIcon();
-        this.setAriaHiddenOnIcon();
+        this.abortController.abort();
+        this.abortController = new AbortController();
+        try {
+          const iconHtml = await dynamicSVGImport(url, this.name, fileExtension, this.abortController.signal);
+          this.handleIconLoadedSuccess(iconHtml as HTMLElement);
+        } catch (error) {
+          this.handleIconLoadedFailure(error);
+        }
       }
     }
+  }
+
+  /**
+   * Sets the iconData state to the fetched icon,
+   * and calls functions to set role, aria-label and aria-hidden attributes on the icon.
+   * Dispatches a 'load' event on the component once the icon has been successfully loaded.
+   * @param iconHtml - The icon html element which has been fetched from the icon provider.
+   */
+  private handleIconLoadedSuccess(iconHtml: HTMLElement) {
+    // update iconData state once fetched:
+    this.iconData = iconHtml;
+
+    // when icon is fetched successfully, set the role, aria-label and invoke function to trigger icon load event.
+    this.setRoleOnIcon();
+    this.setAriaLabelOnIcon();
+    this.setAriaHiddenOnIcon();
+    this.triggerIconLoaded();
+  }
+
+  /**
+   * Dispatches an 'error' event on the component when the icon fetching has failed.
+   * This event bubbles and is cancelable.
+   * The error detail is set to the error object.
+   */
+  private handleIconLoadedFailure(error: unknown) {
+    const errorEvent = new CustomEvent('error', {
+      bubbles: true,
+      cancelable: true,
+      detail: { error },
+    });
+    this.dispatchEvent(errorEvent);
   }
 
   /**
@@ -107,8 +161,8 @@ class Icon extends Component {
   private updateSize() {
     if (this.computedIconSize && (this.lengthUnit || this.lengthUnitFromContext)) {
       const value = `${this.computedIconSize}${this.lengthUnit ?? this.lengthUnitFromContext}`;
-      this.style.width = value;
-      this.style.height = value;
+      // set the computed icon size as a css variable to be used in the icon styles
+      this.style.setProperty('--computed-icon-size', value);
     }
   }
 
@@ -140,8 +194,9 @@ class Icon extends Component {
     if (changedProperties.has('name')) {
       // fetch icon data if name changes:
       this.getIconData().catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error(err);
+        if (err.name !== 'AbortError' && this.onerror) {
+          this.onerror(err);
+        }
       });
     }
 

@@ -25,19 +25,20 @@ export const IllustrationTable = ({ illustrations, size }: Props) => {
 
   const render = useMemo(
     () => (
-      <div className={`illustrationGrid grid${getSize(size)}`}>
+      <div className={`illustrationGrid grid${size}`}>
         {Object.entries(illustrations).map(([key, path]) => {
           const finalPath = `${path.replace('./svg', '/momentum-design/illustrations')}`;
+          const isInverted = key.includes('default');
           return (
-            <div className="illustrationWrapper">
+            <div className={isInverted
+              ? ['illustrationWrapper', 'illustration-bg-inverted'].join(' ') : 'illustrationWrapper'}>
               <img
                 style={{ maxWidth: `${getSize(key)}px` }}
                 src={finalPath}
               />
               <div className="nameAnchor">
                 <div className="nameWrapper">
-                  <code >{key}</code>
-                  <a href={finalPath} download={key} className="nameWrapper">Download</a>
+                  <code>{key}</code>
                 </div>
               </div>
             </div>
@@ -60,6 +61,7 @@ export const Pagination = () => {
   const onQueryChange = useCallback(
     (e: any) => {
       setQuery(e?.target?.value);
+      setCurrentPage(1);
     },
     [setQuery],
   );
@@ -70,19 +72,25 @@ export const Pagination = () => {
 
   const onClickPrev = useCallback(() => {
     setCurrentPage((page) => (currentPage === 1 ? 1 : page - 1));
-  }, [setCurrentPage]);
+  }, [setCurrentPage, currentPage]);
 
   const onSizeChange = useCallback(
     (event: any) => {
       setSize(event?.target?.value);
+      setCurrentPage(1);
     },
     [setSize],
   );
 
+  const filteredItems = useMemo(
+    () => Object.entries(illustrationsManifest).filter(([key]) => (query
+      ? key.includes(query) && key.includes(IllustrationSize[size as IllustrationSizeType])
+      : key.includes(IllustrationSize[size as IllustrationSizeType]))),
+    [illustrationsManifest, size, query],
+  );
+
   const paginatedItems = useMemo(
-    () => Object.entries(illustrationsManifest)
-      // eslint-disable-next-line max-len
-      .filter(([key]) => (query ? key.includes(query) && key.includes(IllustrationSize[size as IllustrationSizeType]) : key.includes(IllustrationSize[size as IllustrationSizeType])))
+    () => filteredItems
       .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
       .reduce(
         (output, [key, value]) => ({
@@ -91,13 +99,19 @@ export const Pagination = () => {
         }),
         {},
       ),
-    [currentPage, size, illustrationsManifest, query],
+    [currentPage, filteredItems],
   );
+
+  const filteredItemsLength = Object.keys(filteredItems).length;
+  const totalPages = Math.ceil(filteredItemsLength / PAGE_SIZE);
+  const isNextButtonDisabled = currentPage === totalPages;
 
   return (
     <div>
-      <p>Total illustrations in the library - {Object.keys(illustrationsManifest).length}</p>
-      <p>Current Page: {currentPage}</p>
+      <div class="headerTextWrapper">
+        <p>Total illustrations in the library - {Object.keys(illustrationsManifest).length}</p>
+        <p>Current Page: {currentPage}</p>
+      </div>
       <div className="illustrationFilters">
         <input placeholder="Search by illustration name" className="queryInput" type="text" onInput={onQueryChange} />
         <select placeholder="Size" className="sizeSelect" value={size} onChange={onSizeChange}>
@@ -114,7 +128,7 @@ export const Pagination = () => {
         <button disabled={currentPage === 1} onClick={onClickPrev}>
           Prev
         </button>
-        <button onClick={onClickNext}>Next</button>
+        <button disabled={isNextButtonDisabled} onClick={onClickNext}>Next</button>
       </div>
     </div>
   );

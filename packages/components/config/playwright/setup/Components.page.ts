@@ -3,6 +3,7 @@ import { Page, expect, Locator, TestInfo, test } from '@playwright/test';
 import Accessibility from './utils/accessibility';
 import VisualRegression from './utils/visual-regression';
 import type { ThemeClass } from './types';
+import Actionability from './utils/actionability';
 
 const componentsDevPageTitle = 'Momentum Components Dev Page';
 const htmlRootElementSelector = '#root';
@@ -10,10 +11,12 @@ const htmlRootElementSelector = '#root';
 interface MountOptions {
   html: string;
   clearDocument?: boolean;
+  elementSelector?: string;
 }
 
 interface ComponentsPage {
   accessibility: Accessibility;
+  actionability: Actionability;
   visualRegression: VisualRegression;
   page: Page;
   testInfo: TestInfo;
@@ -32,6 +35,7 @@ class ComponentsPage {
 
     // creates utility objects on components page and inject dependencies:
     this.accessibility = new Accessibility(this.page, this.testInfo);
+    this.actionability = new Actionability(this.page);
     this.visualRegression = new VisualRegression(this.page);
   }
 
@@ -91,7 +95,7 @@ class ComponentsPage {
    *
    * @param options - a object with options, including the `html` string to mount
    */
-  async mount({ html, clearDocument = false }: MountOptions) {
+  async mount({ html, clearDocument = false, elementSelector }: MountOptions) {
     await test.step('Mounting HTML', async () => {
       await this.page.evaluate(
         (args) => {
@@ -109,7 +113,7 @@ class ComponentsPage {
             rootElement.appendChild(htmlToElement(args.html));
           }
         },
-        { html, htmlRootElementSelector, clearDocument },
+        { html, htmlRootElementSelector: elementSelector || htmlRootElementSelector, clearDocument },
       );
     });
   }
@@ -135,7 +139,8 @@ class ComponentsPage {
   /**
  * Update one or multiple attributes on a HTMLElement, queried by the passed in `locator`.
  * Additionally, you can update attributes of a nested element by passing an optional nested `Locator`.
- *
+ * Boolean attributes are true if present on an element,
+ *  and should be set to an empty string ("") or the attribute's name without leading or trailing whitespace.
  * @param locator - Playwright locator
  * @param attributes - A record object where keys are attribute names, and values are the attribute values to be set.
  */

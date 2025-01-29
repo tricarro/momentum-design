@@ -6,13 +6,13 @@ import { ALLOWED_LENGTH_UNITS, ALLOWED_FILE_EXTENSIONS } from './iconprovider.co
 import { disableControls } from '../../../config/storybook/utils';
 
 const render = (args: Args) => html`
-  <mdc-iconprovider 
-    url=${args.url}
-    file-extension=${args['file-extension']}
-    length-unit=${args['length-unit']}
-    size=${args.size}>
-    <mdc-subcomponent-icon></mdc-subcomponent-icon>
-  </mdc-iconprovider>
+<mdc-iconprovider 
+  url=${args.url}
+  file-extension=${args['file-extension']}
+  length-unit=${args['length-unit']}
+  size=${args.size}>
+  <mdc-subcomponent-icon></mdc-subcomponent-icon>
+</mdc-iconprovider>
 `;
 
 const meta: Meta = {
@@ -38,7 +38,7 @@ const meta: Meta = {
 
 export default meta;
 
-export const Primary: StoryObj = {
+export const Example: StoryObj = {
   args: {
     url: './icons/svg',
     'file-extension': 'svg',
