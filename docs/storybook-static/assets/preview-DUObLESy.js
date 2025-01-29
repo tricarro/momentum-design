@@ -10,7 +10,25 @@ import{s as l}from"./chunk-L4EGOTBX-ars-O5a7.js";import"./entry-preview-BTbO7y0k
  * @summary This is MyElement
  *
  * @tagname mdc-badge
- */`,customElement:!0}],exports:[{kind:"js",name:"default",declaration:{name:"Badge",module:"components/badge/badge.component.js"}}]},{kind:"javascript-module",path:"components/icon/icon.component.js",declarations:[{kind:"class",description:`Icon component that dynamically displays SVG icons based on a valid name.
+ */`,customElement:!0}],exports:[{kind:"js",name:"default",declaration:{name:"Badge",module:"components/badge/badge.component.js"}}]},{kind:"javascript-module",path:"components/iconprovider/iconprovider.component.js",declarations:[{kind:"class",description:`IconProvider component, which allows to be consumed from sub components
+(see \`providerUtils.consume\` for how to consume)
+
+Bundling icons will be up to the consumer of this component, such
+that only a url has to be passed in from which the icons will be
+fetched.`,name:"IconProvider",slots:[{description:"children",name:""}],members:[{kind:"field",name:"Context",privacy:"public",static:!0,description:"Context object of the IconProvider, to be consumed by child components",readonly:!0},{kind:"field",name:"url",type:{text:"string | undefined"},description:"Url of where icons will be fetched from",attribute:"url"},{kind:"field",name:"fileExtension",type:{text:"string | undefined"},description:"File extension of icons, default: 'svg'",attribute:"file-extension",reflects:!0},{kind:"field",name:"lengthUnit",type:{text:"string"},description:"Length unit used for sizing of icons, default: 'em'",attribute:"length-unit",reflects:!0},{kind:"field",name:"size",type:{text:"number | undefined"},default:"DEFAULTS.LENGTH_UNIT_SIZE[DEFAULTS.LENGTH_UNIT]",description:`The default size of the icon.
+If not set, it falls back to the size defined by the length unit.`,attribute:"size",reflects:!0},{kind:"method",name:"updateValuesInContext",privacy:"private"},{kind:"method",name:"updateContext",privacy:"protected",return:{type:{text:"void"}}}],attributes:[{name:"url",type:{text:"string | undefined"},description:"Url of where icons will be fetched from",fieldName:"url"},{name:"file-extension",type:{text:"string | undefined"},description:"File extension of icons, default: 'svg'",fieldName:"fileExtension"},{name:"length-unit",type:{text:"string"},description:"Length unit used for sizing of icons, default: 'em'",fieldName:"lengthUnit"},{name:"size",type:{text:"number | undefined"},default:"DEFAULTS.LENGTH_UNIT_SIZE[DEFAULTS.LENGTH_UNIT]",description:`The default size of the icon.
+If not set, it falls back to the size defined by the length unit.`,fieldName:"size"}],superclass:{name:"Provider",module:"/src/models"},tagName:"mdc-iconprovider",jsDoc:`/**
+ * IconProvider component, which allows to be consumed from sub components
+ * (see \`providerUtils.consume\` for how to consume)
+ *
+ * Bundling icons will be up to the consumer of this component, such
+ * that only a url has to be passed in from which the icons will be
+ * fetched.
+ *
+ * @tagname mdc-iconprovider
+ *
+ * @slot - children
+ */`,customElement:!0}],exports:[{kind:"js",name:"default",declaration:{name:"IconProvider",module:"components/iconprovider/iconprovider.component.js"}}]},{kind:"javascript-module",path:"components/icon/icon.component.js",declarations:[{kind:"class",description:`Icon component that dynamically displays SVG icons based on a valid name.
 
 This component must be mounted within an \`IconProvider\` component.
 
@@ -77,25 +95,7 @@ and sets state and attributes once fetched successfully`},{kind:"method",name:"u
  * @tagname mdc-icon
  *
  * @cssproperty --mdc-icon-fill-color - Allows customization of the default fill color.
- */`,customElement:!0}],exports:[{kind:"js",name:"default",declaration:{name:"Icon",module:"components/icon/icon.component.js"}}]},{kind:"javascript-module",path:"components/iconprovider/iconprovider.component.js",declarations:[{kind:"class",description:`IconProvider component, which allows to be consumed from sub components
-(see \`providerUtils.consume\` for how to consume)
-
-Bundling icons will be up to the consumer of this component, such
-that only a url has to be passed in from which the icons will be
-fetched.`,name:"IconProvider",slots:[{description:"children",name:""}],members:[{kind:"field",name:"Context",privacy:"public",static:!0,description:"Context object of the IconProvider, to be consumed by child components",readonly:!0},{kind:"field",name:"url",type:{text:"string | undefined"},description:"Url of where icons will be fetched from",attribute:"url"},{kind:"field",name:"fileExtension",type:{text:"string | undefined"},description:"File extension of icons, default: 'svg'",attribute:"file-extension",reflects:!0},{kind:"field",name:"lengthUnit",type:{text:"string"},description:"Length unit used for sizing of icons, default: 'em'",attribute:"length-unit",reflects:!0},{kind:"field",name:"size",type:{text:"number | undefined"},default:"DEFAULTS.LENGTH_UNIT_SIZE[DEFAULTS.LENGTH_UNIT]",description:`The default size of the icon.
-If not set, it falls back to the size defined by the length unit.`,attribute:"size",reflects:!0},{kind:"method",name:"updateValuesInContext",privacy:"private"},{kind:"method",name:"updateContext",privacy:"protected",return:{type:{text:"void"}}}],attributes:[{name:"url",type:{text:"string | undefined"},description:"Url of where icons will be fetched from",fieldName:"url"},{name:"file-extension",type:{text:"string | undefined"},description:"File extension of icons, default: 'svg'",fieldName:"fileExtension"},{name:"length-unit",type:{text:"string"},description:"Length unit used for sizing of icons, default: 'em'",fieldName:"lengthUnit"},{name:"size",type:{text:"number | undefined"},default:"DEFAULTS.LENGTH_UNIT_SIZE[DEFAULTS.LENGTH_UNIT]",description:`The default size of the icon.
-If not set, it falls back to the size defined by the length unit.`,fieldName:"size"}],superclass:{name:"Provider",module:"/src/models"},tagName:"mdc-iconprovider",jsDoc:`/**
- * IconProvider component, which allows to be consumed from sub components
- * (see \`providerUtils.consume\` for how to consume)
- *
- * Bundling icons will be up to the consumer of this component, such
- * that only a url has to be passed in from which the icons will be
- * fetched.
- *
- * @tagname mdc-iconprovider
- *
- * @slot - children
- */`,customElement:!0}],exports:[{kind:"js",name:"default",declaration:{name:"IconProvider",module:"components/iconprovider/iconprovider.component.js"}}]},{kind:"javascript-module",path:"components/text/text.component.js",declarations:[{kind:"class",description:"Text component for creating styled text elements.\nIt has to be mounted within the ThemeProvider to access color and font tokens.\n\nThe `type` attribute allows changing the text style.\nThe `tagname` attribute allows changing the tag name of the text element.\nThe default tag name is `p`.\n\nThe `tagname` attribute should be a valid HTML tag name.\nIf the `tagname` attribute is not a valid HTML tag name, the default tag name will be used.\n\nThe styling is applied based on the `type` attribute.",name:"Text",cssParts:[{description:"The text element",name:"text"}],slots:[{description:"Default slot for text content",name:""}],members:[{kind:"field",name:"type",type:{text:"FontType"},privacy:"public",description:`Specifies the text style to be applied.
+ */`,customElement:!0}],exports:[{kind:"js",name:"default",declaration:{name:"Icon",module:"components/icon/icon.component.js"}}]},{kind:"javascript-module",path:"components/text/text.component.js",declarations:[{kind:"class",description:"Text component for creating styled text elements.\nIt has to be mounted within the ThemeProvider to access color and font tokens.\n\nThe `type` attribute allows changing the text style.\nThe `tagname` attribute allows changing the tag name of the text element.\nThe default tag name is `p`.\n\nThe `tagname` attribute should be a valid HTML tag name.\nIf the `tagname` attribute is not a valid HTML tag name, the default tag name will be used.\n\nThe styling is applied based on the `type` attribute.",name:"Text",cssParts:[{description:"The text element",name:"text"}],slots:[{description:"Default slot for text content",name:""}],members:[{kind:"field",name:"type",type:{text:"FontType"},privacy:"public",description:`Specifies the text style to be applied.
 
 Acceptable values include:
 
