@@ -3269,11 +3269,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-<<<<<<< HEAD
 "@momentum-design/knowledge@workspace:packages/knowledge":
   version: 0.0.0-use.local
   resolution: "@momentum-design/knowledge@workspace:packages/knowledge"
-=======
+  languageName: unknown
+  linkType: soft
+
 "@momentum-design/storybook-addon-code-preview@workspace:*, @momentum-design/storybook-addon-code-preview@workspace:packages/tools/storybook-addon-code-preview":
   version: 0.0.0-use.local
   resolution: "@momentum-design/storybook-addon-code-preview@workspace:packages/tools/storybook-addon-code-preview"
@@ -3298,7 +3299,6 @@ __metadata:
     vite: ^5.4.0
   peerDependencies:
     storybook: ^9.1.5
->>>>>>> upstream/main
   languageName: unknown
   linkType: soft
 

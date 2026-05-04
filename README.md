@@ -2,68 +2,33 @@
 
 [![license: mit](https://img.shields.io/badge/License-MIT-blueviolet?style=flat-square)](https://github.com/momentum-design/momentum-design/blob/main/LICENSE) ![state: alpha](https://img.shields.io/badge/State-Alpha-blue?style=flat-square)
 
-<<<<<<< HEAD
 ## Overview
-=======
-The Momentum Design mono-repository is designed as a single source-of-truth for all Momentum Design related resources. Read more about our assets and token libraries here: https://momentum.design.
->>>>>>> upstream/main
 
-**Momentum Design** is a monorepo that serves as the single source of truth for design system resources: tokens, visual assets, and UI components. Everything here is intended to stay aligned with the same design language so product teams can ship consistent experiences.
+**Momentum Design** is a monorepo that acts as the single source of truth for the Momentum design system. The goal is to keep **tokens**, **visual assets**, and **UI components** aligned with one design language so product teams can ship consistent experiences. Published libraries ship under the **`@momentum-design`** scope on npm. For interactive examples and guidance, see **[momentum.design](https://momentum.design)**.
 
-For a full picture of our components, tokens, and assets—including how they look and behave—visit **[momentum.design](https://momentum.design)**.
+This repository also contains **documentation site source**, **internal build tooling** (CLIs and pipelines), and **contributor resources**. Those support the published packages but are not what most applications depend on directly.
 
-Published packages are released under the **`@momentum-design` scope on npm**. You can browse them on the [npm registry](https://www.npmjs.com/search?q=scope%3Amomentum-design) (search for `@momentum-design`). For install commands, version pins, and non-npm consumption options, see the **[Consumption](#consumption)** section below and the detailed [CONSUMPTION.md](./CONSUMPTION.md) guide.
+## Packages Available
 
----
-
-## What's available
-
-The repository is organized into four areas: **Assets**, **Components**, **Documentation**, and **Tools**.
-
-### Assets
-
-These packages ship static and generated artifacts (JSON, CSS, fonts, SVGs, etc.) for use in applications and design tooling. They are versioned and published independently so you can depend only on what you need.
+The Momentum team publishes the following packages for consumers via NPM. Each can be versioned and installed independently so you only take what you need.
 
 | Package | Purpose |
 | -------- | ------- |
-| [**@momentum-design/tokens**](https://www.npmjs.com/package/@momentum-design/tokens) | Design tokens (themes, typography, elevation, component-related outputs) for color, spacing, type, and related decisions across platforms. |
-| [**@momentum-design/icons**](https://www.npmjs.com/package/@momentum-design/icons) | Icon font and related data for UI iconography. |
-| [**@momentum-design/illustrations**](https://www.npmjs.com/package/@momentum-design/illustrations) | Illustration assets for marketing and product surfaces. |
-| [**@momentum-design/fonts**](https://www.npmjs.com/package/@momentum-design/fonts) | Font files and packaging for typographic use with Momentum. |
-| [**@momentum-design/brand-visuals**](https://www.npmjs.com/package/@momentum-design/brand-visuals) | Brand visual assets (logos, marks, and related imagery). |
-| [**@momentum-design/animations**](https://www.npmjs.com/package/@momentum-design/animations) | Animation assets (e.g. Lottie or related payloads) for motion in the UI. |
-| [**@momentum-design/utils**](https://www.npmjs.com/package/@momentum-design/utils) | Shared utilities that support consuming or working with other `@momentum-design` packages. |
+| [**@momentum-design/components**](https://www.npmjs.com/package/@momentum-design/components) | Web Component library (Lit) with React-oriented entrypoints—primary UI building blocks. |
+| [**@momentum-design/tokens**](https://www.npmjs.com/package/@momentum-design/tokens) | Design tokens (themes, typography, elevation, motion, and related outputs) for consistent visual decisions. |
+| [**@momentum-design/icons**](https://www.npmjs.com/package/@momentum-design/icons) | Icon font and supporting data for UI iconography. |
+| [**@momentum-design/illustrations**](https://www.npmjs.com/package/@momentum-design/illustrations) | Illustration assets for product and marketing surfaces. |
+| [**@momentum-design/brand-visuals**](https://www.npmjs.com/package/@momentum-design/brand-visuals) | Brand imagery (e.g. logos, backgrounds, device art) aligned with Momentum. |
+| [**@momentum-design/fonts**](https://www.npmjs.com/package/@momentum-design/fonts) | Font files and packaging for typography with the system. |
+| [**@momentum-design/animations**](https://www.npmjs.com/package/@momentum-design/animations) | Animation assets for motion in the UI. |
+| [**@momentum-design/utils**](https://www.npmjs.com/package/@momentum-design/utils) | Shared utilities that support working alongside other `@momentum-design` packages. |
 
-Source for each asset library lives under [`packages/assets/`](./packages/assets/).
-
-### Components
-
-[**@momentum-design/components**](https://www.npmjs.com/package/@momentum-design/components) is a **Web Component** library built with **Lit**(https://lit.dev/).
-
-Source, Storybook, and tests live in [`packages/components/`](./packages/components/).
-
-### Documentation
-
-Product documentation for Momentum—including components, tokens, and assets—is published at **[momentum.design](https://momentum.design)**. That site is the best place to explore usage, examples, and guidance.
-
-The documentation site in this repo is built from [`packages/documentation/`](./packages/documentation/) (Astro-based). If you are contributing to docs or running them locally, work in that package; readers should still rely on **momentum.design** as the canonical URL.
-
-### Tools
-
-The [`packages/tools/`](./packages/tools/) folder holds **internal CLI packages and supporting libraries** used to build, validate, and export assets from this monorepo. They are not the primary way most applications consume Momentum; instead, they power the pipelines that produce the published `@momentum-design/*` packages.
-
-| Tool / package | Role |
-| -------------- | ---- |
-| **Builder** (`@momentum-design/builder`, CLI `md-builder`) | Transforms source definitions into distributable asset outputs (e.g. icons, fonts)—orchestrates SVG/font tooling and Style Dictionary–style flows. |
-| **Token builder** (`@momentum-design/token-builder`, CLI `md-token-builder`) | Builds token packages from source; uses Style Dictionary and Tokens Studio–compatible transforms. |
-| **Automation** (`@momentum-design/automation`, CLI `md-automation`) | Monorepo automation tasks (archiving, packaging workflows, and related CLI operations). |
-| **Common** (`@momentum-design/common`) | Shared code used by the other tool packages. |
-| **Telemetry** (`@momentum-design/telemetry`) | Telemetry hooks for tooling (usage and operational signals from build/automation CLIs). |
-| **Figma plugin — assets export** (`@momentum-design/figma-plugin-assets-export`) | Figma plugin under `packages/tools/figma-plugins/assets-export` for exporting assets from Figma into the repo’s asset pipelines. |
-| **Storybook addon — code preview** (`packages/tools/storybook-addon-code-preview`) | Custom Storybook addon used in component documentation and development workflows. |
+Source for **components** lives under [`packages/components/`](./packages/components/). **Asset** package source lives under [`packages/assets/`](./packages/assets/). Internal tooling (e.g. `md-builder`, `md-token-builder`, Figma plugin, Storybook addon) lives under [`packages/tools/`](./packages/tools/) and powers the builds above; browse the [npm scope](https://www.npmjs.com/search?q=scope%3Amomentum-design) for all published names.
 
 ## Consumption
-Please see [consumption guide(https://github.com/momentum-design/momentum-design/blob/main/CONSUMPTION.md)] for resources on how to consume this project.
 
-## Contributing
-Please see [contributing guide(https://github.com/momentum-design/momentum-design/blob/main/CONTRIBUTING.md)] for resources on how to contribute to this project.
+For install commands, version guidance, and non-npm consumption options, see **[CONSUMPTION.md](./CONSUMPTION.md)**.
+
+## Contribution
+
+For how to contribute to this repository—workflow, standards, and package-specific notes—see **[CONTRIBUTING.md](./CONTRIBUTING.md)**.
