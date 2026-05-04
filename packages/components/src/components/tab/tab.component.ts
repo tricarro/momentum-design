@@ -1,16 +1,18 @@
 import { CSSResult, html, nothing, PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import type { IconNames } from '../icon/icon.types';
 import { getIconNameWithoutStyle } from '../button/button.utils';
 import Buttonsimple from '../buttonsimple/buttonsimple.component';
-import { ButtonSize, ButtonType } from '../buttonsimple/buttonsimple.types';
+import type { ButtonType } from '../buttonsimple/buttonsimple.types';
 import { TYPE, VALID_TEXT_TAGS } from '../text/text.constants';
 import { IconNameMixin } from '../../utils/mixins/IconNameMixin';
 import { ROLE } from '../../utils/roles';
+import { LifeCycleMixin } from '../../utils/mixins/lifecycle/LifeCycleMixin';
 
-import type { Variant } from './tab.types';
-import { DEFAULTS, TAB_VARIANTS } from './tab.constants';
+import type { TabSize, Variant } from './tab.types';
+import { DEFAULTS, TAB_SIZES, TAB_VARIANTS } from './tab.constants';
 import styles from './tab.styles';
 
 /**
@@ -45,72 +47,33 @@ import styles from './tab.styles';
  *
  * @tagname mdc-tab
  *
- * @cssproperty --mdc-tab-content-gap - Gap between the badge(if provided), icon and text.
- * @cssproperty --mdc-tab-height - Height of the tab.
- * @cssproperty --mdc-tab-glass-active-background-color-disabled - Background color for active glass tab
- *  in disabled state.
- * @cssproperty --mdc-tab-glass-active-background-color-hover - Background color for active glass tab in hover state.
- * @cssproperty --mdc-tab-glass-active-background-color-normal - Background color for active glass tab in rest state.
- * @cssproperty --mdc-tab-glass-active-background-color-pressed - Background color for active glass tab
- *  in pressed state.
- * @cssproperty --mdc-tab-glass-active-color - Text and icon color for active glass tab.
- * @cssproperty --mdc-tab-glass-active-color-disabled - Text and icon color for active glass tab in disabled state.
- * @cssproperty --mdc-tab-glass-border-radius - Border radius for glass tab.
- * @cssproperty --mdc-tab-glass-inactive-background-color-disabled - Background color for inactive glass tab
- *  in disabled state.
- * @cssproperty --mdc-tab-glass-inactive-background-color-hover - Background color for inactive glass tab
- *  in hover state.
- * @cssproperty --mdc-tab-glass-inactive-background-color-normal - Background color for inactive glass tab
- *  in rest state.
- * @cssproperty --mdc-tab-glass-inactive-background-color-pressed - Background color for inactive glass tab
- *  in pressed state.
- * @cssproperty --mdc-tab-glass-inactive-color - Text and icon color for inactive glass tab.
- * @cssproperty --mdc-tab-glass-inactive-color-disabled - Text and icon color for inactive glass tab in disabled state.
- * @cssproperty --mdc-tab-line-active-background-color-pressed - Background color for active line tab in pressed state.
- * @cssproperty --mdc-tab-line-active-background-color-disabled - Background color for active line tab
- *  in disabled state.
- * @cssproperty --mdc-tab-line-active-background-color-hover - Background color for active line tab in hover state.
- * @cssproperty --mdc-tab-line-active-background-color-normal - Background color for active line tab in rest state.
- * @cssproperty --mdc-tab-line-active-color - Text and icon color for active line tab.
- * @cssproperty --mdc-tab-line-active-color-disabled - Text and icon color for active line tab in disabled state.
- * @cssproperty --mdc-tab-line-active-indicator-color - color for indicator in active line tab.
- * @cssproperty --mdc-tab-line-active-indicator-color-disabled - Color for indicator in active line tab
- *  in disabled state.
- * @cssproperty --mdc-tab-line-active-indicator-height - Height for indicator in active line tab.
- * @cssproperty --mdc-tab-line-active-indicator-width - Width for indicator in active line tab.
- * @cssproperty --mdc-tab-line-border-bottom-left-radius - Bottom left border radius for line tab.
- * @cssproperty --mdc-tab-line-border-bottom-right-radius - Bottom right border radius for line tab.
- * @cssproperty --mdc-tab-line-border-top-left-radius - Top left border radius for line tab.
- * @cssproperty --mdc-tab-line-border-top-right-radius - Top right border radius for line tab.
- * @cssproperty --mdc-tab-line-inactive-background-color-pressed - Background color for inactive line tab
- *  in pressed state.
- * @cssproperty --mdc-tab-line-inactive-background-color-disabled - Background color for inactive line tab
- *  in disabled state
- * @cssproperty --mdc-tab-line-inactive-background-color-hover - Background color for inactive line tab in hover state.
- * @cssproperty --mdc-tab-line-inactive-background-color-normal - Background color for inactive line tab
- *  in rest state.
- * @cssproperty --mdc-tab-line-inactive-color - Text and icon color for inactive line tab.
- * @cssproperty --mdc-tab-line-inactive-color-disabled - Text and icon color for inactive line tab in disabled state.
- * @cssproperty --mdc-tab-padding-left - Padding left for the tab.
- * @cssproperty --mdc-tab-padding-right - Padding right for the tab.
- * @cssproperty --mdc-tab-pill-active-background-color-pressed - Background color for active pill tab in pressed state.
- * @cssproperty --mdc-tab-pill-active-background-color-disabled - Background color for active pill tab
- *  in disabled state.
- * @cssproperty --mdc-tab-pill-active-background-color-hover - Background color for active pill tab in hover state.
- * @cssproperty --mdc-tab-pill-active-background-color-normal - Background color for active pill tab in rest state.
- * @cssproperty --mdc-tab-pill-active-color - Text and icon color for active pill tab.
- * @cssproperty --mdc-tab-pill-active-color-disabled - Text and icon color for active pill tab in disabled state.
- * @cssproperty --mdc-tab-pill-border-radius - Border radius for pill tab.
- * @cssproperty --mdc-tab-pill-inactive-background-color-pressed - Background color for inactive pill tab
- *  in pressed state.
- * @cssproperty --mdc-tab-pill-inactive-background-color-disabled - Background color for inactive pill tab
- *  in disabled state.
- * @cssproperty --mdc-tab-pill-inactive-background-color-hover - Background color for inactive pill tab in hover state.
- * @cssproperty --mdc-tab-pill-inactive-background-color-normal - Background color for inactive pill tab in rest state.
- * @cssproperty --mdc-tab-pill-inactive-color - Text and icon color for inactive pill tab.
- * @cssproperty --mdc-tab-pill-inactive-color-disabled - Text and icon color for inactive pill tab in disabled state.
+ * @cssproperty --mdc-tab-height - The height of the tab.
+ * @cssproperty --mdc-tab-padding-left - The left padding of the tab.
+ * @cssproperty --mdc-tab-padding-right - The right padding of the tab.
+ * @cssproperty --mdc-tab-content-gap - The gap between the icon and text in the tab.
+ * @cssproperty --mdc-tab-background-color - The background color of the tab.
+ * @cssproperty --mdc-tab-color - The text color of the tab.
+ * @cssproperty --mdc-tab-border-radius - The border radius of the tab.
+ * @cssproperty --mdc-tab-content-justification - The justification of the content in the tab.
+ *
+ * @cssproperty --mdc-tab-line-active-indicator-height - The height of the active indicator line.
+ * @cssproperty --mdc-tab-line-active-indicator-width - The width of the active indicator line.
+ *
+ * @cssproperty --mdc-tab-line-border-bottom-left-radius - The border bottom left radius of the active indicator line.
+ * @cssproperty --mdc-tab-line-border-bottom-right-radius - The border bottom right radius of the active indicator line.
+ * @cssproperty --mdc-tab-line-border-top-left-radius - The border top left radius of the active indicator line.
+ * @cssproperty --mdc-tab-line-border-top-right-radius - The border top right radius of the active indicator line.
+ *
+ * @csspart container - The container of the tab.
+ * @csspart regular-icon - The icon of the tab, if inactive.
+ * @csspart filled-icon - The icon of the tab, if active.
+ * @csspart indicator - The indicator of the tab.
+ * @csspart text - The text of the tab.
+ *
+ * @slot prefix - The slot for the content before the text, typically used for the icon.
+ * @slot postfix - The slot for the content after the text, typically used for the badge or chip.
  */
-class Tab extends IconNameMixin(Buttonsimple) {
+class Tab extends IconNameMixin(LifeCycleMixin(Buttonsimple)) {
   /**
    * The tab's active state indicates whether it is currently toggled on (active) or off (inactive).
    * When the active state is true, the tab is considered to be in an active state, meaning it is toggled on.
@@ -146,6 +109,15 @@ class Tab extends IconNameMixin(Buttonsimple) {
   variant: Variant = DEFAULTS.VARIANT;
 
   /**
+   * Size of the tab in pixels.
+   * - `32`: Default size (2rem)
+   * - `28`: Compact size (1.75rem)
+   * @default 32
+   */
+  @property({ type: Number, reflect: true })
+  override size: TabSize = DEFAULTS.SIZE;
+
+  /**
    * Id of the tab (used as a identificator when used in the tablist)
    * Note: has to be unique!
    *
@@ -154,42 +126,15 @@ class Tab extends IconNameMixin(Buttonsimple) {
   @property({ type: String, reflect: true, attribute: 'tab-id' })
   tabId?: string;
 
-  /**
-   * @internal
-   */
-  private prevIconName?: string;
-
   override connectedCallback(): void {
     super.connectedCallback();
     this.role = ROLE.TAB;
-    this.softDisabled = undefined as unknown as boolean;
-    this.size = undefined as unknown as ButtonSize;
     this.type = undefined as unknown as ButtonType;
 
     this.ariaStateKey = 'aria-selected';
 
     if (!this.tabId && this.onerror) {
       this.onerror('tab id is required');
-    }
-  }
-
-  /**
-   * Modifies the icon name based on the active state.
-   * If the tab is active, the icon name is suffixed with '-filled'.
-   * If the tab is inactive, the icon name is restored to its original value.
-   * If '-filled' icon is not available, the icon name remains unchanged.
-   *
-   * @param active - The active state.
-   */
-
-  private modifyIconName(active: boolean): void {
-    if (this.iconName) {
-      if (active) {
-        this.prevIconName = this.iconName;
-        this.iconName = `${getIconNameWithoutStyle(this.iconName)}-filled` as IconNames;
-      } else if (this.prevIconName) {
-        this.iconName = this.prevIconName as IconNames;
-      }
     }
   }
 
@@ -205,9 +150,21 @@ class Tab extends IconNameMixin(Buttonsimple) {
   }
 
   /**
+   * Sets the size attribute for the tab component.
+   * If the provided size is not included in TAB_SIZES,
+   * it defaults to the value specified in DEFAULTS.SIZE.
+   *
+   * @param size - The size to set.
+   */
+  private setSize(size: TabSize): void {
+    this.setAttribute('size', Object.values(TAB_SIZES).includes(size) ? `${size}` : DEFAULTS.SIZE.toString());
+  }
+
+  /**
    * Dispatch the activechange event.
    *
    * @param active - The active state of the tab.
+   * @internal
    */
   private handleTabActiveChange = (active?: boolean): void => {
     const event = new CustomEvent('activechange', {
@@ -217,17 +174,18 @@ class Tab extends IconNameMixin(Buttonsimple) {
     this.dispatchEvent(event);
   };
 
-  /**
-   * Sets the aria-selected attribute based on the active state of the Tab.
-   * If the tab is active, the filled version of the icon is displayed,
-   * else the icon is restored to its original value.
-   *
-   * @param element - The tab element.
-   * @param active - The active state of the tab.
-   */
-  protected override setActive(element: HTMLElement, active: boolean) {
-    super.setActive(element, active);
-    this.modifyIconName(active);
+  private getFilledIconName(): IconNames | undefined {
+    if (!this.iconName) {
+      return undefined;
+    }
+
+    const isFilled = this.iconName.endsWith('-filled');
+    if (isFilled) {
+      return undefined;
+    }
+
+    const baseIcon = getIconNameWithoutStyle(this.iconName);
+    return `${baseIcon}-filled` as IconNames;
   }
 
   protected override executeAction() {
@@ -237,6 +195,9 @@ class Tab extends IconNameMixin(Buttonsimple) {
 
   public override update(changedProperties: PropertyValues): void {
     super.update(changedProperties);
+    if (changedProperties.has('size')) {
+      this.setSize(this.size);
+    }
     if (changedProperties.has('variant')) {
       this.setVariant(this.variant);
     }
@@ -245,20 +206,38 @@ class Tab extends IconNameMixin(Buttonsimple) {
   public override render() {
     return html`
       <div part="container">
-        ${this.iconName
-          ? html` <mdc-icon name="${this.iconName as IconNames}" size="1" length-unit="rem" part="icon"></mdc-icon>`
-          : nothing}
-        ${this.text
-          ? html` <mdc-text
-              type=${this.active ? TYPE.BODY_MIDSIZE_BOLD : TYPE.BODY_MIDSIZE_MEDIUM}
-              tagname=${VALID_TEXT_TAGS.SPAN}
-              data-text=${this.text}
-              part="text"
-              >${this.text}</mdc-text
-            >`
-          : nothing}
-        <slot name="badge"></slot>
-        <slot name="chip"></slot>
+        <div part="leading">
+          <slot name="prefix">
+            ${this.iconName
+              ? html`
+                  <div part="icon-container">
+                    <mdc-icon
+                      name="${this.iconName as IconNames}"
+                      size="1"
+                      length-unit="rem"
+                      part="regular-icon"
+                    ></mdc-icon>
+                    <mdc-icon
+                      name="${ifDefined(this.getFilledIconName())}"
+                      size="1"
+                      length-unit="rem"
+                      part="filled-icon"
+                    ></mdc-icon>
+                  </div>
+                `
+              : nothing}
+          </slot>
+          ${this.text
+            ? html` <mdc-text
+                type=${this.active ? TYPE.BODY_MIDSIZE_BOLD : TYPE.BODY_MIDSIZE_MEDIUM}
+                tagname=${VALID_TEXT_TAGS.SPAN}
+                data-text=${this.text}
+                part="text"
+                >${this.text}</mdc-text
+              >`
+            : nothing}
+        </div>
+        <slot name="postfix"></slot>
       </div>
       <div part="indicator"></div>
     `;

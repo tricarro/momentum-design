@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 import type { CSSResult } from 'lit';
 import { html } from 'lit';
 import { property } from 'lit/decorators.js';
@@ -6,11 +7,15 @@ import { Component } from '../../models';
 import { ROLE } from '../../utils/roles';
 import { ListNavigationMixin } from '../../utils/mixins/ListNavigationMixin';
 import { TAG_NAME as LISTITEM_TAGNAME } from '../listitem/listitem.constants';
-import { ElementStore } from '../../utils/controllers/ElementStore';
+import { ElementStore, ElementStoreChangeTypes } from '../../utils/controllers/ElementStore';
 import type ListItem from '../listitem';
 import { CaptureDestroyEventForChildElement } from '../../utils/mixins/lifecycle/CaptureDestroyEventForChildElement';
 import { LIFE_CYCLE_EVENTS } from '../../utils/mixins/lifecycle/lifecycle.contants';
+import type { LifeCycleModifiedEvent } from '../../utils/mixins/lifecycle/LifeCycleModifiedEvent';
+import type { BaseArray } from '../../utils/virtualIndexArray';
+import { ACTIONS } from '../../utils/mixins/KeyToActionMixin';
 
+import type { OrientationType } from './list.types';
 import styles from './list.styles';
 import { DEFAULTS } from './list.constants';
 
@@ -39,86 +44,117 @@ class List extends ListNavigationMixin(CaptureDestroyEventForChildElement(Compon
    * and pressing the up arrow on the first item will focus the last item.
    * If 'false', navigation will stop at the first or last item.
    *
-   * @default ''
+   * @default 'true'
    */
   @property({ type: String, reflect: true })
   public override loop: 'true' | 'false' = DEFAULTS.LOOP;
 
   /**
    * The index of the item that should receive focus when the list is first rendered.
-   * If the index is out of bounds, the first item (index 0) will receive focus.
+   * If the index is out of bounds, the focused element will be clamped to the nearest valid index.
    *
    * @default 0
    */
   @property({ type: Number, reflect: true, attribute: 'initial-focus' })
   public override initialFocus: number = DEFAULTS.INITIAL_FOCUS;
 
+  /**
+   * The orientation of the list.
+   * Controls the Flexbox direction and the direction of keyboard navigation:
+   * - 'vertical': Up/Down arrow keys navigate between items
+   * - 'horizontal': Left/Right arrow keys navigate between items
+   *
+   * @default 'vertical'
+   */
+  @property({ type: String, reflect: true })
+  public override orientation: OrientationType = DEFAULTS.ORIENTATION;
+
+  /** @internal */
+  protected focusWithin = false;
+
   constructor() {
     super();
 
-    this.addEventListener(LIFE_CYCLE_EVENTS.CREATED, this.handleCreatedEvent);
-    this.addEventListener(LIFE_CYCLE_EVENTS.DESTROYED, this.handleDestroyEvent);
+    this.addEventListener(LIFE_CYCLE_EVENTS.MODIFIED, this.handleModifiedEvent);
+    this.addEventListener('keydown', this.handleKeyDown);
+    this.addEventListener('focusin', this.handleFocusEvent);
+    this.addEventListener('focusout', this.handleFocusEvent);
+
     // This must be initialized after the destroyed event listener
     // to keep the element in the itemStore in order to move the focus correctly
     this.itemsStore = new ElementStore<ListItem>(this, {
       isValidItem: this.isValidItem,
+      onStoreUpdate: this.onElementStoreUpdate.bind(this),
     });
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
-    // Set the role attribute for accessibility.
-    this.setAttribute('role', ROLE.LIST);
+    this.role = ROLE.LIST;
   }
 
   /**
    * @internal
    */
-  get navItems(): HTMLElement[] {
+  protected get navItems(): BaseArray<HTMLElement> {
     return this.itemsStore.items;
   }
 
-  /**
-   * Update the tabIndex of the list items when a new item is added.
-   *
-   * @internal
-   */
-  private handleCreatedEvent = (event: Event) => {
-    const createdElement = event.target as HTMLElement;
-    if (!this.isValidItem(createdElement)) {
-      return;
+  protected onElementStoreUpdate(item: ListItem, changeType: ElementStoreChangeTypes, index: number) {
+    if (changeType === 'added') {
+      // Update the tabIndex of the list items when a new item is added.
+      item.tabIndex = -1;
+      if (this.navItems.length === 0) {
+        // If this is the first item added, set its tabIndex to 0 to make it focusable
+        item.tabIndex = 0;
+      }
+    } else if (changeType === 'removed' && item.tabIndex === 0) {
+      let newIndex = index + 1;
+      if (newIndex >= this.navItems.length) {
+        newIndex = index - 1;
+      }
+
+      this.resetTabIndexes(newIndex, this.focusWithin);
     }
+  }
 
-    createdElement.tabIndex = -1;
-  };
+  /** @internal */
+  private handleKeyDown(event: KeyboardEvent) {
+    const action = this.getActionForKeyEvent(event);
 
-  /**
-   * Update the focus when an item is removed.
-   * If there is a next item, focus it. If not, focus the previous item.
-   *
-   * @internal
-   */
-  private handleDestroyEvent = (event: Event) => {
-    const destroyedElement = event.target as HTMLElement;
-    if (!this.isValidItem(destroyedElement) || destroyedElement.tabIndex !== 0) {
-      return;
+    if (action === ACTIONS.SPACE && this.navItems.find(item => item === event.target)) {
+      this.keyDownEventHandled();
+      event.stopPropagation();
+      event.preventDefault();
     }
+  }
 
-    const destroyedItemIndex = this.navItems.findIndex(node => node === destroyedElement);
-    if (destroyedItemIndex === -1) {
-      return;
+  /** @internal */
+  private handleFocusEvent(event: FocusEvent) {
+    // If previously focused element is being removed from the DOM, ignore the focusout event
+    if (!(event.type === 'focusout' && event.relatedTarget === null)) {
+      this.focusWithin = event.type === 'focusin';
     }
+  }
 
-    let newIndex = destroyedItemIndex + 1;
-    if (newIndex >= this.navItems.length) {
-      newIndex = destroyedItemIndex - 1;
+  /** @internal */
+  private handleModifiedEvent = (event: LifeCycleModifiedEvent) => {
+    const item = event.target as ListItem;
+
+    switch (event.detail.change) {
+      case 'enabled':
+        this.itemsStore.add(item);
+        break;
+      case 'disabled':
+        this.itemsStore.delete(item);
+        break;
+      default:
+        break;
     }
-
-    this.resetTabIndexes(newIndex);
   };
 
   /** @internal */
-  private isValidItem(item: Element): boolean {
+  protected isValidItem(item: Element): boolean {
     return item.matches(`${LISTITEM_TAGNAME}:not([disabled])`);
   }
 

@@ -1,7 +1,6 @@
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { KEYS } from '../../utils/keys';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
@@ -13,10 +12,12 @@ type SetupOptions = {
   'badge-type'?: string;
   counter?: number;
   'tooltip-text'?: string;
+  'tooltip-type'?: string;
   'max-counter'?: number;
   'nav-id'?: string;
   'show-label'?: boolean;
   'aria-label'?: string;
+  'cannot-activate'?: boolean;
   'disable-aria-current'?: boolean;
   children?: string;
 };
@@ -40,9 +41,11 @@ const setup = async (args: SetupOptions) => {
         ${restArgs.counter ? `counter="${restArgs.counter}"` : ''}
         ${restArgs['max-counter'] ? `max-counter="${restArgs['max-counter']}"` : ''}
         ${restArgs['tooltip-text'] ? `tooltip-text="${restArgs['tooltip-text']}"` : ''}
+        ${restArgs['tooltip-type'] ? `tooltip-type="${restArgs['tooltip-type']}"` : ''}
         ${restArgs['nav-id'] ? `nav-id="${restArgs['nav-id']}"` : ''}
         ${restArgs['show-label'] ? 'show-label' : ''}
         ${restArgs['aria-label'] ? `aria-label="${restArgs['aria-label']}"` : ''}
+        ${restArgs['cannot-activate'] ? 'cannot-activate' : ''}
         ${restArgs['disable-aria-current'] ? 'disable-aria-current' : ''}
       >
         ${restArgs.children ?? ''}
@@ -61,7 +64,7 @@ test.describe('NavMenuItem Feature Scenarios', () => {
      * VISUAL REGRESSION
      */
     await test.step('visual-regression', async () => {
-      const navmenuitemSheet = new StickerSheet(componentsPage, 'mdc-navmenuitem', 'margin: 0.25rem 0;');
+      const navmenuitemSheet = new StickerSheet(componentsPage, 'mdc-navmenuitem', 'margin: 1rem;');
       const options = { createNewRow: true };
 
       // Basic navmenuitem with label and icon
@@ -155,7 +158,19 @@ test.describe('NavMenuItem Feature Scenarios', () => {
       });
       await navmenuitemSheet.createMarkupWithCombination({}, options);
 
+      // NavMenuItem with dot badge (collapsed)
+      navmenuitemSheet.setAttributes({
+        label: primaryLabel,
+        'icon-name': iconName,
+        'nav-id': navId,
+        active: true,
+        'badge-type': 'dot',
+        'aria-label': primaryLabel,
+      });
+      await navmenuitemSheet.createMarkupWithCombination({}, options);
+
       await navmenuitemSheet.mountStickerSheet({ role: 'navigation' });
+
       await test.step('matches screenshot of element', async () => {
         await componentsPage.visualRegression.takeScreenshot('mdc-navmenuitem', {
           element: navmenuitemSheet.getWrapperContainer(),
@@ -191,7 +206,7 @@ test.describe('NavMenuItem Feature Scenarios', () => {
         });
 
         const text = componentsPage.page.locator('mdc-text');
-        const icon = componentsPage.page.locator('mdc-icon');
+        const icon = componentsPage.page.locator('mdc-icon[part="regular-icon"]');
 
         await text.waitFor();
         await icon.waitFor();
@@ -217,12 +232,14 @@ test.describe('NavMenuItem Feature Scenarios', () => {
           active: true,
         });
 
-        await test.step('should have active attribute', async () => {
+        await test.step('should have active attribute & aria-current="page"', async () => {
           await expect(navmenuitem).toHaveAttribute('active');
+          await expect(navmenuitem).toHaveAttribute('aria-current', 'page');
         });
 
         await test.step('should modify icon to filled variant when active', async () => {
-          const icon = componentsPage.page.locator('mdc-icon');
+          const icon = componentsPage.page.locator('mdc-icon[part="filled-icon"]');
+          await icon.waitFor();
           const iconNameAttr = await icon.getAttribute('name');
           expect(iconNameAttr).toBe('placeholder-filled');
         });
@@ -239,7 +256,7 @@ test.describe('NavMenuItem Feature Scenarios', () => {
         });
 
         const text = componentsPage.page.locator('mdc-text');
-        const icon = componentsPage.page.locator('mdc-icon');
+        const icon = componentsPage.page.locator('mdc-icon[part="regular-icon"]');
 
         await icon.waitFor();
 
@@ -310,13 +327,28 @@ test.describe('NavMenuItem Feature Scenarios', () => {
         });
       });
 
-      await test.step('component should show tooltip when the listitem is focused and tooltip text is passed', async () => {
+      await test.step('component should not show tooltip when the listitem is expanded, focused and tooltip text is passed', async () => {
         const navmenuitem = await setup({
           componentsPage,
           label: primaryLabel,
           'icon-name': iconName,
           'nav-id': navId,
           'show-label': true,
+          'tooltip-text': 'This is a tooltip Text',
+        });
+        await componentsPage.actionability.pressTab();
+        await expect(navmenuitem).toBeFocused();
+        const tooltip = componentsPage.page.locator('mdc-tooltip');
+        await expect(tooltip).toBeHidden();
+      });
+
+      await test.step('component should show tooltip when the listitem is collapsed, focused and tooltip text is passed', async () => {
+        const navmenuitem = await setup({
+          componentsPage,
+          label: primaryLabel,
+          'icon-name': iconName,
+          'nav-id': navId,
+          'show-label': false,
           'tooltip-text': 'This is a tooltip Text',
         });
         await componentsPage.actionability.pressTab();
@@ -341,10 +373,26 @@ test.describe('NavMenuItem Feature Scenarios', () => {
           active: true,
         });
 
-        const eventPromise = componentsPage.waitForEvent(navmenuitem, 'activechange');
+        const waitForActiveChange = await componentsPage.waitForEvent(navmenuitem, 'activechange');
         await navmenuitem.click();
 
-        await eventPromise;
+        await expect(waitForActiveChange).toEventEmitted();
+      });
+
+      await test.step('click on cannot-activate navmenuitem should not fire activechange event', async () => {
+        const navmenuitem = await setup({
+          componentsPage,
+          label: primaryLabel,
+          'icon-name': iconName,
+          'nav-id': navId,
+          'show-label': true,
+          'cannot-activate': true,
+        });
+
+        const waitForActiveChange = await componentsPage.waitForEvent(navmenuitem, 'activechange');
+        await navmenuitem.click();
+
+        await expect(waitForActiveChange).not.toEventEmitted();
       });
 
       await test.step('click on disabled navmenuitem', async () => {
@@ -411,6 +459,25 @@ test.describe('NavMenuItem Feature Scenarios', () => {
       });
     });
 
+    await test.step('spatial navigation', async () => {
+      const navmenuitem = await setup({
+        componentsPage,
+        label: primaryLabel,
+        'icon-name': iconName,
+        'nav-id': navId,
+        'show-label': true,
+      });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(navmenuitem).toBeFocused();
+
+      const waitForClick = await componentsPage.waitForEvent(navmenuitem, 'click');
+      await keyboard.press(KEYS.ENTER);
+      await expect(waitForClick).toEventEmitted();
+    });
+
     /**
      * ARIA AND ACCESSIBILITY ATTRIBUTES
      */
@@ -466,6 +533,22 @@ test.describe('NavMenuItem Feature Scenarios', () => {
         });
 
         await expect(navmenuitem).toHaveAttribute('aria-label', primaryLabel);
+      });
+
+      await test.step('depending on tooltip type aria-describedby or aria-label is set', async () => {
+        // When tooltip-text is provided and tooltip-type is not "none", no aria-labelledby and aria-describedby should be set
+        const navmenuitemWithTooltip = await setup({
+          componentsPage,
+          label: primaryLabel,
+          'icon-name': iconName,
+          'nav-id': navId,
+          'show-label': false,
+          'tooltip-text': 'This is a tooltip',
+          'tooltip-type': 'none',
+        });
+
+        await expect(navmenuitemWithTooltip).not.toHaveAttribute('aria-labelledby');
+        await expect(navmenuitemWithTooltip).not.toHaveAttribute('aria-describedby');
       });
     });
 

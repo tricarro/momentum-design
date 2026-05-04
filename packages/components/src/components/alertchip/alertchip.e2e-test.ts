@@ -4,6 +4,7 @@ import { expect } from '@playwright/test';
 
 import { ComponentsPage, test } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { KEYS } from '../../utils/keys';
 
 import { VARIANTS } from './alertchip.constants';
 import type { VariantType } from './alertchip.types';
@@ -13,6 +14,7 @@ type SetupOptions = {
   componentsPage: ComponentsPage;
   label: string;
   variant?: VariantType;
+  iconName?: string;
   secondChipForFocus?: boolean;
 };
 
@@ -25,6 +27,7 @@ const setup = async (args: SetupOptions) => {
       <mdc-alertchip
         label="${restArgs.label}"
         ${restArgs.variant ? `variant="${restArgs.variant}"` : ''}
+        ${restArgs.iconName ? `icon-name="${restArgs.iconName}"` : ''}
       ></mdc-alertchip>
       ${restArgs.secondChipForFocus ? '<mdc-alertchip label="Chip"></mdc-alertchip></div>' : ''}
     `,
@@ -48,6 +51,12 @@ test('mdc-alertchip', async ({ componentsPage }) => {
     const alertchipStickerSheet = new StickerSheet(componentsPage, 'mdc-alertchip');
 
     alertchipStickerSheet.setAttributes({ label: 'Alert' });
+    await alertchipStickerSheet.createMarkupWithCombination({ variant: VARIANTS });
+
+    alertchipStickerSheet.setAttributes({ label: 'Custom Icon', 'icon-name': 'placeholder-bold' });
+    await alertchipStickerSheet.createMarkupWithCombination({ variant: VARIANTS });
+
+    alertchipStickerSheet.setAttributes({ label: 'Long label', style: 'width: 6.5rem' });
     await alertchipStickerSheet.createMarkupWithCombination({ variant: VARIANTS });
 
     alertchipStickerSheet.setAttributes({ 'aria-label': 'Icon Only' });
@@ -129,6 +138,16 @@ test('mdc-alertchip', async ({ componentsPage }) => {
         await componentsPage.page.keyboard.press('Enter');
         await expect(alertchip).toHaveClass('alertchip-listener alertchip-onclick');
       });
+    });
+
+    await test.step('spatial navigation', async () => {
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await alertchip.blur();
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(alertchip).toBeFocused();
     });
   });
 });

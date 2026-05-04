@@ -3,6 +3,7 @@ import { property } from 'lit/decorators.js';
 
 import { Component } from '../../models';
 import Buttonsimple from '../buttonsimple/buttonsimple.component';
+import { IconNameMixin } from '../../utils/mixins/IconNameMixin';
 
 import styles from './alertchip.styles';
 import { DEFAULTS } from './alertchip.constants';
@@ -13,7 +14,7 @@ import type { VariantType } from './alertchip.types';
  * mdc-alertchip component is an interactive chip that consumers can use to represent an alert.
  *
  * - It supports a leading icon along with label.
- * - It supports 5 variants of alerts - neutral, warning, error, success, and informational
+ * - It supports 5 variants of alerts - error, informational, neutral, success and warning.
  *
  * This component is built by extending Buttonsimple.
  *
@@ -30,23 +31,23 @@ import type { VariantType } from './alertchip.types';
  * @csspart icon - The alert icon
  * @csspart label - The text label of the alertchip
  *
- * @event click - (React: onClick) This event is dispatched when the chip is clicked.
- * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the chip.
- * @event keyup - (React: onKeyUp) This event is dispatched when a key is released on the chip.
- * @event focus - (React: onFocus) This event is dispatched when the chip receives focus.
+ * @event click - (React: onClick) This event is dispatched when the alertchip is clicked.
+ * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the alertchip.
+ * @event keyup - (React: onKeyUp) This event is dispatched when a key is released on the alertchip.
+ * @event focus - (React: onFocus) This event is dispatched when the alertchip receives focus.
  */
-class AlertChip extends Buttonsimple {
+class AlertChip extends IconNameMixin(Buttonsimple) {
   /**
    * The variant of the alertchip. It supports 5 variants
    * - neutral
-   * - warning
    * - error
    * - success
+   * - warning
    * - informational
    *
    * @default neutral
    */
-  @property({ type: String }) variant: VariantType = DEFAULTS.VARIANT;
+  @property({ type: String, reflect: true }) variant: VariantType = DEFAULTS.VARIANT;
 
   /**
    * The visible label text of the alertchip.
@@ -54,7 +55,7 @@ class AlertChip extends Buttonsimple {
    * We recommend limiting the <b>maximum length of the label text to 20 characters</b>,
    * including empty spaces to split words.
    */
-  @property({ type: String }) label = '';
+  @property({ type: String }) label?: string;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -67,7 +68,7 @@ class AlertChip extends Buttonsimple {
 
   public override render() {
     return html`
-      <mdc-icon part="icon" name="${getAlertIcon(this.variant)}" length-unit="rem" size="1"></mdc-icon>
+      <mdc-icon part="icon" name="${this.iconName || getAlertIcon(this.variant)}" length-unit="rem" size="1"></mdc-icon>
       ${this.label
         ? html`<mdc-text part="label" type="${DEFAULTS.TEXT_TYPE}" tagname="${DEFAULTS.TAG_NAME}"
             >${this.label}</mdc-text

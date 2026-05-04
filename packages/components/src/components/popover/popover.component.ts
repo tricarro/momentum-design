@@ -1,37 +1,86 @@
 /* eslint-disable no-restricted-syntax */
-import { arrow, autoUpdate, computePosition, flip, offset, shift, size } from '@floating-ui/dom';
+import {
+  arrow,
+  autoUpdate,
+  computePosition,
+  flip,
+  inline as inlineMiddleware,
+  offset,
+  OffsetOptions,
+  shift,
+  size,
+} from '@floating-ui/dom';
 import { CSSResult, html, nothing, PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { Component } from '../../models';
 import { BackdropMixin } from '../../utils/mixins/BackdropMixin';
-import { FocusTrapMixin } from '../../utils/mixins/FocusTrapMixin';
+import { FocusTrapMixin } from '../../utils/mixins/focus/FocusTrapMixin';
 import { PreventScrollMixin } from '../../utils/mixins/PreventScrollMixin';
 import type { ValueOf } from '../../utils/types';
 import type Tooltip from '../tooltip/tooltip.component';
+import { Timers } from '../../utils/controllers/Timers';
+import { ACTIONS, KeyToActionMixin } from '../../utils/mixins/KeyToActionMixin';
+import { DepthManager, StackChange, StackedOverlayComponent } from '../../utils/controllers/DepthManager';
+import { KeyDownHandledMixin } from '../../utils/mixins/KeyDownHandledMixin';
 
-import { COLOR, DEFAULTS, POPOVER_PLACEMENT, TRIGGER } from './popover.constants';
+import { COLOR, DEFAULTS, POPOVER_PLACEMENT, TIMEOUTS, TRIGGER } from './popover.constants';
 import { PopoverEventManager } from './popover.events';
-import { popoverStack } from './popover.stack';
 import styles from './popover.styles';
-import type { PopoverColor, PopoverPlacement, PopoverTrigger } from './popover.types';
+import { PopoverBoundaryRoot, PopoverColor, PopoverPlacement, PopoverStrategy, PopoverTrigger } from './popover.types';
 import { PopoverUtils } from './popover.utils';
 
 /**
- * Popover component is a lightweight floating UI element that displays additional content when triggered.
- * It can be used for tooltips, dropdowns, or contextual menus.
- * The popover automatically positions itself based on available space and
- * supports dynamic height adjustments with scrollable content when needed。
+ * Popover is generic overlay which can be triggered by any actionable element.
  *
- * Note:
- *  - A component (button) can trigger more than one popover, but only one of them should change the
- *    aria-expanded and aria-haspopup, the rest of the popovers must have `disable-aria-expanded` attribute.
+ * It can be used for tooltips, dropdowns, menus or any showing any other contextual content.
+ *
+ * The popover automatically positions itself based on available space and
+ * supports dynamic height adjustments with scrollable content when needed.
+ * It uses [Floating UI](https://floating-ui.com/) for maintaining the position of the popover.
+ *
+ * ## Limitations
+ *
+ * ### On trigger for multiple popovers
+ *
+ * A component (button, etc.) can trigger more than one popover, but only one of them should change the
+ * aria-expanded and aria-haspopup attributes on the trigger.
+ *
+ * To prevent unexpected attribute changes on the trigger `disable-aria-expanded` attribute must be set on all linked
+ * Popovers except one.
+ *
+ * ### React Popover with append-to attribute
+ *
+ * React mounts the popover based on the virtual DOM, but when the append-to attribute is set, the popover removes itself
+ * and mounts to the specified element. React will not know about the move and will not know about the
+ * newly created mdc-popoverportal element either. This throws a `NotFoundError` error when the Popover is directly
+ * added/removed by React, for example:
+ *
+ * ```tsx
+ * const SomeComponent = () => {
+ *    const [isOpen, setIsOpen] = useState(false);
+ *    return (<div>
+ *      {isOpen && <Popover append-to="some-element-id">...</mdc-popover>}
+ *    </div>);
+ * }
+ * ```
+ * As a workaround Popover need to wrap with any other element/component, for example:
+ * ```tsx
+ * const SomeComponent = () => {
+ *    const [isOpen, setIsOpen] = useState(false);
+ *    return (<div>
+ *      {isOpen && <div>
+ *        <Popover append-to="some-element-id">...</mdc-popover>
+ *      <div>}
+ *    </div>);
+ * }
+ * ```
+ * Note the wrapper <div> around the Popover component (React.Fragment does not work).
  *
  * @dependency mdc-button
  *
  * @tagname mdc-popover
- *
  *
  * @event shown - (React: onShown) This event is dispatched when the popover is shown
  * @event hidden - (React: onHidden) This event is dispatched when the popover is hidden
@@ -49,11 +98,23 @@ import { PopoverUtils } from './popover.utils';
  * @cssproperty --mdc-popover-max-width - max width of the popover
  * @cssproperty --mdc-popover-max-height - max height of the popover
  * @cssproperty --mdc-popover-width - width of the popover
+ * @cssproperty --mdc-popover-backdrop-color - background color of the backdrop (if backdrop is enabled)
  *
  * @slot - Default slot for the popover content
  *
+ * @csspart popover-close - The close button of the popover.
+ * @csspart popover-content - The content of the popover.
+ * @csspart popover-hover-bridge - The hover bridge of the popover.
  */
-class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component))) {
+class Popover
+  extends KeyDownHandledMixin(KeyToActionMixin(BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)))))
+  implements StackedOverlayComponent
+{
+  /** track the depth of the popover for z-index calculation
+   * @internal
+   */
+  protected depthManager = new DepthManager(this);
+
   /**
    * The unique ID of the popover.
    */
@@ -118,10 +179,31 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
 
   /**
    * The offset of the popover.
+   *
+   * By default, offset is just a number which represents the distance on the main axis in pixels
+   * between the reference element and the popover. Main axis is determined by the placement of the popover.
+   * For example, if the placement is top or bottom, the main axis is vertical, and
+   * if the placement is left or right, the main axis is horizontal.
+   *
+   * Alternatively the offset property accepts other values as well:
+   * - with an object value, `crossAxis` and `alignmentAxis` can be changed as well
+   * - with a function value, it provides the opportunity to fully control the offset logic
+   *
+   * Note: only the number value reflected in the `offset` attribute
+   *
    * @default 4
+   * @see [Floating UI - offset](https://floating-ui.com/docs/offset)
    */
-  @property({ type: Number, reflect: true })
-  offset: number = DEFAULTS.OFFSET;
+  @property({
+    type: Number,
+    reflect: true,
+    converter: {
+      toAttribute(value: OffsetOptions): string {
+        return typeof value === 'number' ? value.toString() : '';
+      },
+    },
+  })
+  offset: OffsetOptions = DEFAULTS.OFFSET;
 
   /**
    * This describes the clipping element(s) or area that overflow will be checked relative to.
@@ -150,7 +232,7 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
    * @see [Floating UI - rootBoundary](https://floating-ui.com/docs/detectOverflow#rootboundary)
    */
   @property({ type: String, reflect: true, attribute: 'boundary-root' })
-  boundaryRoot: 'viewport' | 'document' = DEFAULTS.BOUNDARY_ROOT;
+  boundaryRoot: PopoverBoundaryRoot = DEFAULTS.BOUNDARY_ROOT;
 
   /**
    * Virtual padding around the boundary to check for overflow.
@@ -278,10 +360,10 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
 
   /**
    * Changes the placement of popover to keep it in view when scrolling.
-   * @default true
+   * @default false
    */
-  @property({ type: Boolean, reflect: true })
-  flip: boolean = DEFAULTS.FLIP;
+  @property({ type: Boolean, reflect: true, attribute: 'disable-flip' })
+  disableFlip: boolean = DEFAULTS.DISABLE_FLIP;
 
   /**
    * Changes the size of popover to keep it in view when scrolling.
@@ -291,11 +373,28 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
   size: boolean = DEFAULTS.SIZE;
 
   /**
-   * The z-index of the popover.
-   * @default 1000
+   * The internal z-index of the popovere.
+   * @internal
+   */
+  private internalZIndex?: number;
+
+  /**
+   * The effective z-index of the popover.
+   *
+   * If no explicit `z-index` value is provided, then it automatically calculated
+   * to ensure proper stacking order among multiple overlays.
    */
   @property({ type: Number, reflect: true, attribute: 'z-index' })
-  zIndex: number = DEFAULTS.Z_INDEX;
+  get zIndex() {
+    if (!Number.isInteger(this.internalZIndex)) {
+      return this.depthManager.getHostZIndex();
+    }
+    return this.internalZIndex!;
+  }
+
+  set zIndex(value: number) {
+    this.internalZIndex = value;
+  }
 
   /**
    * Element ID that the popover append to.
@@ -324,8 +423,8 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
    * @default absolute
    * @see [Floating UI - strategy](https://floating-ui.com/docs/computePosition#strategy)
    */
-  @property({ type: String, reflect: true, attribute: 'strategy' })
-  strategy: 'absolute' | 'fixed' = DEFAULTS.STRATEGY;
+  @property({ type: String, reflect: true })
+  strategy: PopoverStrategy = DEFAULTS.STRATEGY;
 
   /**
    * Role of the popover
@@ -362,20 +461,55 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
   disableAriaExpanded: boolean = DEFAULTS.DISABLE_ARIA_EXPANDED;
 
   /**
-   * If a tooltip is connected to the same trigger element,
-   * this property will keep the connected tooltip closed if this popover is open.
-   * This is useful when you want to show a popover with a tooltip
-   * but you don't want the tooltip to be shown at the same time.
+   * Controls the visibility of a connected tooltip when this popover is open.
+   * - If set to `true`, the tooltip remains open alongside the popover.
+   * - If set to `false`, the tooltip will be closed when the popover opens.
+   * Useful for scenarios where both a popover and a tooltip are linked to the same trigger element.
    */
-  @property({ type: Boolean, reflect: true, attribute: 'keep-connected-tooltip-closed' })
-  keepConnectedTooltipClosed: boolean = DEFAULTS.KEEP_CONNECTED_TOOLTIP_CLOSED;
+  @property({ type: Boolean, reflect: true, attribute: 'keep-connected-tooltip-open' })
+  keepConnectedTooltipOpen: boolean = DEFAULTS.KEEP_CONNECTED_TOOLTIP_OPEN;
 
-  public arrowElement: HTMLElement | null = null;
+  /**
+   * Whether to update the position of the Popover on every animation frame if required.
+   * While optimized for performance, it should be used sparingly and with caution.
+   *
+   * @default false
+   */
+  @property({ type: Boolean, reflect: true, attribute: 'animation-frame' })
+  animationFrame: boolean = DEFAULTS.ANIMATION_FRAME;
 
-  public triggerElement: HTMLElement | null = null;
+  /**
+   * Improves positioning for inline reference elements that span over multiple lines,
+   * such as hyperlinks or range selections.
+   *
+   * When enabled, the floating-ui `inline` middleware is used to position the popover
+   * based on the individual client rects of the inline element, rather than its full bounding box.
+   *
+   * @default false
+   * @see [Floating UI - inline](https://floating-ui.com/docs/inline)
+   */
+  @property({ type: Boolean, reflect: true })
+  inline: boolean = DEFAULTS.INLINE;
+
+  /**
+   * The index of the interactive element to receive focus when the popover opens with focus trap enabled.
+   * The index is based on the order of interactive elements in the popover, starting from 0.
+   * If not set, the first interactive element (index 0) will receive focus by default.
+   * This is useful for cases where you want a specific element to receive focus when the popover opens, instead of the default first element.
+   * @default null
+   */
+  @property({ type: Number, attribute: 'element-index-to-receive-focus', reflect: true })
+  elementIndexToReceiveFocus: number | null = null;
+
+  /**
+   * The name of the stack group this popover belongs to.
+   * Popovers with the same stack group name will be grouped together.
+   */
+  @property({ type: String, attribute: 'stack-group-name', reflect: true })
+  stackGroupName: string = '';
 
   /** @internal */
-  private hoverTimer: number | null = null;
+  public arrowElement: HTMLElement | null = null;
 
   /** @internal */
   private isHovered: boolean = false;
@@ -393,36 +527,39 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
   private floatingUICleanupFunction: (() => void) | null = null;
 
   /** @internal */
-  protected shouldSupressOpening: boolean = false;
+  protected shouldSuppressOpening: boolean = false;
 
   /** @internal */
-  private connectedTooltip: Tooltip | null = null;
-
-  constructor() {
-    super();
-    this.utils = new PopoverUtils(this);
-  }
-
-  private storeConnectedTooltip = () => {
+  private get connectedTooltip() {
     const connectedTooltips = (this.getRootNode() as Document | ShadowRoot).querySelectorAll(
       `mdc-tooltip[triggerID="${this.triggerID}"]`,
     ) as NodeListOf<Tooltip>;
 
-    for (const tooltip of connectedTooltips) {
-      if (tooltip !== (this as unknown as Tooltip)) {
-        this.connectedTooltip = tooltip;
-        return;
-      }
-    }
-    this.connectedTooltip = null;
-  };
-
-  private setupTriggerRelatedElement() {
-    this.triggerElement = (this.getRootNode() as Document | ShadowRoot).querySelector(`[id="${this.triggerID}"]`);
-    this.storeConnectedTooltip();
+    return Array.from(connectedTooltips).find(t => t !== (this as unknown as Tooltip));
   }
 
-  private cleanupTrigger = () => {
+  /**
+   * Get trigger element on-demand
+   * It is necessary because trigger might appear later in the DOM, or it could be replaced completely.
+   */
+  public get triggerElement(): HTMLElement | null {
+    return (this.getRootNode() as Document | ShadowRoot).querySelector(`[id="${this.triggerID}"]`) as HTMLElement;
+  }
+
+  /** @internal */
+  private timers = new Timers(this);
+
+  constructor() {
+    super();
+    this.show = this.show.bind(this);
+
+    this.utils = new PopoverUtils(this);
+    this.parseTrigger();
+    [this.openDelay, this.closeDelay] = this.utils.setupDelay();
+  }
+
+  /** @internal */
+  private parseTrigger = () => {
     const triggers = this.trigger?.split(' ') || [];
     const validTriggers = triggers.filter(trigger =>
       Object.values(TRIGGER).includes(trigger as ValueOf<typeof TRIGGER>),
@@ -447,14 +584,16 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
 
   protected override async firstUpdated(changedProperties: PropertyValues) {
     super.firstUpdated(changedProperties);
-    this.utils.setupAppendTo();
-    [this.openDelay, this.closeDelay] = this.utils.setupDelay();
-    this.setupTriggerRelatedElement();
-    this.cleanupTrigger();
-    this.setupTriggerListeners();
 
-    this.style.zIndex = `${this.zIndex}`;
     PopoverEventManager.onCreatedPopover(this);
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+
+    this.utils.setupAppendTo();
+
+    this.setupTriggerListeners();
   }
 
   override async disconnectedCallback() {
@@ -469,78 +608,80 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
 
     this.floatingUICleanupFunction?.();
 
-    // clean timer if there is one set:
-    this.cancelCloseDelay();
-
-    if (this.keepConnectedTooltipClosed) {
+    if (!this.keepConnectedTooltipOpen) {
       if (this.connectedTooltip) {
-        this.connectedTooltip.shouldSupressOpening = false;
+        this.connectedTooltip.shouldSuppressOpening = false;
       }
     }
-
+    this.utils.cleanupAppendTo();
     PopoverEventManager.onDestroyedPopover(this);
-    popoverStack.remove(this);
   }
 
   /**
    * Sets up the trigger related event listeners, based on the trigger type.
    * Includes fallback for mouseenter trigger to also handle focusin for non-interactive popovers.
+   *
+   * We are using capture phase for to make sure we capture trigger events even when they are not propagated during the
+   * bubble phase (e.g.: buttons in list item)
+   * @internal
    */
   private setupTriggerListeners = () => {
-    if (!this.triggerElement) return;
-
     if (this.trigger.includes('click')) {
-      this.triggerElement.addEventListener('click', this.togglePopoverVisible);
+      document.addEventListener('click', this.togglePopoverVisible, { capture: true });
+      if (this.hideOnBlur) {
+        document.addEventListener('focusout', this.handleFocusOut, { capture: true });
+      }
     }
     if (this.trigger.includes('mouseenter')) {
-      const hoverBridge = this.renderRoot.querySelector('.popover-hover-bridge');
+      const hoverBridge = this.renderRoot.querySelector('div[part="popover-hover-bridge"]');
       hoverBridge?.addEventListener('mouseenter', this.show);
-      this.triggerElement.addEventListener('mouseenter', this.handleMouseEnter);
-      this.triggerElement.addEventListener('mouseleave', this.handleMouseLeave);
+      document.addEventListener('mouseenter', this.handleMouseEnter, { capture: true });
+      document.addEventListener('mouseleave', this.handleMouseLeave, { capture: true });
       this.addEventListener('mouseenter', this.cancelCloseDelay);
       this.addEventListener('mouseleave', this.startCloseDelay);
     }
     if (this.trigger.includes('focusin')) {
-      this.triggerElement.addEventListener('focusin', this.handleFocusIn);
+      document.addEventListener('focusin', this.handleFocusIn, { capture: true });
       if (!this.interactive) {
-        this.triggerElement.addEventListener('focusout', this.handleFocusOut);
+        document.addEventListener('focusout', this.handleFocusOut, { capture: true });
       }
     }
   };
 
   /**
    * Removes the trigger related event listeners.
+   * @internal
    */
   private removeTriggerListeners = () => {
     // click trigger
-    this.triggerElement?.removeEventListener('click', this.togglePopoverVisible);
-
+    document.removeEventListener('click', this.togglePopoverVisible, { capture: true });
     // mouseenter trigger
-    const hoverBridge = this.renderRoot.querySelector('.popover-hover-bridge');
+    const hoverBridge = this.renderRoot.querySelector('div[part="popover-hover-bridge"]');
     hoverBridge?.removeEventListener('mouseenter', this.show);
-    this.triggerElement?.removeEventListener('mouseenter', this.handleMouseEnter);
-    this.triggerElement?.removeEventListener('mouseleave', this.handleMouseLeave);
+    document.removeEventListener('mouseenter', this.handleMouseEnter, { capture: true });
+    document.removeEventListener('mouseleave', this.handleMouseLeave, { capture: true });
     this.removeEventListener('mouseenter', this.cancelCloseDelay);
     this.removeEventListener('mouseleave', this.startCloseDelay);
 
     // focusin trigger
-    this.triggerElement?.removeEventListener('focusin', this.handleFocusIn);
-    this.triggerElement?.removeEventListener('focusout', this.handleFocusOut);
+    document.removeEventListener('focusin', this.handleFocusIn, { capture: true });
+    document.removeEventListener('focusout', this.handleFocusOut, { capture: true });
   };
 
   /**
    * Removes all event listeners related to the popover.
+   * @internal
    */
   private removeAllListeners = () => {
     this.removeTriggerListeners();
 
     if (this.hideOnOutsideClick) {
-      document.removeEventListener('click', this.onOutsidePopoverClick);
+      document.removeEventListener('click', this.onOutsidePopoverClick, { capture: true });
     }
 
     if (this.hideOnEscape) {
       this.removeEventListener('keydown', this.onEscapeKeydown);
-      this.triggerElement?.removeEventListener('keydown', this.onEscapeKeydown);
+      document.removeEventListener('keydown', this.onEscapeKeydown);
     }
 
     if (this.hideOnBlur) {
@@ -558,7 +699,7 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
     }
 
     if (changedProperties.has('trigger')) {
-      this.cleanupTrigger();
+      this.parseTrigger();
       this.removeTriggerListeners();
       this.setupTriggerListeners();
     }
@@ -578,12 +719,15 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
       this.setAttribute('color', Object.values(COLOR).includes(this.color) ? this.color : DEFAULTS.COLOR);
     }
 
-    if (changedProperties.has('zIndex')) {
-      this.setAttribute('z-index', `${this.zIndex}`);
-    }
-
-    if (changedProperties.has('append-to')) {
-      this.utils.setupAppendTo();
+    if (changedProperties.has('appendTo')) {
+      // only setup appendTo when the component is connected to the DOM
+      // this fixes an issue which causes popovers to be orphaned in the DOM without the appendTo logic being cleaned up,
+      // cause of Lit deferring the updated() to fire after a disconnect
+      if (this.appendTo && this.isConnected) {
+        this.utils.setupAppendTo();
+      } else {
+        this.utils.cleanupAppendTo();
+      }
     }
 
     if (
@@ -628,9 +772,10 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
    * Handles the outside click event to close the popover.
    *
    * @param event - The mouse event.
+   * @internal
    */
   protected onOutsidePopoverClick = (event: MouseEvent) => {
-    if (popoverStack.peek() !== this) return;
+    if (!this.depthManager.isHostOnTop()) return;
 
     const path = event.composedPath();
     const insidePopoverClick =
@@ -640,6 +785,9 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
     if (!insidePopoverClick || clickedOnBackdrop) {
       this.hide();
       PopoverEventManager.onClickOutside(this);
+      if (clickedOnBackdrop) {
+        event.stopPropagation();
+      }
     }
   };
 
@@ -649,9 +797,10 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
    * This method is attached to the document.
    *
    * @param event - The keyboard event.
+   * @internal
    */
   private onEscapeKeydown = (event: KeyboardEvent) => {
-    if (!this.visible || event.code !== 'Escape') {
+    if (!this.visible || this.getActionForKeyEvent(event) !== ACTIONS.ESCAPE || !this.depthManager.isHostOnTop()) {
       return;
     }
 
@@ -662,18 +811,29 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
     event.preventDefault();
     this.hide();
     PopoverEventManager.onEscapeKeyPressed(this);
+    this.keyDownEventHandled();
   };
 
   /**
    * Handles the popover focus out event.
    *
    * @param event - The focus event.
+   * @internal
    */
   private onPopoverFocusOut = (event: FocusEvent) => {
     if (!this.contains(event.relatedTarget as Node)) {
       this.hide();
     }
   };
+
+  /** @internal */
+  onComponentStackChanged(changed: StackChange): void {
+    if (changed === 'removed') {
+      this.hide();
+    } else if (changed === 'moved') {
+      this.requestUpdate('zIndex');
+    }
+  }
 
   /**
    * Handles the popover visibility change and position the popover.
@@ -683,28 +843,30 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
    * @param newValue - The new value of the visible property.
    */
   protected async isOpenUpdated(oldValue: boolean, newValue: boolean) {
-    if (oldValue === newValue || !this.triggerElement) {
+    const { triggerElement } = this;
+    if (oldValue === newValue || !triggerElement) {
       return;
     }
 
-    if (newValue && !this.shouldSupressOpening) {
-      if (popoverStack.peek() !== this) {
-        popoverStack.push(this);
+    if (newValue && !this.shouldSuppressOpening) {
+      if (this.depthManager.pushHost()) {
+        // request update to trigger zIndex recalculation
+        this.requestUpdate('zIndex');
       }
 
-      if (this.keepConnectedTooltipClosed) {
+      if (!this.keepConnectedTooltipOpen) {
         // If this popover gets visible and keepConnectedTooltipsClosed is true,
         // we need to close the connected tooltip.
         if (this.connectedTooltip) {
           this.connectedTooltip.visible = false;
-          this.connectedTooltip.shouldSupressOpening = true;
+          this.connectedTooltip.shouldSuppressOpening = true;
         }
       }
 
       // create backdrop if it doesn't exist
       if (this.backdrop && !this.backdropElement) {
         this.createBackdrop('popover');
-        this.keepElementAboveBackdrop(this.triggerElement);
+        this.keepElementAboveBackdrop(triggerElement);
       }
 
       this.positionPopover();
@@ -712,68 +874,66 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
       if (this.hideOnBlur) {
         this.addEventListener('focusout', this.onPopoverFocusOut);
         if (this.trigger === 'click') {
-          this.triggerElement.style.pointerEvents = 'none';
+          triggerElement.style.pointerEvents = 'none';
         }
       }
       if (this.hideOnEscape) {
         this.addEventListener('keydown', this.onEscapeKeydown);
-        this.triggerElement?.addEventListener('keydown', this.onEscapeKeydown);
+        document.addEventListener('keydown', this.onEscapeKeydown);
       }
 
       this.activatePreventScroll();
 
       if (this.hideOnOutsideClick) {
-        document.addEventListener('click', this.onOutsidePopoverClick);
+        document.addEventListener('click', this.onOutsidePopoverClick, { capture: true });
       }
 
       // make sure popover is fully rendered before activating focus trap
       setTimeout(() => {
         if (this.interactive && this.focusTrap) {
           this.activateFocusTrap?.();
-          this.setInitialFocus?.();
+          this.setInitialFocus?.(this.elementIndexToReceiveFocus ?? 0);
         }
       }, 0);
 
       PopoverEventManager.onShowPopover(this);
     } else {
-      if (popoverStack.peek() === this) {
-        popoverStack.pop();
-      }
+      this.depthManager.popHost();
 
       // cleanup floating-ui on closing the popover
       this.floatingUICleanupFunction?.();
 
       if (this.backdrop) {
-        this.moveElementBackAfterBackdropRemoval(this.triggerElement);
+        this.moveElementBackAfterBackdropRemoval(triggerElement);
         this.removeBackdrop();
       }
 
       if (this.hideOnBlur) {
         this.removeEventListener('focusout', this.onPopoverFocusOut);
         if (this.trigger === 'click') {
-          this.triggerElement.style.pointerEvents = '';
+          triggerElement.style.pointerEvents = '';
         }
       }
 
       if (this.hideOnOutsideClick) {
-        document.removeEventListener('click', this.onOutsidePopoverClick);
+        document.removeEventListener('click', this.onOutsidePopoverClick, { capture: true });
       }
 
       if (this.hideOnEscape) {
         this.removeEventListener('keydown', this.onEscapeKeydown);
-        this.triggerElement?.removeEventListener('keydown', this.onEscapeKeydown);
+        document.removeEventListener('keydown', this.onEscapeKeydown);
       }
 
       this.deactivatePreventScroll();
       this.deactivateFocusTrap?.();
 
       if (this.focusBackToTrigger) {
-        this.triggerElement?.focus();
+        triggerElement?.focus();
       }
 
-      if (this.keepConnectedTooltipClosed) {
+      if (!this.keepConnectedTooltipOpen) {
         if (this.connectedTooltip) {
-          this.connectedTooltip.shouldSupressOpening = false;
+          this.connectedTooltip.shouldSuppressOpening = false;
         }
       }
       PopoverEventManager.onHidePopover(this);
@@ -781,104 +941,155 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
   }
 
   /**
-   *  Handles mouse enter event on the trigger element.
-   *  This method sets the `isHovered` flag to true and shows the popover
+   * Handles mouse enter event on the trigger element.
+   * This method sets the `isHovered` flag to true and shows the popover
+   * @internal
    */
-  private handleMouseEnter = () => {
+  private handleMouseEnter = (event: Event) => {
+    if (!this.isEventFromTrigger(event)) return;
+
     this.isHovered = true;
     this.show();
   };
 
   /**
-   *  Handles mouse leave event on the trigger element.
-   *  This method sets the `isHovered` flag to false and starts the close delay
-   *  timer to hide the popover.
+   * Handles mouse leave event on the trigger element.
+   * This method sets the `isHovered` flag to false and starts the close delay
+   * timer to hide the popover.
+   * @internal
    */
-  private handleMouseLeave = () => {
+  private handleMouseLeave = (event: Event) => {
+    if (!this.isEventFromTrigger(event)) return;
+
     this.isHovered = false;
     this.startCloseDelay();
   };
 
   /**
-   *  Handles focus out event on the trigger element.
-   *  This method checks if the popover is not hovered and hides the popover.
-   *  If the popover is hovered, it will not hide the popover.
+   * Closes based on hideOnBlur property or hover state.
+   * @internal
    */
-  private handleFocusOut = () => {
+  private handleFocusOut = (event: Event) => {
+    if (!this.isEventFromTrigger(event)) return;
+
+    if (this.hideOnBlur) {
+      const { relatedTarget } = event as FocusEvent;
+      // Don't hide if focus moves within the component
+      if (!this.contains(relatedTarget as Node)) {
+        this.hide();
+      }
+      return;
+    }
+
     if (!this.isHovered) {
       this.hide();
     }
   };
 
   /**
-   *  Handles focus in event on the trigger element.
-   *  This method checks if the trigger element has visible focus or is being hovered.
+   * Handles focus in event on the trigger element.
+   * This method checks if the trigger element has visible focus or is being hovered.
+   * @internal
    */
-  private handleFocusIn = () => {
-    if (this.triggerElement?.matches(':focus-visible') || this.isHovered) {
+  private handleFocusIn = (event: Event) => {
+    if (!this.isEventFromTrigger(event)) return;
+
+    if (
+      this.triggerElement?.matches(':focus-visible') ||
+      this.triggerElement?.shadowRoot?.querySelector('.mdc-focus-ring')?.matches(':focus-visible') ||
+      this.isHovered
+    ) {
       this.show();
     }
   };
 
   /**
+   * Cancels the open delay timer.
+   * @internal
+   */
+  private cancelOpenDelay = () => {
+    this.timers.clearTimeout(TIMEOUTS.OPEN);
+  };
+
+  /**
    * Starts the close delay timer.
    * If the popover is not interactive, it will close the popover after the delay.
+   * @internal
    */
   private startCloseDelay = () => {
+    this.cancelOpenDelay();
+
     if (!this.interactive) {
       this.hide();
     } else {
-      this.hoverTimer = window.setTimeout(() => {
-        this.visible = false;
-      }, this.closeDelay);
+      this.timers.setTimeout(
+        TIMEOUTS.HOVER,
+        () => {
+          this.visible = false;
+        },
+        this.closeDelay,
+      );
     }
   };
 
   /**
    * Cancels the close delay timer.
+   * @internal
    */
   private cancelCloseDelay = () => {
-    if (this.hoverTimer) {
-      window.clearTimeout(this.hoverTimer);
-      this.hoverTimer = null;
-    }
+    this.timers.clearTimeout(TIMEOUTS.HOVER);
+    this.timers.clearTimeout(TIMEOUTS.CLOSE);
   };
 
   /**
    * Shows the popover.
    */
-  public show = () => {
-    if (this.visible || this.shouldSupressOpening) {
+  public show() {
+    if (this.shouldSuppressOpening) {
       return;
     }
+
     this.cancelCloseDelay();
 
-    if (this.openDelay > 0) {
-      setTimeout(() => {
-        this.visible = true;
-      }, this.openDelay);
-    } else {
-      this.visible = true;
+    if (this.visible) {
+      return;
     }
-  };
+
+    const callback = () => {
+      this.visible = true;
+    };
+
+    if (this.openDelay > 0) {
+      this.timers.setTimeout(TIMEOUTS.OPEN, callback, this.openDelay);
+    } else {
+      this.timers.clearTimeout(TIMEOUTS.OPEN);
+      callback();
+    }
+  }
 
   /**
    * Hides the popover.
    */
   public hide = () => {
-    if (this.closeDelay) {
-      setTimeout(() => {
-        this.visible = false;
-      }, this.closeDelay);
-    } else {
+    this.cancelOpenDelay();
+
+    const callback = () => {
       this.visible = false;
+    };
+    if (this.closeDelay > 0) {
+      this.timers.setTimeout(TIMEOUTS.CLOSE, callback, this.closeDelay);
+    } else {
+      this.timers.clearTimeout(TIMEOUTS.CLOSE);
+      callback();
     }
   };
 
   /**
    * Toggles the popover visibility.
    */
-  public togglePopoverVisible = () => {
+  public togglePopoverVisible = (event: Event) => {
+    if (!this.isEventFromTrigger(event)) return;
+
     if (this.visible) {
       this.hide();
     } else {
@@ -890,9 +1101,11 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
    * Positions the popover based on the trigger element.
    * It also handles the flip, size and arrow placement.
    * It uses the floating-ui/dom library to calculate the position.
+   * @internal
    */
   private positionPopover = () => {
-    if (!this.triggerElement) return;
+    const { triggerElement } = this;
+    if (!triggerElement) return;
 
     const boundary =
       !this.boundary || this.boundary === 'clippingAncestors'
@@ -900,16 +1113,21 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
         : Array.from(document.querySelectorAll(this.boundary));
     const rootBoundary = this.boundaryRoot;
 
-    const middleware = [
+    const middleware: ReturnType<typeof shift>[] = [];
+
+    if (this.inline) {
+      middleware.push(inlineMiddleware());
+    }
+
+    middleware.push(
       shift({
         boundary,
         rootBoundary,
         padding: this.boundaryPadding,
       }),
-    ];
-    let popoverOffset = this.offset;
+    );
 
-    if (this.flip) {
+    if (!this.disableFlip) {
       middleware.push(
         flip({
           boundary,
@@ -942,58 +1160,100 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
       );
     }
 
+    let arrowOffset = 0;
     if (this.showArrow) {
-      this.arrowElement = this.renderRoot.querySelector('.popover-arrow');
+      this.arrowElement = this.renderRoot.querySelector('div[part="popover-arrow"]');
       if (this.arrowElement) {
         const arrowLen = this.arrowElement.offsetHeight;
-        const arrowOffset = Math.sqrt(2 * arrowLen ** 2) / 2;
-        popoverOffset += arrowOffset;
+        arrowOffset = Math.sqrt(2 * arrowLen ** 2) / 2;
         middleware.push(arrow({ element: this.arrowElement, padding: 12 }));
       }
     }
 
-    middleware.push(offset(popoverOffset));
+    middleware.push(offset(typeof this.offset === 'number' ? this.offset + arrowOffset : this.offset));
 
-    this.floatingUICleanupFunction = autoUpdate(this.triggerElement, this, async () => {
-      if (!this.triggerElement) return;
+    this.floatingUICleanupFunction = autoUpdate(
+      triggerElement,
+      this,
+      async () => {
+        const { triggerElement } = this;
 
-      const { x, y, middlewareData, placement } = await computePosition(this.triggerElement, this, {
-        placement: this.placement,
-        middleware,
-        strategy: this.strategy,
-      });
+        if (!triggerElement) return;
 
-      this.utils.updatePopoverStyle(x, y);
-      if (middlewareData.arrow && this.arrowElement) {
-        this.utils.updateArrowStyle(middlewareData.arrow, placement);
-      }
-      if (this.trigger.includes('mouseenter') && this.interactive) {
-        this.utils.setupHoverBridge(placement);
-      }
-    });
+        const adjustedPlacement = this.adjustPlacementForRtl(this.placement);
+        const { x, y, middlewareData, placement } = await computePosition(triggerElement, this, {
+          placement: adjustedPlacement,
+          middleware,
+          strategy: this.strategy,
+        });
+
+        this.utils.updatePopoverStyle(x, y);
+        if (middlewareData.arrow && this.arrowElement) {
+          this.utils.updateArrowStyle(middlewareData.arrow, placement);
+        }
+        if (this.trigger.includes('mouseenter')) {
+          this.utils.setupHoverBridge(placement);
+        }
+      },
+      {
+        animationFrame: this.animationFrame,
+      },
+    );
   };
+
+  protected isEventFromTrigger(event: Event): boolean {
+    if (!this.triggerID) return false;
+
+    if (event.composed) {
+      return event.composedPath().some(el => (el as HTMLElement)?.id === this.triggerID);
+    }
+    return (event.target as HTMLElement)?.id === this.triggerID;
+  }
 
   /**
-   * Finds the closest popover to the passed element in the DOM tree.
-   *
-   * Useful when need to find the parent popover in a nested popover scenario.
-   *
-   * @param element - The element to start searching from.
+   * Detects if the current layout is in RTL (right-to-left) mode.
+   * @returns True if RTL, false if LTR
+   * @internal
    */
-  protected findClosestPopover = (element: Element): Popover | null => {
-    let el: Element | null = element;
-    while (el && !(el instanceof Popover)) {
-      el = el.parentElement;
+  protected isRtl(): boolean {
+    return window.getComputedStyle(this).direction === 'rtl';
+  }
+
+  /**
+   * Adjusts the placement for RTL layouts by flipping left/right directions.
+   * @param placement - The original placement value
+   * @returns The adjusted placement for RTL or original placement for LTR
+   * @internal
+   */
+  protected adjustPlacementForRtl(placement: PopoverPlacement): PopoverPlacement {
+    if (!this.isRtl()) {
+      return placement;
     }
-    return el;
-  };
+    switch (placement) {
+      case POPOVER_PLACEMENT.LEFT:
+        return POPOVER_PLACEMENT.RIGHT;
+      case POPOVER_PLACEMENT.LEFT_START:
+        return POPOVER_PLACEMENT.RIGHT_START;
+      case POPOVER_PLACEMENT.LEFT_END:
+        return POPOVER_PLACEMENT.RIGHT_END;
+      case POPOVER_PLACEMENT.RIGHT:
+        return POPOVER_PLACEMENT.LEFT;
+      case POPOVER_PLACEMENT.RIGHT_START:
+        return POPOVER_PLACEMENT.LEFT_START;
+      case POPOVER_PLACEMENT.RIGHT_END:
+        return POPOVER_PLACEMENT.LEFT_END;
+      default:
+        return placement;
+    }
+  }
 
   public override render() {
+    this.style.zIndex = `${this.zIndex}`;
     return html`
-      <div class="popover-hover-bridge"></div>
+      <div part="popover-hover-bridge"></div>
       ${this.closeButton
         ? html` <mdc-button
-            class="popover-close"
+            part="popover-close"
             prefix-icon="cancel-bold"
             variant="tertiary"
             size="20"
@@ -1001,7 +1261,7 @@ class Popover extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(Component)
             @click="${this.hide}"
           ></mdc-button>`
         : nothing}
-      ${this.showArrow ? html`<div class="popover-arrow"></div>` : nothing}
+      ${this.showArrow ? html`<div class="popover-arrow" part="popover-arrow"></div>` : nothing}
       <div part="popover-content">
         <slot></slot>
       </div>

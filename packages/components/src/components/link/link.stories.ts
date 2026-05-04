@@ -1,9 +1,9 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
-import { hideControls, readOnlyControls, textControls } from '../../../config/storybook/utils';
+import { hideControls, readOnlyControls } from '../../../config/storybook/utils';
 
 import { DEFAULTS, LINK_SIZES } from './link.constants';
 
@@ -21,7 +21,7 @@ const render = (args: Args) =>
     href="${args.href}"
     target="${args.target}"
     rel="${args.rel}"
-    tabindex="${args.tabIndex}"
+    data-aria-label="${args['data-aria-label']}"
     >${args.children}</mdc-link
   >`;
 
@@ -35,9 +35,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-link',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     children: {
       description: 'Text content to be displayed.',
@@ -68,21 +66,10 @@ const meta: Meta = {
     rel: {
       control: 'text',
     },
-    tabIndex: {
-      control: 'number',
+    'data-aria-label': {
+      control: 'text',
     },
     ...hideControls(['handleNavigation']),
-    ...textControls([
-      '--mdc-link-border-radius',
-      '--mdc-link-color-active',
-      '--mdc-link-color-disabled',
-      '--mdc-link-color-hover',
-      '--mdc-link-color-normal',
-      '--mdc-link-inverted-color-active',
-      '--mdc-link-inverted-color-disabled',
-      '--mdc-link-inverted-color-hover',
-      '--mdc-link-inverted-color-normal',
-    ]),
   },
 };
 
@@ -98,7 +85,6 @@ const defaultArgs = {
   href: 'https://www.webex.com',
   target: '_blank',
   rel: 'noopener noreferrer',
-  tabIndex: 0,
 };
 
 export const Example: StoryObj = {
@@ -148,5 +134,33 @@ export const InlineLinkInverted: StoryObj = {
   },
   argTypes: {
     ...readOnlyControls(['inline', 'inverted']),
+  },
+};
+
+const renderMultiLine = (args: Args) =>
+  html`<div style="width: 200px;">
+    <mdc-link
+      @click="${action('onclick')}"
+      @keydown="${action('onkeydown')}"
+      @focus="${action('onfocus')}"
+      @blur="${action('onblur')}"
+      ?disabled="${args.disabled}"
+      icon-name="${args['icon-name']}"
+      ?inline="${args.inline}"
+      ?inverted="${args.inverted}"
+      size="${args.size}"
+      href="${args.href}"
+      target="${args.target}"
+      rel="${args.rel}"
+      data-aria-label="${args['data-aria-label']}"
+      >${args.children}</mdc-link
+    >
+  </div>`;
+
+export const MultiLineLink: StoryObj = {
+  render: renderMultiLine,
+  args: {
+    ...defaultArgs,
+    children: 'This is a link that will wrap onto multiple lines',
   },
 };

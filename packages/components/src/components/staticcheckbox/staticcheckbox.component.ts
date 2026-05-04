@@ -8,48 +8,72 @@ import styles from './staticcheckbox.styles';
 import { ICON_NAME } from './staticcheckbox.constants';
 
 /**
- * This is a decorative component that is styled to look as a checkbox.
+ * The StaticCheckbox component is a decorative, non-interactive checkbox used for visual
+ * presentation in read-only scenarios. Unlike the interactive `mdc-checkbox`, it does not
+ * handle user interactions or form submissions.
  *
- * It has 3 properties - checked, indeterminate and disabled.
+ * This component supports multiple visual states: checked, indeterminate, disabled, readonly,
+ * and soft-disabled.
  *
- * We are using the same styling that has been created for the `mdc-checkbox` component.
+ * ## When to use
+ * Use StaticCheckbox to display checkbox states in read-only contexts such as summary views,
+ * confirmation screens, or when showing historical form data. For interactive checkboxes, use
+ * `mdc-checkbox` instead.
+ *
+ * ## Accessibility
+ * - StaticCheckbox is decorative and non-interactive by design
+ * - Always pair with descriptive text labels in the default slot
+ * - Do not use this as a replacement for interactive checkboxes in forms
  *
  * @tagname mdc-staticcheckbox
  *
  * @dependency mdc-icon
  *
- * @cssproperty --mdc-staticcheckbox-border-color - Border color in high contrast.
- * @cssproperty --mdc-staticcheckbox-checked-background-color - Background color for a selected checkbox.
- * @cssproperty --mdc-staticcheckbox-disabled-background-color - Background color for a disabled checkbox.
- * @cssproperty --mdc-checkbox-disabled-border-color - Border color for a disabled checkbox.
- * @cssproperty --mdc-checkbox-disabled-checked-icon-color - Background color for a disabled, selected checkbox.
- * @cssproperty --mdc-staticcheckbox-disabled-icon-color - Icon color for a disabled checkbox.
- * @cssproperty --mdc-staticcheckbox-icon-background-color - Background color for an unselected checkbox.
- * @cssproperty --mdc-staticcheckbox-icon-border-color - Default background color for an unselected checkbox.
- * @cssproperty --mdc-staticcheckbox-icon-color - Icon color for an unselected checkbox.
+ * @cssproperty --mdc-staticcheckbox-border-color - Border color of the checkbox.
+ * @cssproperty --mdc-staticcheckbox-background-color - Background color of the checkbox.
+ * @cssproperty --mdc-staticcheckbox-icon-color - Icon color of the checkbox.
+ * @cssproperty --mdc-staticcheckbox-size - Size of the checkbox.
  *
+ * @csspart icon-container - The container for the checkbox icon.
+ * @csspart checkbox-icon - The checkbox icon element.
+ *
+ * @slot - Default slot for label text.
  */
 class StaticCheckbox extends DisabledMixin(Component) {
   /**
-   * Determines whether the checkbox is selected or unselected.
-   *
+   * Determines whether the checkbox appears checked (selected) or unchecked.
    * @default false
    */
   @property({ type: Boolean, reflect: true }) checked = false;
 
   /**
-   * Determines whether the checkbox is in an indeterminate state.
-   *
+   * Determines whether the checkbox appears in an indeterminate (mixed) state.
+   * Typically used to represent partial selection in nested checkbox groups.
    * @default false
    */
   @property({ type: Boolean, reflect: true }) indeterminate = false;
+
+  /**
+   * Determines whether the checkbox appears in a read-only state.
+   * Note: This is purely visual as StaticCheckbox is non-interactive by design.
+   * @default false
+   */
+  @property({ type: Boolean, reflect: true }) readonly = false;
+
+  /**
+   * Determines whether the checkbox appears in a soft-disabled state.
+   * Soft-disabled provides a less prominent disabled appearance than the standard disabled state.
+   * Note: This is purely visual as StaticCheckbox is non-interactive by design.
+   * @default false
+   */
+  @property({ type: Boolean, attribute: 'soft-disabled', reflect: true }) softDisabled = false;
 
   public override render() {
     const checkboxIconContent =
       this.checked || this.indeterminate
         ? html`
             <mdc-icon
-              class="icon"
+              part="checkbox-icon"
               name="${this.indeterminate ? ICON_NAME.INDETERMINATE : ICON_NAME.CHECKED}"
               size="1"
               length-unit="rem"

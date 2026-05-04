@@ -66,14 +66,19 @@ export const CardComponentMixin = <T extends Constructor<LitElement>>(superClass
     imageAlt = '';
 
     /**
-     * The variant of the card. It can either be set to 'border' or 'ghost'
+     * The variant of the card that represents the border styling.
+     * - `border`: Card with border (default)
+     * - `ghost`: Card without border
+     * - `promotional`: Card with promotional styling
      * @default 'border'
      */
     @property({ type: String, reflect: true })
     variant: CardVariant = DEFAULTS.VARIANT;
 
     /**
-     * The orientation of the card. It can either be set to 'vertical' or 'horizontal'
+     * The orientation of the card.
+     * - `vertical`: Card in vertical layout with min-width of 20rem (default)
+     * - `horizontal`: Card in horizontal layout with min-width of 40rem
      * @default 'vertical'
      */
     @property({ type: String, reflect: true })
@@ -109,7 +114,9 @@ export const CardComponentMixin = <T extends Constructor<LitElement>>(superClass
       if (!this.imageSrc) {
         return nothing;
       }
-      return html`<div part="image-wrapper"><img part="image" src="${this.imageSrc}" alt="${this.imageAlt}" /></div>`;
+      return html`<div part="image-wrapper">
+        <img part="image" src="${this.imageSrc}" alt="${this.imageAlt}" />
+      </div>`;
     }
 
     /**
@@ -133,12 +140,20 @@ export const CardComponentMixin = <T extends Constructor<LitElement>>(superClass
      */
     protected renderTitle() {
       return html`<div part="title-container">
-        <mdc-text part="title" type="${DEFAULTS.TITLE_TYPE}" tagname="${this.titleTagName}">${this.cardTitle}</mdc-text>
-        ${this.subtitle
-          ? html`<mdc-text part="subtitle" type="${DEFAULTS.SUBTITLE_TYPE}" tagname="${this.subtitleTagName}"
-              >${this.subtitle}</mdc-text
-            >`
-          : nothing}
+        <slot name="title">
+          ${this.cardTitle
+            ? html`<mdc-text part="title" type="${DEFAULTS.TITLE_TYPE}" tagname="${this.titleTagName}"
+                >${this.cardTitle}</mdc-text
+              >`
+            : nothing}
+        </slot>
+        <slot name="subtitle">
+          ${this.subtitle
+            ? html`<mdc-text part="subtitle" type="${DEFAULTS.SUBTITLE_TYPE}" tagname="${this.subtitleTagName}"
+                >${this.subtitle}</mdc-text
+              >`
+            : nothing}
+        </slot>
       </div>`;
     }
   }

@@ -2,13 +2,14 @@ import { CSSResult, html, nothing, PropertyValues, TemplateResult } from 'lit';
 import { property, queryAssignedElements } from 'lit/decorators.js';
 
 import { Component } from '../../models';
-import { KEYS } from '../../utils/keys';
 import { DisabledMixin } from '../../utils/mixins/DisabledMixin';
 import { TabIndexMixin } from '../../utils/mixins/TabIndexMixin';
 import { ROLE } from '../../utils/roles';
 import { TYPE, VALID_TEXT_TAGS } from '../text/text.constants';
 import type { TextType } from '../text/text.types';
 import { LifeCycleMixin } from '../../utils/mixins/lifecycle/LifeCycleMixin';
+import { ACTIONS, KeyToActionMixin } from '../../utils/mixins/KeyToActionMixin';
+import { KeyDownHandledMixin } from '../../utils/mixins/KeyDownHandledMixin';
 
 import { DEFAULTS } from './listitem.constants';
 import { ListItemEventManager } from './listitem.events';
@@ -58,6 +59,11 @@ import { ListItemVariants } from './listitem.types';
  * @cssproperty --mdc-listitem-width - Allows customization of the width of the list item.
  * @cssproperty --mdc-listitem-height - Allows customization of the height of the list item.
  *
+ * @csspart leading - Allows customization of the leading part.
+ * @csspart leading-text - Allows customization of the leading text part.
+ * @csspart trailing - Allows customization of the trailing part.
+ * @csspart trailing-text - Allows customization of the trailing text part.
+ *
  * @event click - (React: onClick) This event is dispatched when the listitem is clicked.
  * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the listitem.
  * @event keyup - (React: onKeyUp) This event is dispatched when a key is released on the listitem.
@@ -67,7 +73,7 @@ import { ListItemVariants } from './listitem.types';
  * @event created - (React: onCreated) This event is dispatched after the listitem is created (added to the DOM)
  * @event destroyed - (React: onDestroyed) This event is dispatched after the listitem is destroyed (removed from the DOM)
  */
-class ListItem extends DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))) {
+class ListItem extends KeyDownHandledMixin(KeyToActionMixin(DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))))) {
   /** @internal */
   @queryAssignedElements({ slot: 'leading-controls' })
   leadingControlsSlot!: Array<HTMLElement>;
@@ -125,16 +131,50 @@ class ListItem extends DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))) {
   @property({ type: Boolean, reflect: true, attribute: 'soft-disabled' })
   softDisabled?: boolean;
 
+  /**
+   * Data attribute to define the index of the list item in a list.
+   * This also set the `aria-posinset` attribute for accessibility purposes.
+   *
+   * It is required when the list item is used inside a virtualized list where the items are not sequentially rendered.
+   * It should be a zero-based index.
+   *
+   * @default undefined
+   */
+  @property({ type: Number, reflect: true, attribute: 'data-index' })
+  dataIndex?: number;
+
+  /**
+   * Indicates whether the list item is active.
+   * When set to true, the list item appears in a active state.
+   *
+   * NOTE: this is a visual state only, it does not affect the behavior or a11y of the list item.
+   *
+   * @default undefined
+   */
+  @property({ type: Boolean, reflect: true, attribute: 'active' })
+  active?: boolean;
+
+  private wasSpacePressed: boolean = false;
+
   constructor() {
     super();
 
     this.addEventListener('keydown', this.handleKeyDown.bind(this));
+    this.addEventListener('keyup', this.handleKeyUp.bind(this));
     this.addEventListener('click', this.handleClick.bind(this));
+    this.addEventListener('blur', this.handleBlur.bind(this));
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
     this.role = this.role || ROLE.LISTITEM;
+  }
+
+  /**
+   * Handles the blur event on the list item. It resets the `wasSpacePressed` flag to false.
+   */
+  private handleBlur(): void {
+    this.wasSpacePressed = false;
   }
 
   /**
@@ -157,16 +197,51 @@ class ListItem extends DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))) {
    * @param event - The keyboard event triggered when a key is pressed down.
    */
   protected handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === KEYS.ENTER || event.key === KEYS.SPACE) {
-      this.triggerClickEvent();
+    const action = this.getActionForKeyEvent(event);
+
+    if (this.isEventFromInsideListItem(event)) {
+      return;
+    }
+
+    if (!event.defaultPrevented && action === ACTIONS.ENTER) {
+      this.keyDownEventHandled();
       event.preventDefault();
+      this.triggerClickEvent(event);
+    } else if (action === ACTIONS.SPACE) {
+      this.wasSpacePressed = true;
+    }
+  }
+
+  protected handleKeyUp(event: KeyboardEvent): void {
+    const action = this.getActionForKeyEvent(event);
+    if (action === ACTIONS.SPACE) {
+      if (!this.isEventFromInsideListItem(event) && !event.defaultPrevented && this.wasSpacePressed) {
+        event.preventDefault();
+        this.triggerClickEvent(event);
+      }
+
+      this.wasSpacePressed = false;
     }
   }
 
   /**
-   * Triggers a click event on the list item.
+   * Checks if the event originated from within the list item.
+   * @param event - The event to check.
+   * @internal
    */
-  protected triggerClickEvent() {
+  private isEventFromInsideListItem(event: Event): boolean {
+    const target = event.target as HTMLElement;
+    return target !== this && document.activeElement === target && this.contains(target);
+  }
+
+  /**
+   * Triggers a click event on the list item.
+   *
+   * @param event - The event that triggered the click.
+   * @returns - Returns true if the click event was dispatched, false otherwise.
+   */
+  protected triggerClickEvent(event: Event): void {
+    if (this.isEventFromInsideListItem(event)) return;
     const clickEvent = new MouseEvent('click', {
       bubbles: true,
       cancelable: true,
@@ -202,11 +277,9 @@ class ListItem extends DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))) {
     [...this.leadingControlsSlot, ...this.trailingControlsSlot].forEach(element => {
       if (disabled) {
         element.setAttribute('disabled', '');
-        this.dispatchModifiedEvent('disabled');
         ListItemEventManager.onDisableListItem(this);
       } else {
         element.removeAttribute('disabled');
-        this.dispatchModifiedEvent('enabled');
         ListItemEventManager.onEnableListItem(this);
       }
     });
@@ -220,10 +293,15 @@ class ListItem extends DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))) {
     if (changedProperties.has('disabled')) {
       this.tabIndex = this.disabled ? -1 : 0;
       this.disableSlottedChildren(this.disabled);
+      this.dispatchModifiedEvent(this.disabled ? 'disabled' : 'enabled');
     }
 
     if (changedProperties.has('softDisabled')) {
       this.disableSlottedChildren(this.softDisabled);
+    }
+
+    if (changedProperties.has('dataIndex')) {
+      this.ariaPosInSet = `${this.dataIndex !== undefined ? this.dataIndex + 1 : ''}`;
     }
   }
 
@@ -261,12 +339,18 @@ class ListItem extends DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))) {
    * @param event - The mouse event triggered when a click occurs.
    */
   protected stopEventPropagation(event: Event): void {
-    if (
-      (event instanceof KeyboardEvent && (event.key === KEYS.ENTER || event.key === KEYS.SPACE)) ||
-      event instanceof MouseEvent
-    ) {
+    if (event instanceof KeyboardEvent) {
+      const action = this.getActionForKeyEvent(event);
+      if (action === ACTIONS.ENTER || action === ACTIONS.SPACE) {
+        event.stopPropagation();
+      }
+    } else if (event instanceof MouseEvent) {
       event.stopPropagation();
     }
+  }
+
+  override click() {
+    this.triggerClickEvent(new Event('click'));
   }
 
   public override render() {
@@ -275,7 +359,11 @@ class ListItem extends DisabledMixin(TabIndexMixin(LifeCycleMixin(Component))) {
         <div part="leading">
           ${this.renderLeadingControls()}
           <div part="leading-text">
-            ${this.getText('leading-text-primary-label', TYPE.BODY_MIDSIZE_REGULAR, this.label)}
+            ${this.getText(
+              'leading-text-primary-label',
+              this.active ? TYPE.BODY_MIDSIZE_BOLD : TYPE.BODY_MIDSIZE_REGULAR,
+              this.label,
+            )}
             ${this.getText('leading-text-secondary-label', TYPE.BODY_SMALL_REGULAR, this.secondaryLabel)}
             ${this.getText('leading-text-tertiary-label', TYPE.BODY_SMALL_REGULAR, this.tertiaryLabel)}
           </div>

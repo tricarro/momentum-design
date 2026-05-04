@@ -14,7 +14,7 @@ import { DEFAULTS } from './menusection.constants';
 /**
  * `mdc-menusection` is a container element used to group a set of menu items.
  *
- * This component supports a mix of `menuitem`, `menuitemcheckbox`, and `menuitemradio` components.
+ * This component supports a mix of `menuitem`, `menuitemcheckbox`, and `menuitemradio` components. MenuSection can not be nested.
  *
  * - If multiple `menuitemradio` components are slotted into the section, the group enforces a single-selection rule:
  *   only one radio item can be selected at a time.
@@ -26,6 +26,16 @@ import { DEFAULTS } from './menusection.constants';
  *
  * @event change - (React: onChange) This event is dispatched when a `menuitemcheckbox`, or `menuitemradio` changes.
  * @event action - (React: onAction) This event is dispatched when a `menuitem` selected.
+ *
+ * @csspart header - The header of the menusection.
+ * @csspart align-header - The header of the menusection when it is aligned to the start.
+ * @csspart container - The container of the menusection.
+ * @csspart divider - The divider of the menusection.
+ *
+ * @cssproperty --mdc-menusection-divider-margin-block - Sets the margin block of the divider.
+ * @cssproperty --mdc-menusection-gap - Sets the gap between items in the menusection.
+ * @cssproperty --mdc-menusection-divider-width - Sets the width of the divider.
+ * @cssproperty --mdc-menusection-header-padding - Sets the padding of the header, if present.
  */
 class MenuSection extends Component {
   /**

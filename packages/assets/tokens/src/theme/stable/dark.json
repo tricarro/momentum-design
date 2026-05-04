@@ -667,13 +667,19 @@
           "active": {
             "parent": "theme/stable/dark",
             "type": "color",
-            "value": "{color.core.white-alpha.20}"
+            "value": "{color.core.white-alpha.30}"
           },
           "disabled": {
             "parent": "theme/stable/dark",
             "type": "color",
             "value": "{color.core.white-alpha.0}",
             "description": ""
+          },
+          "subtle": {
+            "parent": "theme/stable/dark",
+            "type": "color",
+            "value": "{color.core.white-alpha.7}",
+            "description": "Used in the Agent/Supervisor Desktop"
           }
         },
         "accent": {
@@ -1092,6 +1098,11 @@
             "type": "color",
             "description": "Used for glass effect background for operation pop. "
           },
+          "active": {
+            "value": "{color.core.white-alpha.11}",
+            "type": "color",
+            "description": "Used for glass effect background for operation pop. "
+          },
           "light": {
             "value": "{color.core.black-alpha.40}",
             "type": "color",
@@ -1107,26 +1118,14 @@
             "type": "color",
             "description": "Used for glass effect background for operation pop. "
           },
-          "overlay": {
-            "normal": {
-              "value": "{color.core.black-alpha.80}",
-              "type": "color",
-              "description": "Used for operation pop: knocked-back effect when signle card is selected"
-            },
-            "inactive": {
-              "value": "{color.core.black-alpha.40}",
-              "type": "color",
-              "description": "Used for operation pop: knocked-back effect when signle card is selected"
-            }
-          },
           "radial": {
             "0": {
-              "value": "{color.core.white-alpha.40}",
+              "value": "{color.core.white-alpha.5}",
               "type": "color",
               "description": "Used for operation pop background. "
             },
             "1": {
-              "value": "{color.core.white-alpha.5}",
+              "value": "{color.core.white-alpha.0}",
               "type": "color",
               "description": "Used for operation pop background. "
             }
@@ -1137,6 +1136,26 @@
             "value": "{color.core.white-alpha.11}",
             "type": "color",
             "description": "Used for disabled/read-only/read-only focus states for input components. "
+          }
+        },
+        "overlay": {
+          "normal": {
+            "value": "{color.core.blue.100}",
+            "type": "color",
+            "$extensions": {
+              "studio.tokens": {
+                "modify": {
+                  "type": "alpha",
+                  "value": "0.7",
+                  "space": "lch"
+                }
+              },
+              "com.figma.scopes": [
+                "ALL_FILLS",
+                "FRAME_FILL"
+              ]
+            },
+            "description": "Used for overlay background"
           }
         }
       },
@@ -1484,6 +1503,13 @@
             "value": "linear-gradient(180deg, {color.core.white-alpha.11} 0%, {color.core.white-alpha.5} 100%)",
             "type": "color",
             "description": "Used for operation pop"
+          }
+        },
+        "ai": {
+          "normal": {
+            "type": "color",
+            "value": "linear-gradient(27deg, {color.ai.steelblue} 10.22%, {color.ai.skyblue} 88.93%, {color.ai.aquablue} 162.86%)",
+            "description": "linear-gradient(27deg, #3B76EA 10.22%, #00BCEB 88.93%, #63FFF7 162.86%)\nUsed for AI assistant feature"
           }
         }
       },
@@ -2090,7 +2116,7 @@
             "parent": "theme/stable/dark",
             "type": "color",
             "value": "{color.partner.sheets}",
-            "description": "HEX:F4B400\n---------------\nUsed for bacakground of attachment for content-list components."
+            "description": "HEX: 00893e\nUsed for bacakground of attachment for content-list components."
           },
           "slides": {
             "parent": "theme/stable/dark",

@@ -1,11 +1,10 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-restricted-syntax */
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
 import { VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
 import { getHelperIcon } from '../formfieldwrapper/formfieldwrapper.utils';
+import { KEYS } from '../../utils/keys';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
@@ -27,7 +26,8 @@ type SetupOptions = {
   pattern?: string;
   list?: string;
   size?: number;
-  showHideButtonAriaLabel?: string;
+  showButtonAriaLabel?: string;
+  hideButtonAriaLabel?: string;
   secondButtonForFocus?: boolean;
 };
 
@@ -56,7 +56,8 @@ const setup = async (args: SetupOptions, isForm = false) => {
       ${restArgs.pattern ? `pattern="${restArgs.pattern}"` : ''}
       ${restArgs.list ? `list="${restArgs.list}"` : ''}
       ${restArgs.size ? `size="${restArgs.size}"` : ''}
-      ${restArgs.showHideButtonAriaLabel ? `show-hide-button-aria-label="${restArgs.showHideButtonAriaLabel}"` : ''}
+      ${restArgs.showButtonAriaLabel ? `show-button-aria-label="${restArgs.showButtonAriaLabel}"` : ''}
+      ${restArgs.hideButtonAriaLabel ? `hide-button-aria-label="${restArgs.hideButtonAriaLabel}"` : ''}
       ></mdc-password>
       ${restArgs.secondButtonForFocus ? '<mdc-button>Second Button</mdc-button></div>' : ''}
     ${isForm ? '<mdc-button type="submit" size="24">Submit</mdc-button></form>' : ''}
@@ -66,6 +67,8 @@ const setup = async (args: SetupOptions, isForm = false) => {
   if (isForm) {
     const form = componentsPage.page.locator('form');
     await form.waitFor();
+    // Wait for the custom element inside the form to upgrade and render its shadow DOM
+    await form.locator('mdc-password input').waitFor();
     return form;
   }
   const text = componentsPage.page.locator('mdc-password');
@@ -73,29 +76,27 @@ const setup = async (args: SetupOptions, isForm = false) => {
   return text;
 };
 
-test.use({ viewport: { width: 800, height: 1500 } });
-test('mdc-password', async ({ componentsPage, browserName }) => {
+test.describe('mdc-password', () => {
+  test.use({ viewport: { width: 800, height: 1500 } });
+
   const defaultSetupOptions = {
-    componentsPage,
     id: 'test-mdc-password',
     placeholder: 'Placeholder',
     maxlength: 10,
     minlength: 5,
-    showHideButtonAriaLabel: 'show-hide button aria-label',
+    showButtonAriaLabel: 'show button aria-label',
+    hideButtonAriaLabel: 'hide button aria-label',
     label: 'Label',
     helpText: 'Help Text',
     secondButtonForFocus: true,
   };
 
-  let password: any;
-
-  // Initial setup
-  password = await setup(defaultSetupOptions);
-
   /**
    * ATTRIBUTES
    */
-  await test.step('attributes', async () => {
+  test('attributes', async ({ componentsPage }) => {
+    // Initial setup
+    const password = await setup({ componentsPage, ...defaultSetupOptions });
     await test.step('should attributes be present in the component', async () => {
       await expect(password).toHaveAttribute('id', 'test-mdc-password');
       await expect(password).toHaveAttribute('placeholder', 'Placeholder');
@@ -105,29 +106,30 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
       await expect(password).toHaveAttribute('help-text', 'Help Text');
       const helpText = password.locator('mdc-text[part="help-text"]');
       await expect(helpText).toHaveText('Help Text');
-      await expect(password).toHaveAttribute('show-hide-button-aria-label', 'show-hide button aria-label');
+      await expect(password).toHaveAttribute('show-button-aria-label', 'show button aria-label');
+      await expect(password).toHaveAttribute('hide-button-aria-label', 'hide button aria-label');
     });
 
     await test.step('should the required attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, { required: '' });
       await expect(password).toHaveAttribute('required', '');
     });
 
     await test.step('should the readonly attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, { readonly: '' });
       await expect(password).toHaveAttribute('readonly');
     });
 
     await test.step('should the disabled attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, { disabled: '' });
       await expect(password).toHaveAttribute('disabled');
     });
 
     await test.step('should the help-text-type attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       for (const type of Object.values(VALIDATION)) {
         await componentsPage.setAttributes(password, { 'help-text-type': type });
         await expect(password).toHaveAttribute('help-text-type', type);
@@ -141,38 +143,41 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
     });
 
     await test.step('should the attributes size, minlength and maxlength be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, { maxlength: '10', minlength: '5', size: '10' });
       await expect(password).toHaveAttribute('maxlength', '10');
       await expect(password).toHaveAttribute('minlength', '5');
       await expect(password).toHaveAttribute('size', '10');
     });
 
-    await test.step('should the show-hide-button-aria-label attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+    await test.step('should the show- & hide-button-aria-label attribute be present in the component when it sets', async () => {
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, {
-        'show-hide-button-aria-label': 'show/hide password',
+        'show-button-aria-label': 'show password',
+        'hide-button-aria-label': 'hide password',
         value: 'test',
       });
       const trailingButton = password.locator('mdc-button[part="trailing-button"]');
       await expect(trailingButton).toBeVisible();
-      await expect(trailingButton).toHaveAttribute('aria-label', 'show/hide password');
+      await expect(trailingButton).toHaveAttribute('aria-label', 'show password');
+      await trailingButton.click();
+      await expect(trailingButton).toHaveAttribute('aria-label', 'hide password');
     });
 
     await test.step('should the autofocus attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, { 'auto-focus-on-mount': '' });
       await expect(password).toHaveAttribute('auto-focus-on-mount');
     });
 
     await test.step('should the dirname attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, { dirname: 'ltr' });
       await expect(password).toHaveAttribute('dirname', 'ltr');
     });
 
     await test.step('should the pattern attribute be present in the component when it sets', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       await componentsPage.setAttributes(password, { pattern: '[A-Za-z]{3}' });
       await expect(password).toHaveAttribute('pattern', '[A-Za-z]{3}');
     });
@@ -181,16 +186,12 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
   /**
    * INTERACTIONS
    */
-  await test.step('interactions', async () => {
+  test('interactions', async ({ componentsPage, browserName }) => {
+    let password: any;
+
     await test.step('should the component be focusable with tab', async () => {
-      await setup({
-        componentsPage,
-        trailingButton: true,
-        showHideButtonAriaLabel: 'show/hide button',
-        secondButtonForFocus: true,
-      });
+      password = await setup({ componentsPage, ...defaultSetupOptions });
       const showHideButton = password.locator('mdc-button[part="trailing-button"]');
-      await setup(defaultSetupOptions);
       const passwordEl = password.locator('input');
       await componentsPage.actionability.pressTab();
       await expect(password).toBeFocused();
@@ -210,7 +211,8 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
         componentsPage,
         readonly: true,
         value: 'Readonly',
-        showHideButtonAriaLabel: 'show/hide password',
+        showButtonAriaLabel: 'show button',
+        hideButtonAriaLabel: 'hide button',
         secondButtonForFocus: true,
       });
       const trailingButton = password.locator('mdc-button[part="trailing-button"]');
@@ -226,7 +228,8 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
     await test.step('should the password element type toggle between text and password when the trailingbutton is clicked', async () => {
       password = await setup({
         componentsPage,
-        showHideButtonAriaLabel: 'show/hide password',
+        showButtonAriaLabel: 'show button',
+        hideButtonAriaLabel: 'hide button',
         secondButtonForFocus: true,
       });
       const trailingButton = password.locator('mdc-button[part="trailing-button"]');
@@ -253,7 +256,8 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
         componentsPage,
         value: 'this is readonly data',
         readonly: true,
-        showHideButtonAriaLabel: 'show/hide password',
+        showButtonAriaLabel: 'show button',
+        hideButtonAriaLabel: 'hide button',
         secondButtonForFocus: true,
       });
       const trailingButton = password.locator('mdc-button[part="trailing-button"]');
@@ -267,7 +271,7 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
     });
 
     await test.step('should the password element not be focusable when it is disabled', async () => {
-      await setup(defaultSetupOptions);
+      await setup({ componentsPage, ...defaultSetupOptions });
       const passwordEl = password.locator('input');
       await componentsPage.setAttributes(password, { disabled: '', value: 'Disabled' });
       await componentsPage.actionability.pressTab();
@@ -411,9 +415,33 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
       const validationMessage2 = await passwordEl.evaluate(element => (element as HTMLInputElement).validationMessage);
       expect(validationMessage2).toBeFalsy();
     });
+
+    await test.step('spatial navigation', async () => {
+      const form = await setup(
+        {
+          componentsPage,
+          id: 'test-mdc-password',
+          placeholder: 'Placeholder',
+          required: true,
+          maxlength: 10,
+        },
+        true,
+      );
+      const input = form.locator('mdc-password');
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(input).toBeFocused();
+
+      // Enter does not trigger submit in spatial navigation mode
+      const waitForInput = await componentsPage.waitForEvent(form, 'submit');
+      await keyboard.press(KEYS.ENTER);
+      await expect(waitForInput).not.toEventEmitted();
+    });
   });
 
-  await test.step('should update help-text and help-text-type dynamically based on password validity (FormFieldPasswordWithHelpTextValidation)', async () => {
+  test('help-text validation', async ({ componentsPage }) => {
     await componentsPage.mount({
       html: `
         <form id="test-form" novalidate>
@@ -428,7 +456,8 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
               maxlength="10"
               help-text="Please provide a valid password"
               help-text-type="default"
-              show-hide-button-aria-label="Show or hide password"
+              show-button-aria-label="Show password"
+              hide-button-aria-label="Hide password"
             ></mdc-password>
             <div style="display: flex; gap: 0.25rem; margin-top: 0.25rem">
               <mdc-button type="submit" size="24">Submit</mdc-button>
@@ -511,13 +540,14 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
   /**
    * VISUAL REGRESSION
    */
-  await test.step('visual-regression', async () => {
+  test('visual-regression', async ({ componentsPage }) => {
     const attributes = {
       id: 'test-mdc-password',
       placeholder: 'Placeholder',
       label: 'Label',
       'help-text': 'Help Text',
-      'show-hide-button-aria-label': 'show/hide password',
+      'show-button-aria-label': 'show password',
+      'hide-button-aria-label': 'hide password',
     };
     const inputStickerSheet = new StickerSheet(componentsPage, 'mdc-password');
 
@@ -526,7 +556,13 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
       'help-text-type': VALIDATION,
     });
 
-    inputStickerSheet.setAttributes({ ...attributes, value: 'Disabled', disabled: true });
+    inputStickerSheet.setAttributes({
+      ...attributes,
+      value: 'Disabled',
+      disabled: true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
+    });
     await inputStickerSheet.createMarkupWithCombination({});
 
     await inputStickerSheet.createMarkupWithCombination({});
@@ -553,12 +589,14 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
     });
     await inputStickerSheet.createMarkupWithCombination({});
 
+    // Short width test for word wrapping
     inputStickerSheet.setAttributes({
-      ...attributes,
-      label: 'This is a large label text',
-      required: '',
-      placeholder: 'placeholder',
-      style: 'width: 200px',
+      label: 'This is a very long label that should wrap to multiple lines when constrained to a short width',
+      'help-text': 'This is also a very long help text that should wrap properly',
+      placeholder: 'Short width placeholder',
+      style: 'width: 7.5rem;',
+      'toggletip-text': 'This is additional toggletip text that provides more context',
+      'info-icon-aria-label': 'Additional information',
     });
     await inputStickerSheet.createMarkupWithCombination({});
 
@@ -573,7 +611,8 @@ test('mdc-password', async ({ componentsPage, browserName }) => {
   /**
    * ACCESSIBILITY
    */
-  await test.step('accessibility', async () => {
+  test('accessibility', async ({ componentsPage }) => {
+    await setup({ componentsPage, ...defaultSetupOptions });
     await componentsPage.accessibility.checkForA11yViolations('password-default');
   });
 });

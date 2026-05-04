@@ -1,7 +1,6 @@
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { KEYS } from '../../utils/keys';
 
 import { DEFAULTS, TOGGLE_SIZE } from './toggle.constants';
 
@@ -11,10 +10,13 @@ type SetupOptions = {
   value?: string;
   label?: string;
   'help-text'?: string;
+  readonly?: boolean;
   disabled?: boolean;
   checked?: boolean;
   'data-aria-label'?: string;
   size?: string;
+  'soft-disabled'?: boolean;
+  'control-type'?: string;
 };
 
 const setup = async (args: SetupOptions) => {
@@ -27,8 +29,11 @@ const setup = async (args: SetupOptions) => {
         ${restArgs.label ? `label="${restArgs.label}"` : ''}
         ${restArgs['help-text'] ? `help-text="${restArgs['help-text']}"` : ''}
         ${restArgs['data-aria-label'] ? `data-aria-label="${restArgs['data-aria-label']}"` : ''}
+        ${restArgs['control-type'] ? `control-type="${restArgs['control-type']}"` : ''}
         ${restArgs.disabled ? 'disabled' : ''}
         ${restArgs.checked ? 'checked' : ''}
+        ${restArgs.readonly ? 'readonly' : ''}
+        ${restArgs['soft-disabled'] ? 'soft-disabled' : ''}
         ${restArgs.size ? `size="${restArgs.size}"` : ''}
       >
       </mdc-toggle>
@@ -76,8 +81,21 @@ const attributeTestCases = async (componentsPage: ComponentsPage) => {
     await componentsPage.setAttributes(toggle, { disabled: 'true' });
     await expect(toggle).toHaveAttribute('disabled', 'true');
   });
+
+  await test.step('should have readonly attribute when the readonly attribute is passed', async () => {
+    await componentsPage.setAttributes(toggle, { readonly: '' });
+    await expect(toggle).toHaveAttribute('readonly', '');
+    await componentsPage.removeAttribute(toggle, 'readonly');
+  });
+
+  await test.step('should have soft-disabled attribute when the soft-disabled attribute is passed', async () => {
+    await componentsPage.setAttributes(toggle, { 'soft-disabled': '' });
+    await expect(toggle).toHaveAttribute('soft-disabled', '');
+    await componentsPage.removeAttribute(toggle, 'soft-disabled');
+  });
 };
 
+test.use({ viewport: { width: 800, height: 1600 } });
 const testToRun = async (componentsPage: ComponentsPage) => {
   /**
    * ATTRIBUTES
@@ -118,10 +136,10 @@ const testToRun = async (componentsPage: ComponentsPage) => {
       await componentsPage.actionability.pressTab();
       await expect(toggle).toBeFocused();
 
-      await componentsPage.page.keyboard.press('Space');
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
       await expect(toggle).toHaveAttribute('checked');
 
-      await componentsPage.page.keyboard.press('Space');
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
       await expect(toggle).not.toHaveAttribute('checked');
     });
 
@@ -136,13 +154,39 @@ const testToRun = async (componentsPage: ComponentsPage) => {
       await expect(toggle).not.toHaveAttribute('checked');
     });
 
+    await test.step('toggle should be focused but not change state when readonly', async () => {
+      const toggle = await setup({ componentsPage, label: 'Toggle label', readonly: true });
+
+      await componentsPage.actionability.pressTab();
+      await expect(toggle).toBeFocused();
+
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
+      await expect(toggle).not.toHaveAttribute('checked');
+
+      await toggle.click({ force: true });
+      await expect(toggle).not.toHaveAttribute('checked');
+    });
+
+    await test.step('toggle should be focused but not change state when soft-disabled', async () => {
+      const toggle = await setup({ componentsPage, label: 'Toggle label', 'soft-disabled': true });
+
+      await componentsPage.actionability.pressTab();
+      await expect(toggle).toBeFocused();
+
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
+      await expect(toggle).not.toHaveAttribute('checked');
+
+      await toggle.click({ force: true });
+      await expect(toggle).not.toHaveAttribute('checked');
+    });
+
     await test.step('toggle should not be Focused or toggled when it is disabled', async () => {
       const toggle = await setup({ componentsPage, label: 'Toggle label', disabled: true });
 
       await componentsPage.actionability.pressTab();
       await expect(toggle).not.toBeFocused();
 
-      await toggle.click();
+      await toggle.click({ force: true });
       await expect(toggle).not.toHaveAttribute('checked');
     });
 
@@ -225,6 +269,97 @@ const testToRun = async (componentsPage: ComponentsPage) => {
       await resetButton.click();
       await expectHelpText('Please accept the terms', 'default');
     });
+
+    await test.step('controlled toggle should not change state when clicked', async () => {
+      const toggle = await setup({ componentsPage, 'control-type': 'controlled', label: 'Controlled Toggle' });
+
+      await expect(toggle).not.toHaveAttribute('checked');
+
+      await toggle.click();
+      await expect(toggle).not.toHaveAttribute('checked');
+
+      // Manually set checked attribute (simulating parent component)
+      await toggle.evaluate(el => el.setAttribute('checked', ''));
+      await expect(toggle).toHaveAttribute('checked');
+
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('checked');
+
+      await toggle.evaluate(el => el.removeAttribute('checked'));
+      await expect(toggle).not.toHaveAttribute('checked');
+    });
+
+    await test.step('controlled toggle should not change state when space key is pressed', async () => {
+      const toggle = await setup({ componentsPage, 'control-type': 'controlled', label: 'Controlled Toggle' });
+
+      await componentsPage.actionability.pressTab();
+      await expect(toggle).toBeFocused();
+
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
+      await expect(toggle).not.toHaveAttribute('checked');
+    });
+
+    await test.step('focus using JavaScript focus() method', async () => {
+      const toggle = await setup({ componentsPage, label: 'Toggle label' });
+
+      // Use JavaScript to focus the element
+      await toggle.evaluate((el: HTMLElement) => el.focus());
+
+      // Verify the internal checkbox input is focused (delegatesFocus delegates to shadow DOM)
+      const isFocused = await toggle.evaluate(el => {
+        const { shadowRoot } = el;
+        if (!shadowRoot) return false;
+        const input = shadowRoot.querySelector('input[type="checkbox"]');
+        return document.activeElement === el && input === shadowRoot.activeElement;
+      });
+
+      expect(isFocused).toBe(true);
+    });
+
+    await test.step('programmatic control', async () => {
+      await test.step('click method works as expected', async () => {
+        const checkbox = await setup({ componentsPage });
+
+        // Check programmatically
+        const waitForClickAfterChecked = await componentsPage.waitForEvent(checkbox, 'click');
+        await checkbox.evaluate((el: HTMLElement) => el.click());
+        await expect(checkbox.locator('input[type="checkbox"]')).toBeChecked();
+        await expect(waitForClickAfterChecked).toEventEmitted();
+
+        // Uncheck programmatically
+        const waitForClickAfterUnchecked = await componentsPage.waitForEvent(checkbox, 'click');
+        await checkbox.evaluate((el: HTMLElement) => el.click());
+        await expect(checkbox.locator('input[type="checkbox"]')).not.toBeChecked();
+        await expect(waitForClickAfterUnchecked).toEventEmitted();
+      });
+
+      await test.step('click method works as expected when component disabled', async () => {
+        const checkbox = await setup({ componentsPage, disabled: true });
+        const waitForClickAfterDisabled = await componentsPage.waitForEvent(checkbox, 'click');
+        await checkbox.evaluate((el: HTMLElement) => el.click());
+
+        await expect(checkbox.locator('input[type="checkbox"]')).not.toBeChecked();
+        await expect(waitForClickAfterDisabled).not.toEventEmitted();
+      });
+    });
+
+    await test.step('spatial navigation', async () => {
+      const checkbox = await setup({ componentsPage });
+      await componentsPage.wrapElement({ wrapperTagName: 'form' });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      const form = componentsPage.page.locator('form');
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(checkbox).toBeFocused();
+
+      const waitForSubmit = await componentsPage.waitForEvent(form, 'submit');
+      await expect(checkbox.locator('input[type="checkbox"]')).not.toBeChecked();
+      await keyboard.press(KEYS.ENTER);
+      await expect(checkbox.locator('input[type="checkbox"]')).toBeChecked();
+      await expect(waitForSubmit).not.toEventEmitted();
+    });
   });
 
   /**
@@ -255,6 +390,8 @@ const testToRun = async (componentsPage: ComponentsPage) => {
       label: 'Disabled toggle Label',
       'help-text': 'This is a help text',
       disabled: true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
     });
     await toggleStickerSheet.createMarkupWithCombination({ size: TOGGLE_SIZE }, { rowWrapperStyle: 'gap: 1.25rem' });
     toggleStickerSheet.setAttributes({
@@ -262,6 +399,54 @@ const testToRun = async (componentsPage: ComponentsPage) => {
       'help-text': 'This is a help text',
       disabled: true,
       checked: true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
+    });
+    await toggleStickerSheet.createMarkupWithCombination({ size: TOGGLE_SIZE }, { rowWrapperStyle: 'gap: 1.25rem' });
+
+    toggleStickerSheet.setAttributes({
+      label: 'Read Only Toggle Label',
+      'help-text': 'This is a help text',
+      readonly: true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
+    });
+    await toggleStickerSheet.createMarkupWithCombination({ size: TOGGLE_SIZE }, { rowWrapperStyle: 'gap: 1.25rem' });
+    toggleStickerSheet.setAttributes({
+      label: 'Read Only Checked Toggle Label',
+      'help-text': 'This is a help text',
+      readonly: true,
+      checked: true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
+    });
+    await toggleStickerSheet.createMarkupWithCombination({ size: TOGGLE_SIZE }, { rowWrapperStyle: 'gap: 1.25rem' });
+
+    toggleStickerSheet.setAttributes({
+      label: 'Soft Disabled Toggle Label',
+      'help-text': 'This is a help text',
+      'soft-disabled': true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
+    });
+    await toggleStickerSheet.createMarkupWithCombination({ size: TOGGLE_SIZE }, { rowWrapperStyle: 'gap: 1.25rem' });
+    toggleStickerSheet.setAttributes({
+      label: 'Soft Disabled Selected Toggle Label',
+      'help-text': 'This is a help text',
+      'soft-disabled': true,
+      checked: true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
+    });
+    await toggleStickerSheet.createMarkupWithCombination({ size: TOGGLE_SIZE }, { rowWrapperStyle: 'gap: 1.25rem' });
+
+    // Short width test for word wrapping
+    toggleStickerSheet.setAttributes({
+      label: 'This is a very long label that should wrap to multiple lines when constrained to a short width',
+      'help-text': 'This is also a very long help text that should wrap properly',
+      style: 'width: 7.5rem;',
+      'toggletip-text': 'This is additional toggletip text that provides more context',
+      'info-icon-aria-label': 'Additional information',
     });
     await toggleStickerSheet.createMarkupWithCombination({ size: TOGGLE_SIZE }, { rowWrapperStyle: 'gap: 1.25rem' });
 

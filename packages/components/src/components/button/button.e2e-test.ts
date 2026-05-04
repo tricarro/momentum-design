@@ -1,9 +1,9 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-restricted-syntax */
-import { expect } from '@playwright/test';
 
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { KEYS } from '../../utils/keys';
 
 import { BUTTON_COLORS, BUTTON_VARIANTS, DEFAULTS, ICON_BUTTON_SIZES, PILL_BUTTON_SIZES } from './button.constants';
 
@@ -721,5 +721,44 @@ test.describe.parallel('mdc-button', () => {
     await componentsPage.page.keyboard.press('Tab');
     const bothButtons = await componentsPage.page.locator('mdc-button').all();
     await expect(bothButtons[1]).toBeFocused();
+  });
+
+  test('soft-disabled button with color should not change background on hover', async ({ componentsPage }) => {
+    for (const color of Object.values(BUTTON_COLORS).filter(c => c !== BUTTON_COLORS.DEFAULT)) {
+      for (const variant of [BUTTON_VARIANTS.PRIMARY, BUTTON_VARIANTS.SECONDARY]) {
+        await test.step(`color="${color}" variant="${variant}" soft-disabled hover should use disabled style`, async () => {
+          const button = await setup({
+            componentsPage,
+            children: 'Test Button',
+            color,
+            variant,
+            softDisabled: true,
+          });
+
+          const bgBeforeHover = await button.evaluate(el => getComputedStyle(el).getPropertyValue('background'));
+
+          await button.hover();
+
+          const bgAfterHover = await button.evaluate(el => getComputedStyle(el).getPropertyValue('background'));
+
+          expect(bgAfterHover).toBe(bgBeforeHover);
+        });
+      }
+    }
+  });
+
+  test('interactions', async ({ componentsPage }) => {
+    await test.step('spatial navigation', async () => {
+      const button = await setup({ componentsPage });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(button).toBeFocused();
+
+      const waitForClick = await componentsPage.waitForEvent(button, 'click');
+      await keyboard.press(KEYS.ENTER);
+      await expect(waitForClick).toEventEmitted();
+    });
   });
 });

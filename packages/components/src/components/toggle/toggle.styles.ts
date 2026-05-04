@@ -6,37 +6,35 @@ const styles = [
   hostFitContentStyles,
   css`
     :host {
-      --mdc-toggle-width: 3rem;
-      --mdc-toggle-height: 1.5rem;
-      --mdc-toggle-width-compact: 2rem;
-      --mdc-toggle-height-compact: 1rem;
-
-      --mdc-toggle-label-lineheight: var(--mds-font-lineheight-body-midsize);
-      --mdc-toggle-label-fontsize: var(--mds-font-size-body-midsize);
-      --mdc-toggle-label-fontweight: 400;
-      --mdc-toggle-label-color-disabled: var(--mds-color-theme-text-primary-disabled);
-      --mdc-toggle-help-text-color: var(--mds-color-theme-text-secondary-normal);
-
-      --mdc-toggle-active-hover-color: var(--mds-color-theme-control-active-hover);
-      --mdc-toggle-active-pressed-color: var(--mds-color-theme-control-active-pressed);
-      --mdc-toggle-inactive-hover-color: var(--mds-color-theme-control-inactive-hover);
-      --mdc-toggle-inactive-pressed-color: var(--mds-color-theme-control-inactive-pressed);
+      --mdc-label-font-size: var(--mds-font-apps-body-midsize-regular-font-size);
+      --mdc-label-font-weight: var(--mds-font-apps-body-midsize-regular-font-weight);
+      --mdc-label-line-height: var(--mds-font-apps-body-midsize-regular-line-height);
     }
 
+    /* Flexbox layout for labeled toggles */
     :host([label]),
     :host([help-text]) {
-      display: grid;
-      grid-template-rows: auto auto;
-      grid-template-columns: auto auto;
-      column-gap: 0.75rem;
-      row-gap: 0.25rem;
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 0.75rem;
     }
 
-    :host([help-text='']) {
-      grid-template-rows: auto;
-      row-gap: 0rem;
+    :host([size='default'])::part(label-text) {
+      margin: 0.125rem 0;
     }
 
+    :host([size='compact'])::part(static-toggle) {
+      margin: 0.125rem 0;
+    }
+
+    :host::part(text-container) {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    /* Component structure and layout */
     :host::part(toggle-input) {
       margin: 0;
       padding: 0;
@@ -44,51 +42,45 @@ const styles = [
       opacity: 0.1%;
       overflow: visible;
       z-index: 1;
-      width: var(--mdc-toggle-width);
-      height: var(--mdc-toggle-height);
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      cursor: pointer;
     }
 
-    .mdc-label-text,
-    .mdc-help-text {
-      font-size: var(--mdc-toggle-label-fontsize);
-      font-weight: var(--mdc-toggle-label-fontweight);
-      line-height: var(--mdc-toggle-label-lineheight);
-      grid-column: 2;
+    :host::part(label) {
+      word-break: break-word;
+      white-space: normal;
     }
 
-    .mdc-label,
+    /* Default interactive states */
+    :host::part(label),
     :host::part(toggle-input) {
       cursor: pointer;
     }
 
-    :host([disabled]) .mdc-label,
-    :host([disabled])::part(toggle-input) {
-      cursor: default;
+    :host(:hover)::part(static-toggle) {
+      --mdc-statictoggle-background-color: var(--mds-color-theme-control-inactive-hover);
     }
 
-    .mdc-help-text {
-      color: var(--mdc-toggle-help-text-color);
+    :host(:active)::part(static-toggle) {
+      --mdc-statictoggle-background-color: var(--mds-color-theme-control-inactive-pressed);
     }
 
-    :host(:hover:not([disabled]))::part(container) {
-      background-color: var(--mdc-toggle-inactive-hover-color);
+    :host([checked]:hover)::part(static-toggle) {
+      --mdc-statictoggle-background-color: var(--mds-color-theme-control-active-hover);
     }
 
-    :host(:active:not([disabled]))::part(container) {
-      background-color: var(--mdc-toggle-inactive-pressed-color);
+    :host([checked]:active)::part(static-toggle) {
+      --mdc-statictoggle-background-color: var(--mds-color-theme-control-active-pressed);
     }
 
-    :host(:hover:not([disabled])[checked])::part(container) {
-      background-color: var(--mdc-toggle-active-hover-color);
-    }
-
-    :host(:active:not([disabled])[checked])::part(container) {
-      background-color: var(--mdc-toggle-active-pressed-color);
-    }
-
-    :host([disabled]) .mdc-label-text,
-    :host([disabled]) .mdc-help-text {
-      color: var(--mdc-toggle-label-color-disabled);
+    /* Readonly state - disables pointer events */
+    :host([readonly]),
+    :host([disabled]),
+    :host([soft-disabled]) {
+      pointer-events: none;
     }
   `,
   ...hostFocusRingStyles(true),

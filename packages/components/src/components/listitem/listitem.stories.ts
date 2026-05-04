@@ -1,10 +1,10 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
 import { html, TemplateResult } from 'lit';
 
 import '.';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, hideAllControls, textControls } from '../../../config/storybook/utils';
+import { disableControls, hideAllControls, hideControls } from '../../../config/storybook/utils';
 
 import '../avatar';
 import '../badge';
@@ -35,6 +35,7 @@ const wrapWithList = (args: Args, content?: TemplateResult) =>
       tertiary-label="${args['tertiary-label']}"
       side-header-text="${args['side-header-text']}"
       subline-text="${args['subline-text']}"
+      ?active="${args.active}"
       >${content ?? ''}</mdc-listitem
     >
   </mdc-list>`;
@@ -58,9 +59,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-listitem',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     variant: {
       control: 'select',
@@ -87,6 +86,9 @@ const meta: Meta = {
     'soft-disabled': {
       control: 'boolean',
     },
+    active: {
+      control: 'boolean',
+    },
     ...disableControls([
       'leading-controls',
       'leading-text-primary-label',
@@ -96,20 +98,7 @@ const meta: Meta = {
       'trailing-text-subline',
       'trailing-controls',
     ]),
-    ...textControls([
-      '--mdc-listitem-background-color-active',
-      '--mdc-listitem-background-color-hover',
-      '--mdc-listitem-default-background-color',
-      '--mdc-listitem-primary-label-color',
-      '--mdc-listitem-secondary-label-color',
-      '--mdc-listitem-disabled-color',
-      '--mdc-listitem-column-gap',
-      '--mdc-listitem-padding-left-right',
-      '--mdc-listitem-padding-top-bottom',
-      '--mdc-listitem-cursor',
-      '--mdc-listitem-width',
-      '--mdc-listitem-height',
-    ]),
+    ...hideControls(['data-index']),
     ...classArgType,
     ...styleArgType,
   },
@@ -126,6 +115,7 @@ export const Example: StoryObj = {
     'side-header-text': 'Header Text',
     'subline-text': 'Subline Text',
     disabled: false,
+    active: false,
   },
 };
 

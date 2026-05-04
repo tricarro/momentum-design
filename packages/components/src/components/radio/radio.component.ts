@@ -1,24 +1,54 @@
 /* eslint-disable no-param-reassign */
-import { CSSResult, html, nothing, PropertyValueMap, PropertyValues } from 'lit';
+import { CSSResult, html, PropertyValueMap, PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 
 import FormfieldWrapper from '../formfieldwrapper/formfieldwrapper.component';
-import { DataAriaLabelMixin } from '../../utils/mixins/DataAriaLabelMixin';
 import { AssociatedFormControl, FormInternalsMixin } from '../../utils/mixins/FormInternalsMixin';
 import { ValidationType } from '../formfieldwrapper/formfieldwrapper.types';
-import { DEFAULTS as FORMFIELD_DEFAULTS } from '../formfieldwrapper/formfieldwrapper.constants';
 import { ROLE } from '../../utils/roles';
-import { KEYS } from '../../utils/keys';
 import { AutoFocusOnMountMixin } from '../../utils/mixins/AutoFocusOnMountMixin';
+import { ACTIONS, KeyToActionMixin, NAV_MODES } from '../../utils/mixins/KeyToActionMixin';
+import { KeyDownHandledMixin } from '../../utils/mixins/KeyDownHandledMixin';
+import type { PopoverPlacement, PopoverStrategy } from '../popover/popover.types';
 
 import styles from './radio.styles';
 
 /**
- * Radio allow users to select single options from a list or turn an item/feature on or off.
- * These are often used in forms, settings, and selection in lists.
+ * The Radio component allows users to select a single option from a group of mutually exclusive choices.
+ * Unlike checkboxes which allow multiple selections, radio buttons ensure only one option can be selected
+ * at a time within the same group. These are commonly used in forms, surveys, and settings where users
+ * need to make a single selection from multiple options.
  *
- * A radio component contains an optional label, optional info icon and an optional helper text.
+ * To create a group of radio buttons, use the `mdc-radiogroup` component or ensure all radio buttons
+ * share the same `name` attribute.
+ *
+ * ## Validation
+ *
+ * Radio component support native form validation. But it does not have default validation message.
+ * Also, `required` attribute does not render indicator (red asterisk) for the radio component.
+ *
+ * The recommended way to show validation message for radio groups is to wrap the `mdc-radio` with `mdc-radiogroup`
+ * and set the `help-text` of the `mdc-radiogroup` based on its validation state.
+ *
+ * Alternatively you can also set the `validation-message` attribute of the `mdc-radio`. This message will appear
+ * in a native tooltip when the radio is checked and invalid.
+ *
+ * ## Accessibility
+ *
+ * - Provide clear labels that describe each option
+ * - Use `data-aria-label` when a visual label is not present
+ * - Keyboard navigation: Arrow keys to move between options, Space to select, Tab to navigate groups, Enter to submit form
+ * - Group related radio buttons using the same `name` attribute or `mdc-radiogroup` component
+ *
+ * ## Styling
+ *
+ * Use the `radio-indicator` part to apply custom styles to the radio visual element.
+ * This part exposes the underlying [StaticRadio](?path=/docs/components-decorator-staticradio--docs) component for advanced styling.
+ *
+ * The `indicator` slot allows replacing the default radio circle with a custom element.
+ * When a custom indicator is slotted, the component automatically adds the `mdc-focus-ring`
+ * class to the host element. This shifts the focus ring from the default static radio to the
+ * entire host element, ensuring keyboard focus remains visible.
  *
  * @dependency mdc-button
  * @dependency mdc-icon
@@ -28,42 +58,43 @@ import styles from './radio.styles';
  *
  * @tagname mdc-radio
  *
- * @event change - (React: onChange) Event that gets dispatched when the radio state changes.
+ * @event input - (React: onInput) Event that gets dispatched when the radio state changes (before the change event).
+ * @event change - (React: onChange) Event that gets dispatched when the radio state changes (after the input event).
  * @event focus - (React: onFocus) Event that gets dispatched when the radio receives focus.
  *
- * @cssproperty --mdc-radio-text-disabled-color - color of the label when disabled
- * @cssproperty --mdc-radio-control-inactive-hover - color of the radio button when inactive and hovered
- * @cssproperty --mdc-radio-control-inactive-pressed-color - color of the radio button when inactive and pressed
- * @cssproperty --mdc-radio-control-active-hover-color - color of the radio button when active and hovered
- * @cssproperty --mdc-radio-control-active-pressed-color - color of the radio button when active and pressed
- * @cssproperty --mdc-radio-disabled-border-color - color of the radio button when disabled
- * @cssproperty --mdc-radio-control-active-disabled-background - color of the radio button when active and disabled
- * @cssproperty --mdc-radio-control-inactive-disabled-background - color of the radio button when inactive and disabled
+ * @csspart label - The label element.
+ * @csspart label-text - The container for the label and required indicator elements.
+ * @csspart radio-indicator - The staticradio that provides the visual radio appearance.
  *
+ * @slot indicator - Slot for the radio indicator element. If not provided, a default styled radio will be rendered.
+ * @slot label - Slot for the label of the radio.
  */
-
 class Radio
-  extends AutoFocusOnMountMixin(FormInternalsMixin(DataAriaLabelMixin(FormfieldWrapper)))
+  extends KeyDownHandledMixin(KeyToActionMixin(AutoFocusOnMountMixin(FormInternalsMixin(FormfieldWrapper))))
   implements AssociatedFormControl
 {
   /**
-   * Determines whether the radio is selected or unselected.
-   *
+   * Determines whether the radio is checked (selected) or unchecked.
+   * Within a radio group, only one radio can be checked at a time.
    * @default false
    */
   @property({ type: Boolean, reflect: true }) checked = false;
 
-  /**
-   * Determines whether the radio is read-only.
-   *
-   * @default false
-   */
-  @property({ type: Boolean, reflect: true }) readonly = false;
+  constructor() {
+    super();
+    this.addEventListener('click', this.handleClick);
+    this.addEventListener('keydown', this.handleKeyDown);
+  }
 
   override connectedCallback(): void {
     super.connectedCallback();
-    // Radio does not contain helpTextType property.
+    this.role = ROLE.RADIO;
+    this.shouldRenderLabel = false;
+    // Radio should not contain these properties.
     this.helpTextType = undefined as unknown as ValidationType;
+    this.toggletipPlacement = undefined as unknown as PopoverPlacement;
+    this.toggletipStrategy = undefined as unknown as PopoverStrategy;
+    this.updateAriaLabel();
   }
 
   protected override firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
@@ -72,14 +103,15 @@ class Radio
     // set the element to auto focus if autoFocusOnMount is set to true
     // before running the super method, so that the AutoFocusOnMountMixin can use it
     // to focus the correct element
-    if (this.inputElement && this.autoFocusOnMount) {
-      this.elementToAutoFocus = this.inputElement;
+    if (this.autoFocusOnMount) {
+      this.elementToAutoFocus = this;
     }
     super.firstUpdated(_changedProperties);
   }
 
   /**
    * Returns all radios within the same group (name).
+   * @internal
    */
   private getAllRadiosWithinSameGroup(): Radio[] {
     return Array.from(document.querySelectorAll(`mdc-radio[name="${this.name}"]`));
@@ -112,17 +144,14 @@ class Radio
   }
 
   /**
+   * Sets the validity state of the radio component.
+   * @param isValid - Boolean value to set the validity
    * @internal
    */
   setComponentValidity(isValid: boolean) {
     if (isValid) {
       this.internals.setValidity({});
     } else if (this.required && !this.checked) {
-      if (this.validationMessage) {
-        this.inputElement.setCustomValidity(this.validationMessage);
-      } else {
-        this.inputElement.setCustomValidity('');
-      }
       this.setValidity();
     }
     this.updateTabIndex();
@@ -132,134 +161,160 @@ class Radio
    * Sets the validity of the group of radios.
    * @param radios - Array of radios of the same group
    * @param isValid - Boolean value to set the validity of the group
+   * @internal
    */
   private setGroupValidity(radios: Radio[], isValid: boolean) {
     this.updateComplete
       .then(() => {
-        radios.forEach(radio => {
-          radio.setComponentValidity(isValid);
-        });
+        radios.forEach(radio => radio.setComponentValidity(isValid));
       })
-      .catch(error => {
-        if (this.onerror) {
-          this.onerror(error);
-        }
-      });
+      .catch(error => this.onerror?.(error));
   }
 
   /**
    * Updates the form value to reflect the current state of the radio.
-   * If checked, the value is set to the user-provided value.
+   * If checked, the value is set to the user-provided value or 'on' if no value is provided.
    * If unchecked, the value is set to null.
+   * @internal
    */
   private setActualFormValue() {
-    let actualValue: string | null = '';
-
-    if (this.checked) {
-      actualValue = !this.value ? 'on' : this.value;
-    } else {
-      actualValue = null;
-    }
-
     const radios = this.getAllRadiosWithinSameGroup();
+
     if (this.checked) {
       this.setGroupValidity(radios, true);
+      this.internals.setFormValue(this.value || 'on');
     } else {
       const anyRequired = radios.some(r => r.required);
-      const anyChecked = !!radios.find(r => r.checked);
+      const anyChecked = radios.some(r => r.checked);
       const isInvalid = anyRequired && !anyChecked;
-      this.setGroupValidity(radios, !isInvalid);
-    }
 
-    this.internals.setFormValue(actualValue);
+      this.setGroupValidity(radios, !isInvalid);
+      this.internals.setFormValue(null);
+    }
   }
 
   /**
    * Handles the change event on the radio element.
-   * This will toggle the state of the radio element.
+   * Unchecks all other radios in the same group and checks this radio.
    * Dispatches the change event.
+   * @param emitClick - A boolean when click event must be emitted before other events
+   * @internal
    */
-  private handleChange(): void {
-    if (this.disabled || this.readonly) return;
+  private handleChange(emitClick = false): void {
+    if (this.checked || this.disabled || this.readonly || this.softDisabled) return;
 
     const radios = this.getAllRadiosWithinSameGroup();
+    //  Uncheck all radios in the same group (name)
     radios.forEach(radio => {
-      /**
-       *  Uncheck all radios in the same group (name)
-       */
-      const radioElement = radio.shadowRoot?.querySelector('input');
-      if (radioElement) {
-        radio.checked = false;
-        radioElement.checked = false;
-      }
+      radio.checked = false;
     });
     this.checked = true;
-    const inputElement = this.shadowRoot?.querySelector('input');
-    if (inputElement) {
-      inputElement.checked = true;
-    }
 
-    this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    // Native radio input emits click, input and change event in this order when
+    if (emitClick) {
+      super.click();
+    }
+    this.emitCheckedChangeEvent();
+  }
+
+  override click() {
+    this.handleChange(true);
   }
 
   /**
    * Updates the state of the radio button at the specified index within the enabled radios.
-   * Focuses the radio button and triggers the change event if the radio button is not read-only.
-   *
+   * Focuses the radio button and triggers the change event.
    * @param enabledRadios - An array of enabled radio buttons within the same group.
    * @param index - The index of the radio button to be updated within the enabled radios array.
+   * @internal
    */
   private updateRadio(enabledRadios: Radio[], index: number) {
-    enabledRadios[index].shadowRoot?.querySelector('input')?.focus();
-    enabledRadios[index].handleChange();
+    const radio = enabledRadios[index];
+    radio.focus();
+    radio.handleChange();
+  }
+
+  private handleClick(): void {
+    this.handleChange();
+  }
+
+  private emitCheckedChangeEvent(): void {
+    if (this.checked) {
+      this.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+      this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    }
   }
 
   /**
-   * Handles the keydown event (Arrow Up/Down/Left/Right) on the radio element.
+   * Handles the keydown event on the radio element.
+   * Supports Arrow keys for navigation between radios in the same group, Space for selection, and Enter for form submission.
+   * @param event - The keyboard event.
+   * @internal
    */
   private handleKeyDown(event: KeyboardEvent): void {
     if (this.disabled) return;
+
+    const action = this.getActionForKeyEvent(event);
+
+    if ((this.readonly || this.softDisabled) && action === ACTIONS.SPACE) {
+      event.preventDefault();
+    }
 
     const radios = this.getAllRadiosWithinSameGroup();
     const enabledRadios = radios.filter(radio => !radio.disabled);
     const currentIndex = enabledRadios.indexOf(this);
 
-    if (['ArrowDown', 'ArrowRight'].includes(event.key)) {
+    // Leave navigation between radios to the spatial navigation context if it exists
+    if (this.getKeyboardNavMode() === NAV_MODES.SPATIAL) {
+      if (action === ACTIONS.ENTER) {
+        this.updateRadio(enabledRadios, currentIndex);
+        this.keyDownEventHandled();
+      }
+      this.updateTabIndex();
+
+      return;
+    }
+
+    if (action === ACTIONS.DOWN || action === ACTIONS.RIGHT) {
       // Move focus to the next radio
       const nextIndex = (currentIndex + 1) % enabledRadios.length;
       this.updateRadio(enabledRadios, nextIndex);
-    } else if (['ArrowUp', 'ArrowLeft'].includes(event.key)) {
+    } else if (action === ACTIONS.UP || action === ACTIONS.LEFT) {
       // Move focus to the previous radio
       const prevIndex = (currentIndex - 1 + enabledRadios.length) % enabledRadios.length;
       this.updateRadio(enabledRadios, prevIndex);
-    } else if (event.key === KEYS.SPACE) {
+    } else if (action === ACTIONS.SPACE) {
       this.updateRadio(enabledRadios, currentIndex);
     }
     this.updateTabIndex();
 
-    if (event.key === KEYS.ENTER) {
+    if (action === ACTIONS.ENTER) {
       this.form?.requestSubmit();
     }
   }
 
   /**
-   * Update tab index for all radios in the same group (name)
-   * If any radio group is checked, it will have a tab index of 0
-   * If no radio group is checked, the first enabled radio will have a tab index of 0
+   * Updates tab index for all radios in the same group (name).
+   * If any radio in the group is checked, it will have a tab index of 0.
+   * If no radio is checked, the first enabled radio will have a tab index of 0.
+   * This ensures proper keyboard navigation within radio groups.
+   * @internal
    */
   private updateTabIndex(): void {
+    // Leave navigation between radios to the spatial navigation context if it exists
+    const isSpatialNavMode = this.getKeyboardNavMode() === NAV_MODES.SPATIAL;
     const radios = this.getAllRadiosWithinSameGroup();
     const checked = radios.find(radio => radio.checked);
     const firstEnabledRadio = radios.find(radio => !radio.disabled);
     radios.forEach(radio => {
-      const inputElement = radio.shadowRoot?.querySelector('input');
-      if (inputElement) {
-        inputElement.tabIndex = -1;
-        if (radio === checked) {
-          inputElement.tabIndex = 0;
-        } else if (!checked && radio === firstEnabledRadio) {
-          inputElement.tabIndex = 0;
-        }
+      radio.tabIndex = -1;
+
+      if (isSpatialNavMode) {
+        radio.tabIndex = 0;
+      } else if (radio === checked) {
+        radio.tabIndex = 0;
+      } else if (!checked && radio === firstEnabledRadio) {
+        radio.tabIndex = 0;
       }
     });
   }
@@ -268,43 +323,62 @@ class Radio
     super.update(changedProperties);
 
     if (changedProperties.has('checked')) {
+      this.ariaChecked = this.checked.toString();
       this.setActualFormValue();
+    }
+    if (changedProperties.has('label')) {
+      this.updateAriaLabel();
     }
   }
 
-  private renderLabelAndHelperText = () => {
-    if (!this.label) return nothing;
-    return html`<div class="mdc-radio__label-container">${this.renderLabel()} ${this.renderHelperText()}</div>`;
-  };
+  /**
+   * Updates the aria-label of the radio element based on the label or data-aria-label attribute.
+   * @internal
+   */
+  private updateAriaLabel() {
+    if (!this.ariaLabel && this.ariaLabel !== this.label) {
+      this.ariaLabel = this.label || '';
+    }
+  }
+
+  override setValidity() {
+    if (this.required && !this.checked && this.validationMessage) {
+      this.internals.setValidity({ valueMissing: true, customError: true }, this.validationMessage, this);
+    }
+    this.internals.setValidity({});
+  }
+
+  /**
+   * Handles the slotchange event on the indicator slot.
+   * Adds the `mdc-focus-ring` class to the host when a custom indicator
+   * is slotted, so the focus ring shifts from the default static radio
+   * to the entire host element.
+   *
+   * @internal
+   */
+  private handleIndicatorSlotChange(event: Event): void {
+    const slot = event.target as HTMLSlotElement;
+    const assignedNodes = slot.assignedNodes({ flatten: true }).filter(node => node.nodeType === Node.ELEMENT_NODE);
+    this.classList.toggle('mdc-focus-ring', assignedNodes.length > 0);
+  }
 
   public override render() {
     return html`
-      <mdc-staticradio
-        class="mdc-focus-ring"
-        ?checked="${this.checked}"
-        ?disabled="${this.disabled}"
-        ?readonly="${this.readonly}"
-      >
-        <input
-          id="${this.inputId}"
-          type="radio"
-          role="${ROLE.RADIO}"
-          ?autofocus="${this.autofocus}"
-          name="${ifDefined(this.name)}"
-          value="${ifDefined(this.value)}"
-          ?required="${this.required}"
-          @change=${this.handleChange}
-          @keydown=${this.handleKeyDown}
-          ?checked=${this.checked}
-          ?readonly=${this.readonly}
-          ?disabled=${this.disabled}
-          class="mdc-radio__input"
-          aria-checked="${this.checked}"
-          aria-describedby="${ifDefined(this.helpText ? FORMFIELD_DEFAULTS.HELPER_TEXT_ID : '')}"
-          aria-label="${this.dataAriaLabel ?? ''}"
-        />
-      </mdc-staticradio>
-      ${this.renderLabelAndHelperText()}
+      <slot name="indicator" @slotchange=${this.handleIndicatorSlotChange}>
+        <mdc-staticradio
+          part="radio-indicator"
+          role="presentation"
+          class="mdc-focus-ring"
+          ?checked="${this.checked}"
+          ?disabled="${this.disabled}"
+          ?readonly="${this.readonly}"
+          ?soft-disabled="${this.softDisabled}"
+        >
+        </mdc-staticradio>
+      </slot>
+      <div part="label-text">
+        <slot name="label">${this.renderLabelElement()}</slot>
+      </div>
     `;
   }
 

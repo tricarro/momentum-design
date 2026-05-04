@@ -8,9 +8,22 @@ import styles from './buttongroup.styles';
 import type { ButtonGroupOrientation, ButtonGroupSize, ButtonGroupVariant } from './buttongroup.types';
 
 /**
- * buttongroup component, is a styled wrapper for multiple buttons.
- * It can support icon buttons, combination of icon and pill buttons, and text buttons.
- * They are available in horizontal and vertical orientation.
+ * `mdc-buttongroup` is a wrapper component that groups multiple buttons together.
+ *
+ * ## Supported button types
+ * - Icon buttons
+ * - Pill buttons
+ * - Combination of icon and pill buttons
+ *
+ * ## Features
+ * - Horizontal or vertical orientation
+ * - Unified size and variant applied to all child buttons
+ * - Optional compact mode for reduced height
+ * - Supported sizes: 24, 28 (default), 32, 40
+ *
+ * ## Usage
+ * - Only `mdc-button` components are allowed as direct children
+ * - The `size` and `variant` set on buttongroup override individual button settings
  *
  * @tagname mdc-buttongroup
  *
@@ -19,32 +32,41 @@ import type { ButtonGroupOrientation, ButtonGroupSize, ButtonGroupVariant } from
  * @cssproperty --mdc-buttongroup-border-radius - The border radius of the buttongroup
  * @cssproperty --mdc-buttongroup-border-color - The border color of the buttongroup
  * @cssproperty --mdc-buttongroup-divider-color - The color of the divider between buttons within the buttongroup
+ *
+ * @csspart container - The container of the buttongroup.
  */
 class ButtonGroup extends Component {
   /**
-   * Orientation of the buttongroup.
+   * Layout direction of the buttons within the group.
+   * - `horizontal`: Buttons are arranged side by side (default)
+   * - `vertical`: Buttons are stacked vertically
    * @default 'horizontal'
    */
   @property({ type: String, reflect: true })
   orientation: ButtonGroupOrientation = DEFAULTS.ORIENTATION;
 
   /**
-   * Variant of the buttons within the buttongroup.
+   * Visual style variant applied to all buttons in the group.
+   * - `primary`: Solid background color
+   * - `secondary`: Transparent background with solid border
+   * - `tertiary`: No background or border, text-only appearance
    * @default 'primary'
    */
   @property({ type: String, reflect: true })
   variant: ButtonGroupVariant = DEFAULTS.VARIANT;
 
   /**
-   * Size of the buttons within the buttongroup.
-   * @default '28'
+   * Size applied to all buttons in the group.
+   * Available sizes: 24, 28, 32, 40
+   * @default 28
    */
   @property({ type: Number, reflect: true })
   size: ButtonGroupSize = DEFAULTS.SIZE;
 
   /**
-   * When this is true, the buttons within the buttongroup will be compact.
-   * i.e. Irrespective of the size of the buttons, they will have a height of 24px.
+   * Enables compact mode with reduced height.
+   * When true, all buttons have a fixed height of 24px regardless of their size setting.
+   * Useful for space-constrained layouts.
    * @default false
    */
   @property({ type: Boolean, reflect: true })

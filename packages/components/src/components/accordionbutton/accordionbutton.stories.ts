@@ -1,15 +1,17 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
+import iconsManifest from '@momentum-design/icons/dist/manifest.json';
 import { html } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import '.';
 import '../button';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, hideAllControls, textControls } from '../../../config/storybook/utils';
+import { hideAllControls } from '../../../config/storybook/utils';
 import { SIZE } from '../accordiongroup/accordiongroup.constants';
+import { ROLE } from '../../utils/roles';
 
-import { VARIANT } from './accordionbutton.constants';
+import { VARIANT, TOGGLE_POSITION } from './accordionbutton.constants';
 
 const defaultChildren = html`Loreum impusm sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
   labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliqui p ex
@@ -18,27 +20,27 @@ const defaultChildren = html`Loreum impusm sit amet, consectetur adipiscing elit
   laborum.<mdc-button style="margin-top:0.75rem">Continue</mdc-button>`;
 
 const render = (args: Args) =>
-  html` <mdc-accordionbutton
-    @shown=${action('onshown')}
-    ?disabled=${args.disabled}
-    ?expanded=${args.expanded}
-    data-aria-level="${ifDefined(args['data-aria-level'])}"
-    header-text="${ifDefined(args['header-text'])}"
-    prefix-icon="${ifDefined(args['prefix-icon'])}"
-    size="${ifDefined(args.size)}"
-    variant="${ifDefined(args.variant)}"
-  >
-    ${defaultChildren}
-  </mdc-accordionbutton>`;
+  html`<div role="${ROLE.MAIN}">
+    <mdc-accordionbutton
+      @shown=${action('onshown')}
+      ?disabled=${args.disabled}
+      ?expanded=${args.expanded}
+      data-aria-level="${ifDefined(args['data-aria-level'])}"
+      header-text="${ifDefined(args['header-text'])}"
+      prefix-icon="${ifDefined(args['prefix-icon'])}"
+      size="${ifDefined(args.size)}"
+      variant="${ifDefined(args.variant)}"
+      toggle-position="${ifDefined(args['toggle-position'])}"
+    >
+      ${defaultChildren}
+    </mdc-accordionbutton>
+  </div>`;
 
 const meta: Meta = {
   title: 'Components/accordion/accordionbutton',
   tags: ['autodocs'],
   component: 'mdc-accordionbutton',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
     ...classArgType,
     ...styleArgType,
@@ -59,19 +61,17 @@ const meta: Meta = {
       control: 'text',
     },
     'prefix-icon': {
-      control: 'text',
+      control: 'select',
+      options: Object.keys(iconsManifest),
     },
     variant: {
       control: 'select',
       options: Object.values(VARIANT),
     },
-    ...disableControls(['default']),
-    ...textControls([
-      '--mdc-accordionbutton-border-color',
-      '--mdc-accordionbutton-hover-color',
-      '--mdc-accordionbutton-active-color',
-      '--mdc-accordionbutton-disabled-color',
-    ]),
+    'toggle-position': {
+      control: 'select',
+      options: Object.values(TOGGLE_POSITION),
+    },
   },
 };
 
@@ -86,38 +86,47 @@ export const Example: StoryObj = {
     size: SIZE.SMALL,
     expanded: true,
     variant: VARIANT.DEFAULT,
+    'toggle-position': TOGGLE_POSITION.TRAILING,
   },
 };
 
 export const BorderlessVariant: StoryObj = {
   args: {
+    ...Example.args,
     variant: VARIANT.BORDERLESS,
-    'header-text': 'Heading',
-    'prefix-icon': 'placeholder-bold',
+    expanded: false,
   },
 };
 
 export const LargeSize: StoryObj = {
   args: {
+    ...Example.args,
     size: SIZE.LARGE,
-    'header-text': 'Heading',
-    'prefix-icon': 'placeholder-bold',
+    expanded: false,
   },
 };
 
 export const SmallSize: StoryObj = {
   args: {
+    ...Example.args,
     size: SIZE.SMALL,
-    'header-text': 'Heading',
-    'prefix-icon': 'placeholder-bold',
+    expanded: false,
+  },
+};
+
+export const LeadingToggle: StoryObj = {
+  args: {
+    ...Example.args,
+    'toggle-position': TOGGLE_POSITION.LEADING,
+    expanded: true,
   },
 };
 
 export const AllVariants: StoryObj = {
   render: () => html`
-    <div style="display: flex; flex-direction: row;">
+    <div role="${ROLE.MAIN}" style="display: flex; flex-direction: row;">
       <section style="padding: 0.5rem; width: 25%; display: flex; flex-direction: column; gap: 1rem;">
-        <h5>Visibility of Accordion</h5>
+        <h2>Visibility of Accordion</h2>
         <mdc-accordionbutton prefix-icon="placeholder-bold" header-text="Expanded" expanded
           >${defaultChildren}</mdc-accordionbutton
         >
@@ -126,7 +135,7 @@ export const AllVariants: StoryObj = {
         >
       </section>
       <section style="padding: 0.5rem; width: 25%; display: flex; flex-direction: column; gap: 1rem">
-        <h5>Variant Types of Accordion</h5>
+        <h2>Variant Types of Accordion</h2>
         <mdc-accordionbutton prefix-icon="placeholder-bold" header-text="Default Variant"
           >${defaultChildren}</mdc-accordionbutton
         >
@@ -139,7 +148,7 @@ export const AllVariants: StoryObj = {
         >
       </section>
       <section style="padding: 0.5rem; width: 25%; display: flex; flex-direction: column; gap: 1rem;">
-        <h5>Sizes of Accordion</h5>
+        <h2>Sizes of Accordion</h2>
         <mdc-accordionbutton prefix-icon="placeholder-bold" header-text="Small Size"
           >${defaultChildren}</mdc-accordionbutton
         >
@@ -152,7 +161,7 @@ export const AllVariants: StoryObj = {
         >
       </section>
       <section style="padding: 0.5rem; width: 25%; display: flex; flex-direction: column; gap: 1rem;">
-        <h5>Disabled Accordion</h5>
+        <h2>Disabled Accordion</h2>
         <mdc-accordionbutton prefix-icon="placeholder-bold" header-text="Disabled Accordion" disabled
           >${defaultChildren}</mdc-accordionbutton
         >

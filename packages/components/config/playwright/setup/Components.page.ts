@@ -1,18 +1,25 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Page, expect, Locator, TestInfo, test, JSHandle } from '@playwright/test';
+import { Page, expect, Locator, TestInfo, test, type Request as PlaywrightRequest } from '@playwright/test';
 
 import Accessibility from './utils/accessibility';
 import VisualRegression from './utils/visual-regression';
-import type { ThemeClass } from './types';
+import { ThemeClass, WaitForEventReturnType } from './types';
 import Actionability from './utils/actionability';
+import { DebugUtils } from './utils/debugUtils';
 
 const componentsDevPageTitle = 'Momentum Components Dev Page';
-const htmlRootElementSelector = '#root';
+export const htmlRootElementSelector = '#root';
 
 interface MountOptions {
   html: string;
   clearDocument?: boolean;
   elementSelector?: string;
+}
+
+interface WrapOptions {
+  targetSelector?: string;
+  wrapperTagName: string;
+  wrapperProps?: Record<string, string>;
 }
 
 interface ComponentsPage {
@@ -21,7 +28,10 @@ interface ComponentsPage {
   visualRegression: VisualRegression;
   page: Page;
   testInfo: TestInfo;
+  debugUtils: DebugUtils;
 }
+
+type SetledCallback = (url: string, error: ReturnType<PlaywrightRequest['failure']>) => void;
 
 /**
  * Components Page Object Model
@@ -30,6 +40,28 @@ interface ComponentsPage {
  * used for Momentum components E2E testing
  */
 class ComponentsPage {
+  // AI-Assisted
+  /**
+   * Reference-counting map of icon (.svg) URLs currently in-flight.
+   * A URL's count is incremented on each request event and decremented on
+   * each response/failure event. The URL is considered settled when its count
+   * reaches 0. This correctly handles multiple simultaneous requests for the
+   * same URL (e.g. many icon elements loading the same icon before the cache
+   * is populated).
+   */
+  private pendingIconRequests: Map<string, number> = new Map();
+
+  /**
+   * Total number of in-flight icon requests across all URLs.
+   */
+  private pendingIconRequestCount = 0;
+
+  /**
+   * Callbacks to notify `waitForPendingIcons` when all pending requests settle.
+   */
+  private pendingIconSettleCallbacks: Set<SetledCallback> = new Set();
+  // End AI-Assisted
+
   constructor(page: Page, testInfo: TestInfo) {
     this.page = page;
     this.testInfo = testInfo;
@@ -37,7 +69,8 @@ class ComponentsPage {
     // creates utility objects on components page and inject dependencies:
     this.accessibility = new Accessibility(this.page, this.testInfo);
     this.actionability = new Actionability(this.page);
-    this.visualRegression = new VisualRegression(this.page);
+    this.visualRegression = new VisualRegression(this.page, () => this.waitForPendingIcons());
+    this.debugUtils = new DebugUtils(this.page);
   }
 
   /**
@@ -62,10 +95,64 @@ class ComponentsPage {
    * **Setup function**
    *
    * to run before the test to navigate correctly
+   * and start tracking icon requests
    */
   async setup() {
+    this.startTrackingIconRequests();
     await this.navigate();
   }
+
+  // AI-Assisted
+  /**
+   * Starts persistently tracking all icon (.svg) network requests on the page.
+   *
+   * When a matching request is initiated, its URL is added to the pending set.
+   * When the response or failure arrives, the URL is removed from the pending set
+   * and any registered settle callbacks are notified.
+   *
+   * This is called automatically in `setup()` so that tracking is active
+   * for the entire test lifecycle. Developers can call `waitForPendingIconRequests()`
+   * at any point to wait for all currently pending icon requests to finish.
+   */
+  private startTrackingIconRequests() {
+    const matchesPattern = (url: string) => /\.svg$/.test(url);
+
+    const onSettled: SetledCallback = (url, error) => {
+      const count = (this.pendingIconRequests.get(url) ?? 1) - 1;
+      if (count <= 0) {
+        this.pendingIconRequests.delete(url);
+      } else {
+        this.pendingIconRequests.set(url, count);
+      }
+      this.pendingIconRequestCount = Math.max(0, this.pendingIconRequestCount - 1);
+      if (this.pendingIconRequestCount === 0) {
+        this.pendingIconSettleCallbacks.forEach(cb => cb(url, error));
+      }
+    };
+
+    this.page.on('request', request => {
+      const url = request.url();
+      if (matchesPattern(url)) {
+        this.pendingIconRequests.set(url, (this.pendingIconRequests.get(url) ?? 0) + 1);
+        this.pendingIconRequestCount += 1;
+      }
+    });
+
+    this.page.on('response', response => {
+      const url = response.url();
+      if (matchesPattern(url)) {
+        onSettled(url, null);
+      }
+    });
+
+    this.page.on('requestfailed', request => {
+      const url = request.url();
+      if (matchesPattern(url)) {
+        onSettled(url, request.failure());
+      }
+    });
+  }
+  // End AI-Assisted
 
   /**
    * **TearDown function**
@@ -109,12 +196,50 @@ class ComponentsPage {
           if (rootElement) {
             // delete children of textContent before mounting the passed in html:
             if (args.clearDocument) {
-              rootElement.textContent = '';
+              rootElement.innerHTML = '';
             }
             rootElement.appendChild(htmlToElement(args.html));
           }
         },
         { html, htmlRootElementSelector: elementSelector || htmlRootElementSelector, clearDocument },
+      );
+    });
+  }
+
+  /**
+   * Wrap a target element with a wrapper element and optional props
+   * When `targetSelector` not set, it wraps everything inside the #root element
+   *
+   * @param options - a object with options, including the `targetSelector`, `wrapperTagName` and optional `wrapperProps`
+   */
+  async wrapElement({ wrapperTagName, wrapperProps, targetSelector }: WrapOptions) {
+    await test.step(`Wrap element with ${wrapperTagName}`, async () => {
+      await this.page.evaluate(
+        ({ wrapperTagName, wrapperProps, targetSelector, htmlRootElementSelector }) => {
+          let parent = document.querySelector(htmlRootElementSelector);
+
+          if (targetSelector) {
+            parent = document.querySelector(targetSelector);
+          }
+
+          if (!parent) {
+            throw new Error(
+              `Parent element not found. Make sure the "${targetSelector}" or "${htmlRootElementSelector}" exists.`,
+            );
+          }
+
+          const wrapper = document.createElement(wrapperTagName);
+
+          if (wrapperProps) {
+            Object.keys(wrapperProps).forEach(key => {
+              wrapper.setAttribute(key, wrapperProps[key]);
+            });
+          }
+
+          Array.from(parent.childNodes).forEach(child => wrapper.appendChild(child));
+          parent.appendChild(wrapper);
+        },
+        { wrapperTagName, wrapperProps, targetSelector, htmlRootElementSelector },
       );
     });
   }
@@ -128,26 +253,36 @@ class ComponentsPage {
    *
    * @example
    * ```ts
+   *  import { ComponentsPage, expect } from '../../../config/playwright/setup';
+   *
    *  // Register event listener before user interaction
-   *  const waitForEventDispatch = await componentsPage.waitForEvent(someLocator, 'click');
+   *  const waitForEvent = await componentsPage.waitForEvent(someLocator, 'some-event');
    *
    *  // Do some user interaction that will trigger the event
    *
    *  // Wait for the event to be fired
-   *  await waitForEventDispatch();
+   *  await expect(waitForEvent).toEventEmitted();
+   *  // -- OR --
+   *  // wait for the event to NOT be fired
+   *  await expect(waitForEvent).not.toEventEmitted();
    * ```
+   *
+   * ⚠️Note: `expect` must be imported from playwright setup utils to have access to the custom assertion!
    *
    * @param locator - Playwright locator
    * @param eventName - eventName to wait for to be fired on queried HTMLElement
    * @param options - options to pass to the waitForEvent function, including a timeout
-   * @returns Promise, which resolves when event `eventName` listener registered and returns a function.
-   *          The function returns a Promise that resolves when event was fired.
+   * @returns Promise, which resolves when event `eventName` listener registered and returns event checked object.
+   *          The event checked object contains:
+   *          - locator: Playwright locator
+   *          - eventName: eventName to wait for to be fired on queried HTMLElement
+   *          - check: function that will wait for the event to be fired when called
    */
   async waitForEvent(
     locator: Locator,
     eventName: string,
     options?: { timeout?: number },
-  ): Promise<() => Promise<JSHandle<boolean>>> {
+  ): Promise<WaitForEventReturnType> {
     const id = uuidv4();
     // Step 1: Register the event listener on the element
     await locator.evaluate(
@@ -165,13 +300,19 @@ class ComponentsPage {
     );
 
     // Step 2: Wait for the event to be fired
-    return () =>
-      locator.page().waitForFunction<boolean, string>(
-        // @ts-ignore
-        id => (window.$$eventListeners$$?.[id] > 0) as any,
-        id,
-        { timeout: options?.timeout },
-      );
+    const check = () =>
+      locator
+        .page()
+        .waitForFunction<boolean, string>(
+          // @ts-ignore
+          id => (window.$$eventListeners$$?.[id] > 0) as any,
+          id,
+          { timeout: options?.timeout ?? 1_000 },
+        )
+        .then(value => value.jsonValue())
+        .catch(() => false);
+
+    return { locator, eventName, check };
   }
 
   /**
@@ -206,6 +347,64 @@ class ComponentsPage {
       { qualifiedName },
     );
   }
+
+  // AI-Assisted
+  /**
+   * Waits for all currently pending icon (.svg) network requests to finish.
+   *
+   * The icon request tracking is started automatically in `setup()`, so this method
+   * can be called at any point during a test to wait for outstanding icon fetches.
+   * Requests that have already completed before this call are not waited on.
+   *
+   * @param options - optional configuration object with `timeout` (max wait in ms, defaults to 10000)
+   *
+   * @example
+   * ```ts
+   * await componentsPage.mount({ html, clearDocument: true });
+   * await componentsPage.waitForPendingIconRequests();
+   * ```
+   */
+  async waitForPendingIcons(options?: { timeout?: number }): Promise<boolean> {
+    const timeout = options?.timeout ?? 10_000;
+
+    return test.step('Waiting for pending icon requests to finish', async () => {
+      if (this.pendingIconRequestCount === 0) {
+        return false;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+        const onSettled: SetledCallback = (url, error) => {
+          if (this.pendingIconRequestCount === 0) {
+            if (timeoutId !== undefined) {
+              clearTimeout(timeoutId);
+            }
+            this.pendingIconSettleCallbacks.delete(onSettled);
+            if (error) {
+              reject(new Error(`Icon request for ${url} failed with error: ${error.errorText}`));
+            } else {
+              resolve();
+            }
+          }
+        };
+
+        timeoutId = setTimeout(() => {
+          this.pendingIconSettleCallbacks.delete(onSettled);
+          reject(
+            new Error(
+              `Timed out after ${timeout}ms waiting for ${this.pendingIconRequestCount} pending icon request(s) to finish: ${Array.from(this.pendingIconRequests.keys()).join(', ')}`,
+            ),
+          );
+        }, timeout);
+
+        this.pendingIconSettleCallbacks.add(onSettled);
+      });
+
+      return true;
+    });
+  }
+  // End AI-Assisted
 
   /**
    * Check if a promise times out after a certain amount of time

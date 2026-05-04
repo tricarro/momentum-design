@@ -1,9 +1,8 @@
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
 import { TAB_VARIANTS } from '../tab/tab.constants';
 import type { Variant } from '../tab/tab.types';
+import { KEYS } from '../../utils/keys';
 
 type SetupOptionsType = {
   componentsPage: ComponentsPage;
@@ -26,7 +25,7 @@ const renderTabs = (variant: Variant = TAB_VARIANTS.PILL, hideText = false) => `
   icon-name="video-bold"
   tab-id="videos-tab"
   aria-controls="videos-panel">
-  <mdc-badge slot="badge" type="counter" counter="5" aria-label="5 New videos"></mdc-badge>
+  <mdc-badge slot="postfix" type="counter" counter="5" aria-label="5 New videos"></mdc-badge>
   </mdc-tab>
   <mdc-tab variant=${variant}
   ${hideText ? '' : 'text="Music"'}
@@ -193,13 +192,58 @@ test('mdc-tablist', async ({ componentsPage }) => {
       await expect(activeTab).toHaveAttribute('active');
     });
 
+    await test.step('component should not fire change event on initial mount', async () => {
+      await setup({ componentsPage });
+      const waitForChange = await componentsPage.waitForEvent(mdcTablist, 'change');
+      await expect(waitForChange).not.toEventEmitted();
+    });
+
     await test.step('component should fire change event when active tab changes', async () => {
       await setup({ componentsPage });
-      const waitForChange = componentsPage.waitForEvent(mdcTablist, 'change');
+      const waitForChange = await componentsPage.waitForEvent(mdcTablist, 'change');
       await componentsPage.actionability.pressTab();
       await componentsPage.page.keyboard.press('ArrowRight');
       await componentsPage.page.keyboard.press('Enter');
-      await waitForChange;
+      await expect(waitForChange).toEventEmitted();
+    });
+
+    await test.step('spatial navigation', async () => {
+      await setup({ componentsPage });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(tabs.nth(0)).toBeFocused();
+
+      // No loop back at the beginning of the list
+      await keyboard.press(KEYS.ARROW_LEFT);
+      await expect(tabs.nth(0)).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(tabs.nth(1)).toBeFocused();
+
+      await keyboard.press('Enter');
+      await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+      await expect(tabs.nth(1)).toHaveAttribute('active');
+
+      await keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(tabs.nth(2)).toBeFocused();
+
+      await expect(tabs.nth(2)).not.toHaveAttribute('aria-selected', 'true');
+      await expect(tabs.nth(2)).not.toHaveAttribute('active');
+
+      await keyboard.press(KEYS.ENTER);
+      await expect(tabs.nth(2)).toHaveAttribute('aria-selected', 'true');
+      await expect(tabs.nth(2)).toHaveAttribute('active');
+
+      await keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(tabs.nth(3)).toBeFocused();
+      await keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(tabs.nth(4)).toBeFocused();
+
+      // No loop back at the end of the list
+      await keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(tabs.nth(4)).toBeFocused();
     });
   });
 
@@ -272,7 +316,7 @@ test('mdc-tablist', async ({ componentsPage }) => {
       await test.step(`Given a tablist component with 5 tabs and a smaller viewport,
           if any arrow button is focused, when both arrow buttons disappear, 
           the active tab should gain focus`, async () => {
-        await componentsPage.page.setViewportSize({ width: 320, height: 450 });
+        await componentsPage.page.setViewportSize({ width: 330, height: 450 });
         await setup({ componentsPage });
         await componentsPage.actionability.pressTab();
         await componentsPage.actionability.pressAndCheckFocus('ArrowRight', [tabs.nth(1), tabs.nth(2)]);

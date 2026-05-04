@@ -3,6 +3,8 @@ import { property } from 'lit/decorators.js';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Component } from '../../models';
+import { debounce } from '../../utils/debounce';
+import type { Debounced } from '../../utils/debounce';
 
 import { DEFAULTS } from './screenreaderannouncer.constants';
 import styles from './screenreaderannouncer.styles';
@@ -13,6 +15,9 @@ import { AriaLive } from './screenreaderannouncer.types';
  *
  * To make an announcement set `announcement` attribute on the `mdc-screenreaderannouncer` element.
  *
+ * Consumers can also use the public `announce` function to trigger announcements programmatically
+ * by passing an options object where `announcement` is required and all other fields are optional.
+ *
  * **Internal logic**
  *
  * When the screenreader announcer is connected to the DOM, if the `identity` attribute is not
@@ -20,9 +25,25 @@ import { AriaLive } from './screenreaderannouncer.types';
  * in the DOM. If the `identity` attribute is provided, the identity element is used and no new element
  * is created in the DOM.
  *
+ * If you provide a custom `identity`, you must ensure that the element exists and is visually hidden.
+ *
+ * Example CSS:
+ *
+ * ```css
+ * #your-custom-announcer-id {
+ *   clip: rect(0 0 0 0);
+ *   clip-path: inset(50%);
+ *   height: 1px;
+ *   overflow: hidden;
+ *   position: absolute;
+ *   white-space: nowrap;
+ *   width: 1px;
+ * }
+ * ```
+ *
  * When the `announcement` attribute is set, the screenreader announcer will create a `<div>` element with
  * `aria-live` attribute set to the value of `data-aria-live` attribute and append it to the `identity` element.
- * After delay of `delay` milliseconds, a <p> element with the announcement text is appended to the `<div>` element.
+ * After delay of `delay` milliseconds, a `<p>` element with the announcement text is appended to the `<div>` element.
  *
  * The announcement `<div>` element is removed from the DOM after `timeout` milliseconds.
  *
@@ -32,6 +53,10 @@ import { AriaLive } from './screenreaderannouncer.types';
  * **Note**
  * 1. The default delay of 150 miliseconds is used as we dynamically generate the
  * aria-live region in the DOM and add the announcement text to it.
+ * 2. If multiple `mdc-screenreaderannouncer` instances use the same `identity`, `data-aria-live`
+ * for that identity is effectively determined by the first instance that creates announcements for it.
+ * Changing `data-aria-live` in later instances for the same identity will not update already-created
+ * live-region containers.
  * 3. If no `identity` is provided, all the screen reader components will create and use only one
  * `<div>` element with id `mdc-screenreaderannouncer-identity` in the DOM.
  *
@@ -47,7 +72,7 @@ class ScreenreaderAnnouncer extends Component {
    * @default ''
    */
   @property({ type: String, reflect: true })
-  announcement: string = '';
+  announcement?: string = '';
 
   /**
    * The id of the element in the light dom, to which announcement elements will be appended.
@@ -60,6 +85,10 @@ class ScreenreaderAnnouncer extends Component {
 
   /**
    * Aria live value for announcement.
+   *
+   * For a shared `identity`, this value should be treated as immutable after initial usage.
+   * The first `mdc-screenreaderannouncer` instance that creates announcements for that
+   * identity determines the `aria-live` value for the created live-region containers.
    *
    * @default 'polite'
    */
@@ -84,6 +113,14 @@ class ScreenreaderAnnouncer extends Component {
   timeout: number = DEFAULTS.TIMEOUT;
 
   /**
+   * The debounce time delay in milliseconds for announcements.
+   *
+   * @default 500
+   */
+  @property({ type: Number, reflect: true, attribute: 'debounce-time' })
+  debounceTime: number = DEFAULTS.DEBOUNCE;
+
+  /**
    * Array to store timeOutIds for clearing timeouts later.
    * @internal
    */
@@ -95,6 +132,9 @@ class ScreenreaderAnnouncer extends Component {
    */
   private ariaLiveAnnouncementIds: Array<string> = [];
 
+  /** @internal */
+  private debouncedAnnounce?: Debounced<() => void>;
+
   /**
    * Announces the given announcement to the screen reader.
    *
@@ -104,18 +144,29 @@ class ScreenreaderAnnouncer extends Component {
    * The div element is appended to the element in the DOM identified with id as
    * identity attribute.
    *
-   * @param announcement - The announcement to be made.
-   * @param delay - The delay in milliseconds before announcing the message.
-   * @param timeout - The timeout in milliseconds before removing the announcement.
-   * @param ariaLive - The aria live value for the announcement.
+   * @param options - Announcement configuration object with the following fields:
+   *   - `announcement` (required): The announcement to be made.
+   *   - `delay` (optional): The delay in milliseconds before announcing the message.
+   *   - `timeout` (optional): The timeout in milliseconds before removing the announcement.
+   *   - `ariaLive` (optional): The aria live value for the announcement.
    */
-  announce(announcement: string, delay: number, timeout: number, ariaLive: AriaLive) {
+  public announce({
+    announcement,
+    delay,
+    timeout,
+    ariaLive,
+  }: {
+    announcement: string;
+    delay?: number;
+    timeout?: number;
+    ariaLive?: AriaLive;
+  }) {
     if (announcement.length > 0) {
       const announcementId = `mdc-screenreaderannouncer-announcement-${uuidv4()}`;
       const announcementContainer = document.createElement('div');
-      announcementContainer.id = announcementId;
-      announcementContainer.ariaLive = ariaLive;
-      document.getElementById(this.identity)?.appendChild(announcementContainer);
+      announcementContainer.setAttribute('id', announcementId);
+      announcementContainer.setAttribute('aria-live', ariaLive ?? this.dataAriaLive);
+      this.getElementByIdAcrossShadowRoot(this.identity)?.appendChild(announcementContainer);
       const timeOutId = window.setTimeout(() => {
         const announcementElement = document.createElement('p');
         announcementElement.textContent = announcement;
@@ -123,10 +174,10 @@ class ScreenreaderAnnouncer extends Component {
 
         this.ariaLiveAnnouncementIds.push(announcementId);
         const timeOutId = window.setTimeout(() => {
-          document.getElementById(announcementId)?.remove();
-        }, timeout);
+          announcementContainer.remove();
+        }, timeout ?? this.timeout);
         this.timeOutIds.push(timeOutId);
-      }, delay);
+      }, delay ?? this.delay);
       this.timeOutIds.push(timeOutId);
     }
   }
@@ -139,8 +190,21 @@ class ScreenreaderAnnouncer extends Component {
       window.clearTimeout(timeOutId);
     });
     this.ariaLiveAnnouncementIds.forEach(announcementId => {
-      document.getElementById(announcementId)?.remove();
+      this.getElementByIdAcrossShadowRoot(announcementId)?.remove();
     });
+  }
+
+  /**
+   * Gets an element by ID, searching in both light DOM and modal dialog shadow root.
+   * @internal
+   */
+  private getElementByIdAcrossShadowRoot(id: string): HTMLElement | null {
+    const element = document.getElementById(id);
+    if (element) {
+      return element;
+    }
+    const modalDialog = this.findModalAncestor();
+    return modalDialog?.shadowRoot?.getElementById(id) || null;
   }
 
   /**
@@ -150,7 +214,7 @@ class ScreenreaderAnnouncer extends Component {
    * `mdc-screenreaderannouncer-identity`.
    */
   private createAnnouncementAriaLiveRegion() {
-    let liveRegionLightDom = document.getElementById(this.identity);
+    let liveRegionLightDom = this.getElementByIdAcrossShadowRoot(this.identity);
     if (!liveRegionLightDom) {
       liveRegionLightDom = document.createElement('div');
       liveRegionLightDom.id = this.identity;
@@ -169,8 +233,61 @@ class ScreenreaderAnnouncer extends Component {
       `;
       liveRegionLightDom.appendChild(styleElement);
       liveRegionLightDom.classList.add('mdc-screenreaderannouncer__visually-hidden');
-      document.body.appendChild(liveRegionLightDom);
+
+      // If inside a modal dialog, append to its shadow root, otherwise to document.body
+      const modalDialog = this.findModalAncestor();
+      if (modalDialog?.shadowRoot) {
+        modalDialog.shadowRoot.appendChild(liveRegionLightDom);
+      } else {
+        document.body.appendChild(liveRegionLightDom);
+      }
     }
+  }
+
+  /**
+   * Finds the closest modal dialog ancestor, traversing through shadow DOM boundaries.
+   * @internal
+   */
+  private findModalAncestor(): Element | null {
+    let element: Element | null = this;
+
+    while (element) {
+      const modal = element.closest('[aria-modal="true"]');
+      if (modal) {
+        return modal;
+      }
+
+      // Traverse up through shadow DOM boundary
+      const root = element.getRootNode() as ShadowRoot | Document;
+      if (root instanceof ShadowRoot && root.host) {
+        element = root.host;
+      } else {
+        break;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Creates a single debounced function that will read the latest this.announcement when executed.
+   *
+   * This function is used to debounce the announcement so that it will only be made after
+   * this.debounceTime milliseconds have passed since the last time this.announcement was updated.
+   */
+  private setupDebouncedAnnounce() {
+    // create single debounced function that will read latest this.announcement when executed
+    this.debouncedAnnounce = debounce(() => {
+      if (this.announcement && this.announcement.length > 0) {
+        this.announce({
+          announcement: this.announcement,
+          delay: this.delay,
+          timeout: this.timeout,
+          ariaLive: this.dataAriaLive,
+        });
+        this.announcement = '';
+      }
+    }, this.debounceTime);
   }
 
   override connectedCallback(): void {
@@ -179,11 +296,14 @@ class ScreenreaderAnnouncer extends Component {
       this.identity = DEFAULTS.IDENTITY;
     }
     this.createAnnouncementAriaLiveRegion();
+    this.setupDebouncedAnnounce();
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.clearTimeOutsAndAnnouncements();
+    // cancel any pending debounced action and clear DOM timeouts
+    this.debouncedAnnounce?.cancel();
   }
 
   protected override updated(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
@@ -191,9 +311,12 @@ class ScreenreaderAnnouncer extends Component {
       this.identity = DEFAULTS.IDENTITY;
       this.createAnnouncementAriaLiveRegion();
     }
-    if (changedProperties.has('announcement') && this.announcement.length > 0) {
-      this.announce(this.announcement, this.delay, this.timeout, this.dataAriaLive);
-      this.announcement = '';
+    if (changedProperties.has('debounceTime')) {
+      // Reinitiate debounced function if debounceTime changed
+      this.setupDebouncedAnnounce();
+    }
+    if (changedProperties.has('announcement') && this.announcement && this.announcement.length > 0) {
+      this.debouncedAnnounce?.();
     }
   }
 

@@ -14,6 +14,8 @@ const styles = css`
     --mdc-popover-width: unset;
     --mdc-popover-max-width: max-content;
     --mdc-popover-max-height: auto;
+    --mdc-popover-backdrop-color: var(--mds-color-theme-common-overlays-secondary-normal);
+    --mdc-backdrop-mixin-background-color: var(--mdc-popover-backdrop-color);
 
     display: none;
     position: absolute;
@@ -52,7 +54,7 @@ const styles = css`
     border-color: var(--mdc-popover-inverted-border-color);
   }
 
-  :host([color='contrast']) .popover-close {
+  :host([color='contrast'])::part(popover-close) {
     color: var(--mdc-popover-inverted-text-color);
   }
 
@@ -64,11 +66,25 @@ const styles = css`
     max-height: var(--mdc-popover-max-height);
   }
 
-  .popover-hover-bridge {
+  :host::part(popover-hover-bridge) {
     position: absolute;
     transform: translateX(-50%);
     background: transparent;
     pointer-events: auto;
+  }
+
+  :host::part(popover-close) {
+    box-sizing: border-box;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.75rem;
+    cursor: pointer;
+    z-index: 9999;
+  }
+
+  :host(:dir(rtl))::part(popover-close) {
+    right: auto;
+    left: 0.75rem;
   }
 
   .popover-arrow {
@@ -79,20 +95,6 @@ const styles = css`
     transform: rotate(45deg);
     pointer-events: none;
     border: var(--mdc-popover-arrow-border);
-  }
-
-  .popover-close {
-    box-sizing: border-box;
-    position: absolute;
-    right: 0.75rem;
-    top: 0.75rem;
-    cursor: pointer;
-    z-index: 9999;
-  }
-
-  :host(:dir(rtl)) .popover-close {
-    right: auto;
-    left: 0.75rem;
   }
 
   .popover-arrow[data-side='top'] {

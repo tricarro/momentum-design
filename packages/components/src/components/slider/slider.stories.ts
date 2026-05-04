@@ -1,10 +1,10 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
 import { html } from 'lit';
 
 import '.';
+import '../popover';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { textControls } from '../../../config/storybook/utils';
 
 const render = (args: Args) => html`
   <mdc-slider
@@ -36,6 +36,9 @@ const render = (args: Args) => html`
     name-end="${args['name-end']}"
     data-aria-valuetext="${args['data-aria-valuetext']}"
     data-aria-label="${args['data-aria-label']}"
+    ?hide-tooltip="${args['hide-tooltip']}"
+    class="${args.class}"
+    style="${args.style}"
   ></mdc-slider>
 `;
 
@@ -44,9 +47,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-slider',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     min: { control: 'number' },
     max: { control: 'number' },
@@ -74,19 +75,7 @@ const meta: Meta = {
     'name-end': { control: 'text', if: { arg: 'range', eq: true } },
     'data-aria-valuetext': { control: 'text', if: { arg: 'range', eq: false } },
     'data-aria-label': { control: 'text' },
-    ...textControls([
-      '--mdc-slider-thumb-color',
-      '--mdc-slider-thumb-border-color',
-      '--mdc-slider-thumb-size',
-      '--mdc-slider-input-size',
-      '--mdc-slider-tick-size',
-      '--mdc-slider-track-height',
-      '--mdc-slider-tick-color',
-      '--mdc-slider-progress-color',
-      '--mdc-slider-track-color',
-      '--mdc-slider-tooltip-left',
-      '--mdc-slider-tick-left',
-    ]),
+    'hide-tooltip': { control: 'boolean' },
     ...classArgType,
     ...styleArgType,
   },
@@ -120,6 +109,7 @@ export const Example: StoryObj = {
     'name-end': '',
     'data-aria-valuetext': '',
     'data-aria-label': '',
+    'hide-tooltip': false,
     class: '',
     style: '',
   },

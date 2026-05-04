@@ -33,9 +33,9 @@ Feature: Popover Component
       Then it should be placed below the trigger element by default,
       And the placement can be modified using the `placement` attribute to top, left, right, bottom, etc.
 
-    Scenario: Flip attribute
+    Scenario: Disable Flip attribute
       Given a popover component which is visible,
-      When the `flip` attribute is set to `true`,
+      When the `disable-flip` attribute is set to `false`,
       Then the floating popover should change the placement based on the availability of viewport.
 
     Scenario: Display arrow
@@ -88,6 +88,12 @@ Feature: Popover Component
       Given the popover contains interactive content,
       When the `focus-trap` attribute is set to `true`,
       Then the user should not be able to move focus outside of the popover until it is closed.
+
+    Scenario: Element index to receive focus
+      Given the popover contains multiple interactive elements,
+      When the `element-index-to-receive-focus` attribute is set to a specific index,
+      Then that element (by index order) should receive focus when the popover opens with focus trap enabled,
+      And if the attribute is not set, the first element (index 0) should receive focus by default.
 
     Scenario: Prevent outside scroll
       Given the `prevent-scroll` attribute is set,
@@ -210,9 +216,8 @@ Feature: Popover Component
       Then the second popover should close,
       And the first popover should open (since focus is back on the trigger).
 
-    Scenario: Tooltip and Popover on same trigger with keepConnectedTooltipClosed attribute as true
+    Scenario: Tooltip and Popover on same trigger with keepConnectedTooltipOpen attribute as false
       Given a trigger element with a popover and a tooltip attached
-      And the popover has the `keep-connected-tooltip-closed` attribute set to `true`
       When the trigger is clicked,
       Then the popover should open,
       And the tooltip should closed.
@@ -237,3 +242,28 @@ Feature: Popover Component
       And the popover should close,
       And the tooltip should close
       And the focus move into the dialog.
+
+    Scenario: Popover should determine z-index for backdrop with default values
+      Given a trigger element with a popover and a nested popover inside it,
+      And both popovers have backdrop enabled,
+      When the parent popover is opened,
+      Then its z-index should be 1000 (default).
+      And the popover trigger element should have z-index of 1000 - 1 = 999.
+      And its backdrop container z-index should be 1000 - 2 = 998.
+      When the nested popover is opened,
+      Then its z-index should be 1000 (default).
+      And the popover trigger element should have z-index of 1000 - 1 = 999.
+      And its backdrop container z-index should be 1000 - 2 = 998.
+
+    Scenario: Popover should determine z-index for backdrop with custom z-index values
+      Given a trigger element with a popover and a nested popover inside it,
+      And the popover has z-index of 2500 and nested popover has z-index of 3500,
+      And both popovers have backdrop enabled,
+      When the parent popover is opened,
+      Then its z-index should be 2500.
+      And the popover trigger element should have z-index of 2500 - 1 = 2549.
+      And its backdrop container z-index should be 2500 - 2 = 2548.
+      When the nested popover is opened,
+      Then its z-index should be 3500 (default).
+      And the popover trigger element should have z-index of 3500 - 1 = 3549.
+      And its backdrop container z-index should be 3500 - 2 = 3548.

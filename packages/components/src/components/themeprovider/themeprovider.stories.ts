@@ -6,7 +6,7 @@ import '.';
 import './themeprovider.stories.styles.css';
 import './themeprovider.stories.utils';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, textControls } from '../../../config/storybook/utils';
+import { disableControls } from '../../../config/storybook/utils';
 
 const THEMES = ['mds-theme-stable-darkWebex', 'mds-theme-stable-lightWebex'];
 
@@ -37,25 +37,17 @@ const render = (args: Args) => html`
 `;
 
 const meta: Meta = {
-  title: 'Components/themeprovider',
+  title: 'Providers/Theme Provider',
   tags: ['autodocs'],
   component: 'mdc-themeprovider',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     themeclass: {
       options: THEMES,
       control: { type: 'radio' },
     },
     ...disableControls(['Context']),
-    ...textControls([
-      '--mdc-themeprovider-color-default',
-      '--mdc-themeprovider-font-family',
-      '--mdc-themeprovider-font-weight',
-      '--mdc-themeprovider-letter-spacing-adjustment',
-    ]),
     ...classArgType,
     ...styleArgType,
   },

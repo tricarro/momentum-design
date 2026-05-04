@@ -1,25 +1,1141 @@
-import { CSSResult, html } from 'lit';
+import type { CSSResult, PropertyValues, TemplateResult } from 'lit';
+import { html, nothing } from 'lit';
+import { property, query, queryAssignedElements, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
+import { live } from 'lit/directives/live.js';
 
-import { Component } from '../../models';
+import { ElementStore, type ElementStoreChangeTypes } from '../../utils/controllers/ElementStore';
+import { AutoFocusOnMountMixin } from '../../utils/mixins/AutoFocusOnMountMixin';
+import { DataAriaLabelMixin } from '../../utils/mixins/DataAriaLabelMixin';
+import { AssociatedFormControl, FormInternalsMixin } from '../../utils/mixins/FormInternalsMixin';
+import { CaptureDestroyEventForChildElement } from '../../utils/mixins/lifecycle/CaptureDestroyEventForChildElement';
+import { LIFE_CYCLE_EVENTS } from '../../utils/mixins/lifecycle/lifecycle.contants';
+import { ROLE } from '../../utils/roles';
+import { TAG_NAME as DIVIDER_TAG_NAME } from '../divider/divider.constants';
+import FormfieldWrapper from '../formfieldwrapper/formfieldwrapper.component';
+import { DEFAULTS as FORMFIELD_DEFAULTS, VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
+import Input from '../input/input.component';
+import { AUTO_COMPLETE } from '../input/input.constants';
+import { TAG_NAME as OPTIONGROUP_TAG_NAME } from '../optgroup/optgroup.constants';
+import type Option from '../option/option.component';
+import { TAG_NAME as OPTION_TAG_NAME } from '../option/option.constants';
+import { DEFAULTS as POPOVER_DEFAULTS, POPOVER_PLACEMENT, TRIGGER } from '../popover/popover.constants';
+import type { PopoverStrategy } from '../popover/popover.types';
+import { TAG_NAME as SELECTLISTBOX_TAG_NAME } from '../selectlistbox/selectlistbox.constants';
+import { ControlTypeMixin } from '../../utils/mixins/ControlTypeMixin';
+import type { LifeCycleModifiedEvent } from '../../utils/mixins/lifecycle/LifeCycleModifiedEvent';
+import { KeyToActionMixin, ACTIONS, NAV_MODES } from '../../utils/mixins/KeyToActionMixin';
+import { KeyDownHandledMixin } from '../../utils/mixins/KeyDownHandledMixin';
 
+import { AUTOCOMPLETE_LIST, FILTER, ICON_NAME, TRIGGER_ID } from './combobox.constants';
+import { ComboboxEventManager } from './combobox.events';
 import styles from './combobox.styles';
+import type { ComboboxFilter, Placement } from './combobox.types';
 
 /**
- * combobox component, which ...
+ * The Combobox component is a text-based dropdown control that allows users to select an option from a predefined list.
+ * Users can type text to filter the options and select their desired choice.
+ *
+ * When the user starts typing, the filter uses a "starts with" search and displays options based on the text entered by the user.
+ * If the user entered text that doesn't match with any of the options, then the text in the `no-result-text` attribute will be displayed.
+ *
+ * The `filter` attribute controls how options are narrowed as the user types.
+ * The default `'match-starts-with'` strategy shows options whose label starts with the typed text.
+ * Setting `filter="none"` disables internal filtering, which is useful when the consumer manages
+ * filtering externally (e.g., fetching results from an API) and dynamically updates the slotted options.
+ * A custom function can also be provided via the `filter` property for full control over the logic.
+ *
+ * If there is no text in the `no-result-text` attribute then nothing will be shown.
+ *
+ * Combobox is designed to work with `mdc-option` for individual options and `mdc-optgroup` for grouping related options.
+ * The component ensures accessibility and usability while handling various use cases, including long text truncation with tooltip support.
+ *
+ * Every mdc-option should have a `value` attribute set to ensure proper form submission.
+ *
+ * To set a default option, use the `selected` attribute on the `mdc-option` element.
+ *
+ * When the combobox `control-type` attribute is "controlled", then the value should be set by the parent only, and the combobox will emit `change` and `input` events
+ * with the selected option details when the user makes a selection or types in the input, but it won't update the selected value internally.
+ * The parent component is expected to listen to these events and update the `value` property of the combobox accordingly to reflect the changes in the UI.
+ *
+ * **Note:** Make sure to add `mdc-selectlistbox` as a child of `mdc-combobox` and wrap options/optgroup in it to ensure proper accessibility functionality. Read more about it in SelectListBox documentation.
+ *
+ * If you need to use `mdc-tooltip` with any options, make sure to place the tooltip component outside the `mdc-selectlistbox` element. Read more about it in Options documentation.
+ *
+ * To understand more about combobox and its patterns, refer to this [WCAG example](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/).
+ *
+ * @dependency mdc-buttonsimple
+ * @dependency mdc-icon
+ * @dependency mdc-input
+ * @dependency mdc-listitem
+ * @dependency mdc-popover
  *
  * @tagname mdc-combobox
  *
- * @slot default - This is a default/unnamed slot
+ * @slot default - This is a default/unnamed slot for Selectlistbox including options and/or option group.
+ * @slot label - Slot for the label element. If not provided, the `label` property will be used to render the label.
+ * @slot toggletip - Slot for the toggletip info icon button. If not provided, the `toggletip-text` property will be used to render the info icon button and toggletip.
+ * @slot help-icon - Slot for the helper/validation icon. If not provided, the icon will be rendered based on the `helpTextType` property.
+ * @slot help-text - Slot for the helper/validation text. If not provided, the `helpText` property will be used to render the helper/validation text.
  *
- * @cssproperty --custom-property-name - Description of the CSS custom property
+ * @event click - (React: onClick) This event is dispatched when the combobox is clicked.
+ * @event change - (React: onChange) This event is dispatched when the combobox is changed.
+ * @event input - (React: onInput) This event is dispatched when the combobox is changed.
+ * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the combobox.
+ * @event focus - (React: onFocus) This event is dispatched when the combobox receives focus.
+ *
+ * @cssproperty --mdc-combobox-border-color - The border color of the combobox
+ * @cssproperty --mdc-combobox-height - The height of the combobox trigger control
+ * @cssproperty --mdc-combobox-icon-color - The icon color of the combobox
+ * @cssproperty --mdc-combobox-listbox-height - The height of the listbox inside the combobox
+ * @cssproperty --mdc-combobox-listbox-width - The width of the listbox inside the combobox
+ * @cssproperty --mdc-combobox-width - The width of the combobox
+ * @cssproperty --mdc-combobox-hover-background-color - The background color of the combobox when hovered
+ * @cssproperty --mdc-label-font-size - Font size for the label text.
+ * @cssproperty --mdc-label-font-weight - Font weight for the label text.
+ * @cssproperty --mdc-label-line-height - Line height for the label text.
+ * @cssproperty --mdc-label-color - Color for the label text.
+ * @cssproperty --mdc-help-text-font-size - Font size for the help text.
+ * @cssproperty --mdc-help-text-font-weight - Font weight for the help text.
+ * @cssproperty --mdc-help-text-line-height - Line height for the help text.
+ * @cssproperty --mdc-help-text-color - Color for the help text.
+ * @cssproperty --mdc-required-indicator-color - Color for the required indicator text.
+ *
+ * @csspart label - The label element.
+ * @csspart label-text - The container for the label and required indicator elements.
+ * @csspart required-indicator - The required indicator element that is displayed next to the label when the `required` property is set to true.
+ * @csspart info-icon-btn - The info icon button element that is displayed next to the label when the `toggletip-text` property is set.
+ * @csspart label-toggletip - The toggletip element that is displayed when the info icon button is clicked.
+ * @csspart help-text - The helper/validation text element.
+ * @csspart helper-icon - The helper/validation icon element that is displayed next to the helper/validation text.
+ * @csspart help-text-container - The container for the helper/validation icon and text elements.
+ * @csspart internal-native-input - The internal native input element of the combobox.
+ * @csspart input-text - The input element of the combobox.
+ * @csspart no-result-text - The no result text element of the combobox.
+ * @csspart combobox-base - The base container element of the combobox.
+ * @csspart combobox-button - The button element of the combobox.
+ * @csspart combobox-button-icon - The icon element of the button of the combobox.
  */
-class Combobox extends Component {
-  public override render() {
-    return html`<p>This is a dummy combobox component!</p>
-      <slot></slot>`;
+class Combobox
+  extends KeyDownHandledMixin(
+    KeyToActionMixin(
+      CaptureDestroyEventForChildElement(
+        AutoFocusOnMountMixin(FormInternalsMixin(DataAriaLabelMixin(ControlTypeMixin(FormfieldWrapper)))),
+      ),
+    ),
+  )
+  implements AssociatedFormControl
+{
+  /** @internal */
+  private itemsStore: ElementStore<Option>;
+
+  /** @internal */
+  private lastCommittedValue: string = '';
+
+  /**
+   * The placeholder text which will be shown on the text if provided.
+   * @default undefined
+   */
+  @property({ type: String }) placeholder?: string;
+
+  /**
+   * The placement of the popover within Combobox.
+   * This defines the position of the popover relative to the combobox input field.
+   *
+   * Possible values:
+   *  - 'top-start'
+   *  - 'bottom-start'
+   * @default 'bottom-start'
+   */
+  @property({ type: String, reflect: true }) placement: Placement = POPOVER_PLACEMENT.BOTTOM_START;
+
+  /**
+   * Text to be displayed when no results are found.
+   * @default undefined
+   */
+  @property({ type: String, attribute: 'no-result-text', reflect: true }) noResultText?: string;
+
+  /**
+   * Text to be displayed when no a custom values are selected, without selecting any option from the dropdown
+   * @default undefined
+   */
+  @property({ type: String, attribute: 'invalid-custom-value-text', reflect: true }) invalidCustomValueText?: string;
+
+  /**
+   * This describes the clipping element(s) or area relative to which the overflow of the popover will be checked.
+   * The default is 'clippingAncestors', which are the overflow ancestors that can cause the element to be clipped.
+   * Possible values:
+   *  - 'clippingAncestors'
+   *  - any css selector
+   *
+   * @default 'clippingAncestors'
+   *
+   * @see [Floating UI - boundary](https://floating-ui.com/docs/detectOverflow#boundary)
+   */
+  @property({ type: String, reflect: true })
+  boundary: 'clippingAncestors' | string = POPOVER_DEFAULTS.BOUNDARY;
+
+  /**
+   * The strategy of the popover within Combobox.
+   * This determines how the popover is positioned in the DOM.
+   *
+   * In case `boundary` is set to something other than 'clippingAncestors',
+   * it might be necessary to set the `strategy` to 'fixed' to ensure that the popover
+   * is not getting clipped by scrollable containers enclosing the combobox.
+   *
+   * @default absolute
+   * @see [Floating UI - strategy](https://floating-ui.com/docs/computePosition#strategy)
+   */
+  @property({ type: String, reflect: true })
+  strategy: PopoverStrategy = POPOVER_DEFAULTS.STRATEGY;
+
+  /**
+   * The z-index of the popover within Combobox.
+   *
+   * Override this to make sure this stays on top of other components.
+   * @default undefined
+   */
+  @property({ type: Number, reflect: true, attribute: 'popover-z-index' })
+  popoverZIndex?: number = undefined;
+
+  /**
+   * The filter strategy used to narrow the visible options based on the user's input.
+   *
+   * By default, filter is a string that selects a built-in strategy:
+   * - `'match-starts-with'` — options whose label starts with the typed text are shown (default)
+   * - `'none'` — no filtering is performed; all slotted options remain visible, which is useful
+   *   when the consumer handles filtering externally (e.g., via an API)
+   *
+   * Alternatively, filter accepts a custom function with the signature
+   * `(option: Option, inputValue: string) => boolean` for full control over the filter logic.
+   *
+   * Note: only string values are reflected in the `filter` attribute.
+   *
+   * @default 'match-starts-with'
+   */
+  @property({
+    type: String,
+    reflect: true,
+    converter: {
+      toAttribute(value: ComboboxFilter): string | null {
+        return typeof value === 'string' ? value : null;
+      },
+    },
+  })
+  filter: ComboboxFilter = FILTER.MATCH_STARTS_WITH;
+
+  /**
+   * ID of the element where the backdrop will be appended to.
+   * This is useful to ensure that the backdrop is appended to the correct element in the DOM.
+   * If not set, the backdrop will be appended to the parent element of the combobox.
+   */
+  @property({ type: String, reflect: true, attribute: 'backdrop-append-to' })
+  backdropAppendTo?: string;
+
+  /** @internal */
+  @query(`[role="${ROLE.COMBOBOX}"]`) private visualCombobox!: HTMLInputElement;
+
+  /** @internal */
+  @query(`[part="combobox-button"]`) private dropDownButton!: HTMLElement;
+
+  /** @internal */
+  @queryAssignedElements({ selector: SELECTLISTBOX_TAG_NAME }) private slottedListboxes!: Array<HTMLElement>;
+
+  /** @internal */
+  @state() private isOpen = false;
+
+  /** @internal */
+  @state() private filteredValue = '';
+
+  /** @internal */
+  private initialSelectedOption: Option | null = null;
+
+  /** @internal */
+  get navItems(): Option[] {
+    return this.itemsStore.items;
   }
 
-  public static override styles: Array<CSSResult> = [...Component.styles, ...styles];
+  /** @internal - Unique id for the listbox element (used by aria-controls and listbox id) */
+  private get listboxId(): string {
+    return `${this.inputId}-listbox`;
+  }
+
+  constructor() {
+    super();
+
+    this.addEventListener(LIFE_CYCLE_EVENTS.MODIFIED, this.handleModifiedEvent);
+    // This must be initialized after the destroyed event listener
+    // to keep the element in the itemStore in order to move the focus correctly
+    this.itemsStore = new ElementStore<Option>(this, {
+      isValidItem: this.isValidItem,
+      onStoreUpdate: this.onStoreUpdate,
+    });
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this.updateComplete
+      .then(() => {
+        if (this.inputElement) {
+          this.setInputValidity();
+          this.internals.setFormValue(this.inputElement.value);
+        }
+      })
+      .catch(this.handleUpdateError);
+  }
+
+  /** @internal */
+  private isValidItem(item: Element): boolean {
+    return item.matches(OPTION_TAG_NAME);
+  }
+
+  /** @internal */
+  private openPopover(): void {
+    this.isOpen = true;
+  }
+
+  /** @internal */
+  private closePopover(): void {
+    this.isOpen = false;
+  }
+
+  /** @internal */
+  private compareOptionWithValue(option: Option, value: string): boolean {
+    const optionValue = option.getAttribute('label') || '';
+    return optionValue.toLowerCase().startsWith(value?.toLowerCase());
+  }
+
+  /**
+   * Evaluates whether a single option passes the current filter.
+   * Centralises the branching so that `getVisibleOptions` and `updateHiddenOptions` stay simple.
+   *
+   * @internal
+   */
+  private matchesFilter(option: Option, value: string): boolean {
+    if (typeof this.filter === 'function') {
+      return this.filter(option, value);
+    }
+    if (this.filter === FILTER.NONE) {
+      return true;
+    }
+    return this.compareOptionWithValue(option, value);
+  }
+
+  /** @internal */
+  private getFirstSelectedOption(): Option | undefined {
+    return this.navItems.find(el => el.hasAttribute('selected'));
+  }
+
+  /** @internal */
+  private getVisibleOptions(internalValue: string): Option[] {
+    return this.navItems.filter(option => this.matchesFilter(option, internalValue));
+  }
+
+  /** @internal */
+  private handleUpdateError = (error: any): void => {
+    if (this.onerror) {
+      this.onerror(error);
+    }
+  };
+
+  /** @internal */
+  private onStoreUpdate = (
+    option: Option,
+    changeType: ElementStoreChangeTypes,
+    index: number,
+    options: Option[],
+  ): void => {
+    switch (changeType) {
+      case 'added':
+        option.setAttribute('tabindex', index === 0 && options.length === 0 ? '0' : '-1');
+        if (option.hasAttribute('selected')) {
+          this.navItems.forEach(option => option.setAttribute('tabindex', '-1'));
+          option.setAttribute('tabindex', '0');
+        }
+        break;
+      case 'removed':
+        {
+          const destroyedElement = option;
+          if (destroyedElement && (!this.isValidItem(destroyedElement) || destroyedElement.tabIndex !== 0)) {
+            return;
+          }
+
+          const destroyedItemIndex = this.navItems.findIndex(node => node === destroyedElement);
+          if (destroyedItemIndex === -1) {
+            return;
+          }
+
+          let newIndex = destroyedItemIndex + 1;
+          if (newIndex >= this.navItems.length) {
+            newIndex = destroyedItemIndex - 1;
+          }
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  /** @internal */
+  private focusComboboxBase(): void {
+    if (this.disabled) {
+      return;
+    }
+
+    this.updateComplete
+      .then(() => {
+        // `visualCombobox` points to the slotted input with role="combobox".
+        // Clicking the surrounding `mdc-input` or the dropdown button can toggle the popover
+        // without moving DOM focus, so we explicitly focus the base input.
+        this.visualCombobox?.focus({ preventScroll: true });
+      })
+      .catch(this.handleUpdateError);
+  }
+
+  /** @internal */
+  private handleTriggerClick(): void {
+    if (this.disabled) {
+      return;
+    }
+
+    // Toggle dropdown when clicking the trigger button
+    this.isOpen = !this.isOpen;
+    // Focus on the combobox after click
+    this.focusComboboxBase();
+  }
+
+  /**
+   * Update the selected value when an option is modified.
+   *
+   * @internal
+   */
+  private handleModifiedEvent = (event: Event) => {
+    // When the combobox is controlled, we don't update/modify the selected value internally.
+    // Instead, we rely on the consumer to update the selected value based on the change event emitted.
+    if (this.controlType === 'controlled') {
+      // We still need to update the hidden options when an option is modified, because even in controlled mode,
+      // the modification of an option (e.g. changing the label) should be reflected in the UI by updating the hidden options based on the new label.
+      this.updateHiddenOptions();
+      return;
+    }
+    const firstSelectedOption = this.getFirstSelectedOption();
+    switch ((event as LifeCycleModifiedEvent).detail.change) {
+      case 'selected': {
+        // ignore if the modified option is disabled
+        if ((event.target as Option).hasAttribute('disabled')) {
+          return;
+        }
+        // first preference should always be given to the first `selected` attribute option.
+        if (firstSelectedOption && firstSelectedOption.value !== this.value) {
+          this.setSelectedValue(firstSelectedOption, false);
+        }
+        break;
+      }
+      case 'unselected': {
+        // when unselected, check if there is any other option is a selected option,
+        // if there is no selected option, then reset it to null (placeholder will be shown if present).
+        if (firstSelectedOption) {
+          this.setSelectedValue(firstSelectedOption, false);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
+  /**
+   * Sets the selected option of the combobox.
+   *
+   * @param option - the new option to be set
+   * @param emitEvents - indicates if the change and input events should be emitted
+   * @param updateFromValue - indicates if the update is triggered from the value attribute change
+   *
+   * @internal
+   */
+  private setSelectedValue(option: Option | null, emitEvents = true, updateFromValue = false): void {
+    const label = option?.getAttribute('label') || '';
+    const value = option?.getAttribute('value') || '';
+
+    // If the value and the label are the same as the current selected option,
+    // then do nothing to prevent unnecessary updates and event emissions.
+    if (this.value === value && this.filteredValue === label) {
+      return;
+    }
+
+    // For controlled components, user interactions (not coming from a value prop change)
+    // should only emit events and let the parent drive the value.
+    if (this.controlType === 'controlled' && !updateFromValue) {
+      if (emitEvents) {
+        ComboboxEventManager.onInputCombobox(this, option);
+        ComboboxEventManager.onChangeCombobox(this, option);
+      }
+      return;
+    }
+
+    this.filteredValue = label;
+    this.value = value;
+    // Update last committed values when a real selection is made
+    this.lastCommittedValue = value;
+    this.internals.setFormValue(this.value);
+    this.updateHiddenOptions();
+    this.updateSelectedOption(option);
+    this.resetFocusedOption();
+    this.setInputValidity();
+    this.resetHelpText();
+
+    if (emitEvents && !updateFromValue && option) {
+      ComboboxEventManager.onInputCombobox(this, option);
+      ComboboxEventManager.onChangeCombobox(this, option);
+    }
+  }
+
+  /**
+   * Resets the selected value to an empty string and clears the form value.
+   * This method is called when there is a change on the input.
+   *
+   * @internal
+   */
+  private resetSelectedValue(): void {
+    // We don't reset the value when the combobox is controlled
+    if (this.controlType !== 'controlled') {
+      this.value = '';
+    }
+    this.internals.setFormValue(this.value);
+    this.resetHelpText();
+  }
+
+  /** @internal */
+  private resetHelpText(): void {
+    if (this.invalidCustomValueText && this.helpText === this.invalidCustomValueText) {
+      this.helpText = '';
+      this.helpTextType = VALIDATION.DEFAULT;
+    }
+  }
+
+  /**
+   * This function is called when the attribute changes.
+   * - value: It updates the selected option based on the value attribute.
+   * - validation-message: It updates the validity of the input field based on the input field's validity.
+   *
+   * @param name - attribute name
+   * @param oldValue - old value
+   * @param newValue - new value
+   */
+  override attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+    super.attributeChangedCallback(name, oldValue, newValue);
+
+    // keep value-attribute based default selection working for both
+    // controlled and uncontrolled modes, while avoiding change/input events
+    // by delegating to setSelectedValue with updateFromValue=true.
+    // Skip the initial paint (oldValue === null with empty newValue) but allow
+    // programmatic clears (oldValue is a string when the attribute was already set).
+    if (name === 'value' && this.navItems.length && !(oldValue === null && newValue === '')) {
+      let optionToSelect: Option | null = null;
+      if (newValue !== '') {
+        const firstSelectedOption = this.getFirstSelectedOption();
+        const valueBasedOption = this.navItems.find(option => option.value === newValue);
+        if (valueBasedOption) {
+          optionToSelect = valueBasedOption;
+        } else if (firstSelectedOption) {
+          optionToSelect = firstSelectedOption;
+        } else if (this.placeholder) {
+          optionToSelect = null;
+        } else {
+          return;
+        }
+      }
+      this.updateComplete
+        .then(() => {
+          this.setSelectedValue(optionToSelect, false, true);
+        })
+        .catch(this.handleUpdateError);
+    }
+
+    if (name === 'validation-message') {
+      this.updateComplete
+        .then(() => {
+          this.setInputValidity();
+        })
+        .catch(this.handleUpdateError);
+    }
+  }
+
+  protected override async firstUpdated(_changedProperties: PropertyValues) {
+    await this.updateComplete;
+
+    // set the element to auto focus if autoFocusOnMount is set to true
+    // before running the super method, so that the AutoFocusOnMountMixin can use it
+    // to focus the correct element
+    if (this.inputElement && this.autoFocusOnMount) {
+      this.elementToAutoFocus = this.inputElement;
+    }
+    super.firstUpdated(_changedProperties);
+
+    const firstSelectedOption = this.getFirstSelectedOption();
+    // When the combobox is controlled, we don't update the selected value internally.
+    if (firstSelectedOption && this.controlType !== 'controlled') {
+      this.initialSelectedOption = firstSelectedOption;
+      this.setSelectedValue(firstSelectedOption);
+    } else if (this.value) {
+      this.updateValueBasedSelection();
+    } else if (this.placeholder) {
+      this.setInputValidity();
+    }
+    // Initialize last committed values
+    this.lastCommittedValue = this.value;
+    this.navItems.forEach(option => {
+      option.setAttribute('tabindex', '-1');
+    });
+  }
+
+  /**
+   * Updates the selected value based on the current `value` property.
+   *
+   * @internal
+   */
+  private updateValueBasedSelection(): void {
+    const validOption = this.navItems.find(option => option.value === this.value);
+    if (validOption) {
+      // Sync UI from value prop without firing change/input events
+      this.setSelectedValue(validOption, false, true);
+    }
+  }
+
+  public override updated(changedProperties: PropertyValues): void {
+    super.updated(changedProperties);
+
+    if (changedProperties.has('slottedListboxes') || changedProperties.has('isOpen')) {
+      // Ensure the element exists and has the ariaControlsElements property
+      if (this.visualCombobox && 'ariaControlsElements' in this.visualCombobox) {
+        (this.visualCombobox as any).ariaControlsElements = this.slottedListboxes;
+      }
+      if (this.dropDownButton && 'ariaControlsElements' in this.dropDownButton) {
+        (this.dropDownButton as any).ariaControlsElements = this.slottedListboxes;
+      }
+    }
+
+    // Set listbox id and accessible name for axe/ARIA (aria-input-field-name, aria-required-attr).
+    // aria-label is used instead of aria-labelledby because the label element lives in the
+    // combobox shadow DOM while the listbox is in the light DOM (cross-root ID refs don't work).
+    // aria-controls is set imperatively because ariaControlsElements may clear the string attribute.
+    const listbox = this.slottedListboxes?.[0];
+    if (listbox) {
+      listbox.id = this.listboxId;
+      listbox.setAttribute('aria-label', this.label || this.dataAriaLabel || '');
+      this.visualCombobox?.setAttribute('aria-controls', this.listboxId);
+    }
+
+    if (changedProperties.has('disabled') || changedProperties.has('readonly')) {
+      if (this.disabled || this.readonly) {
+        // If the combobox is disabled or readonly,
+        // we close the popover if it is open.
+        this.closePopover();
+      }
+    }
+
+    if (changedProperties.has('value')) {
+      this.updateValueBasedSelection();
+    }
+  }
+
+  /**
+   * Sets the validity of the input element based on the selected option.
+   * If the selected option is not set and the combobox is required,
+   * it sets a custom validation message.
+   * If the selected option is set or the combobox is not required,
+   * it clears the custom validation message.
+   * This method is called to ensure that the combobox component behaves correctly
+   * in form validation scenarios, especially when the combobox is required.
+   *
+   * @internal
+   */
+  private setInputValidity() {
+    if (!this.value && this.required) {
+      if (this.validationMessage) {
+        this.inputElement?.setCustomValidity(this.validationMessage);
+      } else {
+        this.inputElement?.setCustomValidity('');
+      }
+      this.setValidity();
+    } else {
+      this.internals.setValidity({});
+    }
+  }
+
+  /**
+   * Resets the combobox to its initially selected option.
+   *
+   * @internal
+   */
+  formResetCallback(): void {
+    const optionToResetTo = this.initialSelectedOption || null;
+    // Restore the selected option
+    this.setSelectedValue(optionToResetTo, false, true);
+    // Reset the filtered text (typed value shown in input)
+    if (this.controlType !== 'controlled') {
+      this.filteredValue = optionToResetTo?.label ?? '';
+    }
+    // Force revalidation after reset
+    this.setInputValidity();
+  }
+
+  /** @internal */
+  formStateRestoreCallback(state: string): void {
+    const optionToRestoreTo = this.navItems.find(option => option.value === state || option.label === state);
+    this.setSelectedValue(optionToRestoreTo || null, false, true);
+  }
+
+  /**
+   * When the native input is focused, visually highlight the dropdown options (the "visual combobox"),
+   * so users can see which option is active, even though the actual DOM focus remains on the input box.
+   * This ensures that after actions like form submission, users can still interact with the dropdown options
+   * through visual cues, while keyboard focus stays on the input field.
+   *
+   * @internal
+   */
+  private handleNativeInputFocus(): void {
+    this.visualCombobox.focus();
+  }
+
+  /**
+   * Resets the focused option in the dropdown list.
+   * This method removes the 'data-focused' attribute from all options that currently have it,
+   * effectively clearing any visual indication of focus within the dropdown.
+   * It is typically called when the user navigates away from the dropdown or when the dropdown is closed,
+   * ensuring that no option remains visually highlighted as focused.
+   *
+   * @internal
+   */
+  private resetFocusedOption(): void {
+    this.navItems
+      .filter(option => option.hasAttribute('data-focused'))
+      .forEach(option => this.updateOptionAttributes(option, false));
+  }
+
+  /** @internal */
+  private updateSelectedOption(newOption: Option | null): void {
+    this.navItems.forEach(option => {
+      option.removeAttribute('selected');
+    });
+    newOption?.setAttribute('selected', '');
+  }
+
+  /**
+   * Updates the visual focus state of a specific option in the dropdown list based on 'data-focused' attribute.
+   * It also updates the 'aria-selected' attribute for a11y purposes.
+   * If an option has a tooltip attached to it, this will open the tooltip when the option is focused and close it when the option is unfocused.
+   *
+   * @param option - The option element to update focus state for.
+   * @param value - The new focus state to set (true for focused, false for unfocused).
+   *
+   * @internal
+   */
+  private updateOptionAttributes(option: Option, value: boolean): void {
+    if (option === undefined) return;
+    if (value) {
+      option.setAttribute('data-focused', '');
+      this.openTooltipIfExists(option);
+    } else {
+      option.removeAttribute('data-focused');
+      this.closeTooltipIfExists(option);
+    }
+    option.setAttribute('aria-selected', value.toString());
+  }
+
+  /**
+   * Opens the tooltip associated with the given option, if it exists.
+   * @param option - option
+   *
+   * @internal
+   */
+  private openTooltipIfExists(option: Option): void {
+    const id = option.getAttribute('id');
+    if (!id) return;
+    const tooltip = this.querySelector(`mdc-tooltip[triggerid="${id}"]`);
+    tooltip?.setAttribute('visible', '');
+  }
+
+  /**
+   * Closes the tooltip associated with the given option, if it exists.
+   * @param option - option
+   *
+   * @internal
+   */
+  private closeTooltipIfExists(option: Option): void {
+    const id = option.getAttribute('id');
+    if (!id) return;
+    const tooltip = this.querySelector(`mdc-tooltip[triggerid="${id}"][visible]`);
+    if (tooltip) {
+      tooltip.removeAttribute('visible');
+    }
+  }
+
+  /**
+   * Handles the blur event of the combobox.
+   * This method is called when the combobox loses focus.
+   * It checks if the combobox has a focused option and sets the selected value to that option and closes the popover.
+   * If the combobox does not have a focused option and the filtered value is not empty,
+   * it sets the help text to the invalid custom value text and closes the popover.
+   * It also updates the input validity.
+   *
+   * @internal
+   */
+  private handleBlurChange(): void {
+    const options = this.getVisibleOptions(this.filteredValue);
+    const activeIndex = options.findIndex(option => option.hasAttribute('data-focused'));
+
+    if (activeIndex !== -1) {
+      this.setSelectedValue(options[activeIndex]);
+      this.closePopover();
+      return;
+    }
+
+    // Check if the typed text exactly matches an option
+    const exactMatch = this.navItems.find(option => {
+      const optionLabel = option.getAttribute('label') || '';
+      return optionLabel.toLowerCase() === this.filteredValue.toLowerCase();
+    });
+
+    if (exactMatch) {
+      this.setSelectedValue(exactMatch);
+      this.closePopover();
+      return;
+    }
+
+    // If user typed something but didn't select anything, check what to do
+    if (this.filteredValue !== '') {
+      // If the input doesn't match any option and we have a previously committed value, revert to it
+      if (this.lastCommittedValue) {
+        const newOption = this.navItems.find(option => option.value === this.lastCommittedValue);
+        this.setSelectedValue(newOption!);
+      } else if (this.invalidCustomValueText && !this.getFirstSelectedOption()) {
+        // Show invalid custom value message if configured
+        this.helpText = this.invalidCustomValueText;
+        this.helpTextType = VALIDATION.ERROR;
+        this.setInputValidity();
+      }
+    } else {
+      // When the input is cleared, reset the selected value to null (placeholder will be shown if present)
+      this.setSelectedValue(null);
+    }
+
+    this.closePopover();
+  }
+
+  /** @internal */
+  private updateFocusAndScrollIntoView(options: Option[], oldIndex: number, newIndex: number): void {
+    this.updateOptionAttributes(options[oldIndex], false);
+    this.updateOptionAttributes(options[newIndex], true);
+    options[newIndex]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  /** @internal */
+  private handleInputKeydown(event: KeyboardEvent): void {
+    const options = this.getVisibleOptions(this.filteredValue).filter(option => !option.hasAttribute('disabled'));
+    const activeIndex = options.findIndex(option => option.hasAttribute('data-focused'));
+    const isSpatialNavigation = this.getKeyboardNavMode() === NAV_MODES.SPATIAL;
+    switch (this.getActionForKeyEvent(event)) {
+      case ACTIONS.DOWN: {
+        if (!isSpatialNavigation) {
+          this.openPopover();
+        } else if (!this.isOpen) {
+          break;
+        }
+        const newIndex = options.length - 1 === activeIndex ? 0 : activeIndex + 1;
+        this.updateFocusAndScrollIntoView(options, activeIndex, newIndex);
+        event.preventDefault();
+        this.keyDownEventHandled();
+        break;
+      }
+      case ACTIONS.UP: {
+        if (!isSpatialNavigation) {
+          this.openPopover();
+        } else if (!this.isOpen) {
+          break;
+        }
+        const newIndex = activeIndex === -1 || activeIndex === 0 ? options.length - 1 : activeIndex - 1;
+        this.updateFocusAndScrollIntoView(options, activeIndex, newIndex);
+        event.preventDefault();
+        this.keyDownEventHandled();
+        break;
+      }
+      case ACTIONS.ENTER: {
+        if (isSpatialNavigation && !this.isOpen) {
+          this.openPopover();
+        } else {
+          if (activeIndex === -1) return;
+          this.setSelectedValue(options[activeIndex]);
+          if (this.isOpen) {
+            this.closePopover();
+          }
+        }
+        this.keyDownEventHandled();
+        break;
+      }
+      case ACTIONS.ESCAPE: {
+        if (activeIndex !== -1) {
+          this.updateOptionAttributes(options[activeIndex], false);
+        }
+        if (!(options.length && this.shouldDisplayPopover(options.length))) {
+          this.resetSelectedValue();
+          // clear the visible value
+          if (this.controlType !== 'controlled') {
+            this.filteredValue = '';
+          }
+        }
+        this.keyDownEventHandled();
+        break;
+      }
+      case ACTIONS.TAB: {
+        this.closePopover();
+        this.keyDownEventHandled();
+        break;
+      }
+      case ACTIONS.HOME:
+      case ACTIONS.END: {
+        this.resetFocusedOption();
+        this.keyDownEventHandled();
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  /**
+   * Updates the hidden state of options based on the current filtered value.
+   * If an option does not match the current filtered value, it is hidden.
+   * Otherwise, it is made visible.
+   * Additionally, it updates the hidden state of option groups and dividers based on the current filtered value.
+   *
+   * @internal
+   */
+  private updateHiddenOptions(): void {
+    const groupVisibleCounts = new Map<HTMLElement, number>();
+    const groups = new Set<HTMLElement>();
+
+    // First pass: update options and collect visibility info per optgroup
+    this.navItems.forEach(option => {
+      const matchesFilter = this.matchesFilter(option, this.filteredValue);
+
+      if (matchesFilter) {
+        option.removeAttribute('data-hidden');
+      } else {
+        option.setAttribute('data-hidden', '');
+      }
+
+      const parent = option.parentElement;
+      if (parent && parent.matches(OPTIONGROUP_TAG_NAME)) {
+        const group = parent as HTMLElement;
+        groups.add(group);
+
+        if (matchesFilter) {
+          groupVisibleCounts.set(group, (groupVisibleCounts.get(group) ?? 0) + 1);
+        }
+      }
+    });
+
+    // Second pass: toggle optgroup + following divider based on aggregated counts
+    groups.forEach(group => {
+      const hasVisibleChildren = (groupVisibleCounts.get(group) ?? 0) > 0;
+      const divider = group.nextElementSibling;
+
+      if (hasVisibleChildren) {
+        group.removeAttribute('data-hidden');
+        if (divider && divider.matches(DIVIDER_TAG_NAME)) {
+          divider.removeAttribute('data-hidden');
+        }
+      } else {
+        group.setAttribute('data-hidden', '');
+        if (divider && divider.matches(DIVIDER_TAG_NAME)) {
+          divider.setAttribute('data-hidden', '');
+        }
+      }
+    });
+  }
+
+  /** @internal */
+  private handleInputChange(event: InputEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.filteredValue = (event.target as HTMLInputElement).value;
+    // Don't reset the selected value immediately - preserve it until user makes a selection
+    // or loses focus and we determine what to do
+    this.resetFocusedOption();
+    this.updateHiddenOptions();
+    // remove the selected attribute on input change
+    this.getFirstSelectedOption()?.removeAttribute('selected');
+    if (this.isOpen === false) {
+      this.openPopover();
+    }
+    // Dispatch custom event to notify about the input change with the current filtered value.
+    ComboboxEventManager.onInputCombobox(this, { value: this.filteredValue } as Option);
+  }
+
+  /** @internal */
+  private handleOptionsClick(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // ensure we get the actual option element even if the click target is a child node
+    const option = ((event.target as HTMLElement).closest(OPTION_TAG_NAME) as Option) ?? null;
+    if (option && !option.hasAttribute('disabled')) {
+      this.setSelectedValue(option);
+      this.closePopover();
+      // Focus on the combobox after click
+      this.focusComboboxBase();
+    }
+  }
+
+  /** @internal */
+  private shouldDisplayPopover(optionsLength: number): boolean {
+    if (this.disabled || this.readonly) {
+      return false;
+    }
+    if (optionsLength || this.noResultText) {
+      return this.isOpen;
+    }
+    return false;
+  }
+
+  /**
+   * Renders the native input element.
+   * This input is hidden and is used for internal purposes only.
+   * The value of the selected option is set as the value of this input.
+   *
+   * @internal
+   */
+  private renderNativeInput(): TemplateResult {
+    return html`
+      <input
+        id="${this.inputId}"
+        name="${this.name}"
+        type="text"
+        .value="${live(this.value)}"
+        aria-hidden="true"
+        part="internal-native-input"
+        tabindex="-1"
+        ?required=${this.required}
+        ?disabled=${this.disabled}
+        ?readonly=${this.readonly}
+        autocomplete="${AUTO_COMPLETE.OFF}"
+        @focus=${this.handleNativeInputFocus}
+        @invalid=${this.setInputValidity}
+      />
+    `;
+  }
+
+  /**
+   * Renders the base input element with accessibility.
+   * This input is displayed on the screen and is used for user interaction only.
+   * The label of the selected option is set as the value of this input.
+   *
+   * @internal
+   */
+  private renderBaseInput(): TemplateResult {
+    return html`
+      <input
+        id="${this.id}"
+        slot="input"
+        ?disabled="${this.disabled}"
+        tabindex="${this.disabled ? -1 : 0}"
+        .value="${live(this.filteredValue)}"
+        autocomplete="${AUTO_COMPLETE.OFF}"
+        part="input-text"
+        placeholder="${ifDefined(this.placeholder)}"
+        role="${ROLE.COMBOBOX}"
+        ?readonly="${this.readonly}"
+        ?required="${this.required}"
+        @input=${this.handleInputChange}
+        @keydown=${this.handleInputKeydown}
+        @blur="${this.handleBlurChange}"
+        aria-autocomplete="${AUTOCOMPLETE_LIST}"
+        aria-controls=""
+        aria-describedby="${ifDefined(this.helpText ? FORMFIELD_DEFAULTS.HELPER_TEXT_ID : '')}"
+        aria-disabled="${this.disabled ? 'true' : 'false'}"
+        aria-expanded="${this.isOpen ? 'true' : 'false'}"
+        aria-haspopup="${ROLE.LISTBOX}"
+        aria-invalid="${this.helpTextType === VALIDATION.ERROR ? 'true' : 'false'}"
+        aria-label="${this.dataAriaLabel ?? ''}"
+        aria-labelledby="${this.label ? FORMFIELD_DEFAULTS.HEADING_ID : ''}"
+        aria-readonly="${this.readonly ? 'true' : 'false'}"
+        aria-required="${this.required ? 'true' : 'false'}"
+      />
+    `;
+  }
+
+  /** @internal */
+  private renderNoResultsText(optionsLength: number): TemplateResult | typeof nothing {
+    return optionsLength === 0 && this.noResultText
+      ? html`<mdc-listitem part="no-result-text" tabindex="-1" role="" label="${this.noResultText}"></mdc-listitem>`
+      : nothing;
+  }
+
+  public override render() {
+    const options = this.getVisibleOptions(this.filteredValue);
+    return html`
+      ${this.renderLabel()}
+      <div part="combobox-base" id="${TRIGGER_ID}">
+        ${this.renderNativeInput()}
+        <mdc-input
+          @click="${this.handleTriggerClick}"
+          ?disabled="${this.disabled}"
+          ?readonly="${this.readonly}"
+          help-text-type="${this.helpTextType}"
+        >
+          ${this.renderBaseInput()}
+        </mdc-input>
+        <mdc-buttonsimple
+          @click="${this.handleTriggerClick}"
+          part="combobox-button"
+          ?disabled="${this.disabled}"
+          tabindex="-1"
+          aria-expanded="${this.isOpen ? 'true' : 'false'}"
+          aria-label="${this.dataAriaLabel ?? ''}"
+        >
+          <mdc-icon
+            part="combobox-button-icon"
+            name="${this.shouldDisplayPopover(options.length) ? ICON_NAME.ARROW_UP : ICON_NAME.ARROW_DOWN}"
+            size="1"
+            length-unit="rem"
+          ></mdc-icon>
+        </mdc-buttonsimple>
+        <mdc-popover
+          ?visible="${this.shouldDisplayPopover(options.length)}"
+          @closebyescape="${() => {
+            this.closePopover();
+          }}"
+          @closebyoutsideclick="${() => {
+            this.closePopover();
+            this.focusComboboxBase();
+          }}"
+          backdrop
+          backdrop-append-to="${ifDefined(this.backdropAppendTo)}"
+          boundary="${ifDefined(this.boundary)}"
+          disable-aria-expanded
+          exportparts="popover-content"
+          hide-on-escape
+          hide-on-outside-click
+          is-backdrop-invisible
+          placement="${this.placement}"
+          role=""
+          size
+          strategy="${ifDefined(this.strategy)}"
+          trigger="${TRIGGER.MANUAL}"
+          triggerid="${TRIGGER_ID}"
+          z-index="${ifDefined(this.popoverZIndex)}"
+        >
+          ${this.renderNoResultsText(options.length)}
+          <slot @mousedown="${this.handleOptionsClick}"></slot>
+        </mdc-popover>
+      </div>
+      ${this.renderHelperText()}
+    `;
+  }
+
+  public static override styles: Array<CSSResult> = [...Input.styles, ...FormfieldWrapper.styles, ...styles];
 }
 
 export default Combobox;

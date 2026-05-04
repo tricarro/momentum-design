@@ -1,9 +1,10 @@
-import { expect } from '@playwright/test';
+import type { Locator } from '@playwright/test';
 
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
 import { KEYS } from '../../utils/keys';
 import { ROLE } from '../../utils/roles';
+import { ControlType } from '../controltypeprovider/controltypeprovider.types';
 
 import { INDICATOR } from './menuitemradio.constants';
 import type { Indicator } from './menuitemradio.types';
@@ -18,6 +19,7 @@ type SetupOptions = {
   indicator?: Indicator;
   label?: string;
   secondaryLabel?: string;
+  controlType?: string;
 };
 
 const setup = async (args: SetupOptions) => {
@@ -34,6 +36,7 @@ const setup = async (args: SetupOptions) => {
           ${restArgs.indicator ? `indicator="${restArgs.indicator}"` : ''}
           ${restArgs.label ? `label="${restArgs.label}"` : ''}
           ${restArgs.secondaryLabel ? `secondary-label="${restArgs.secondaryLabel}"` : ''}
+          ${restArgs.controlType ? `control-type="${restArgs.controlType}"` : ''}
         >
         </mdc-menuitemradio>
       </div>
@@ -46,15 +49,16 @@ const setup = async (args: SetupOptions) => {
   return menuitemradio;
 };
 
-const setupGroup = async (componentsPage: ComponentsPage) => {
+const setupGroup = async (componentsPage: ComponentsPage, controlType?: ControlType) => {
+  const controlTypeString = controlType ? `control-type="${controlType}"` : '';
   await componentsPage.mount({
     html: `
       <div role="${ROLE.MENU}">
         <mdc-menusection>
-          <mdc-menuitemradio name="theme" value="light" label="Light"></mdc-menuitemradio>
-          <mdc-menuitemradio name="theme" value="dark" checked label="Dark"></mdc-menuitemradio>
-          <mdc-menuitemradio name="view" value="grid" indicator="checkmark" label="Grid"></mdc-menuitemradio>
-          <mdc-menuitemradio name="view" value="list" indicator="checkmark" checked label="List"></mdc-menuitemradio>
+          <mdc-menuitemradio name="theme" ${controlTypeString} value="light" label="Light"></mdc-menuitemradio>
+          <mdc-menuitemradio name="theme" ${controlTypeString} value="dark" checked label="Dark"></mdc-menuitemradio>
+          <mdc-menuitemradio name="view" ${controlTypeString} value="grid" indicator="checkmark" label="Grid"></mdc-menuitemradio>
+          <mdc-menuitemradio name="view" ${controlTypeString} value="list" indicator="checkmark" checked label="List"></mdc-menuitemradio>
         </mdc-menusection>
       </div>
     `,
@@ -72,6 +76,34 @@ const setupGroup = async (componentsPage: ComponentsPage) => {
 };
 
 test('mdc-menuitemradio', async ({ componentsPage }) => {
+  const expectChecked = async (radio: Locator) => {
+    await expect(radio).toHaveAttribute('aria-checked', 'true');
+    await expect(radio).toHaveAttribute('checked', '');
+    await expect(radio.locator('mdc-staticradio')).toHaveAttribute('checked', '');
+  };
+
+  const expectUnchecked = async (radio: Locator) => {
+    await expect(radio).toHaveAttribute('aria-checked', 'false');
+    await expect(radio).not.toHaveAttribute('checked', '');
+    await expect(radio.locator('mdc-staticradio')).toBeVisible();
+    await expect(radio.locator('mdc-staticradio')).not.toHaveAttribute('checked');
+  };
+
+  const expectDisabled = async (radio: Locator) => {
+    await expect(radio).toHaveAttribute('aria-disabled', 'true');
+    await expect(radio).toHaveAttribute('disabled', '');
+    await expect(radio.locator('mdc-staticradio')).toHaveAttribute('disabled', '');
+  };
+
+  const expectSoftDisabled = async (radio: Locator) => {
+    await expect(radio).toHaveAttribute('aria-disabled', 'true');
+    await expect(radio).toHaveAttribute('soft-disabled');
+    await expect(radio.locator('mdc-staticradio')).not.toHaveAttribute('disabled');
+  };
+
+  const getChangeEventFiredPromiseFunction = async (componentsPage: ComponentsPage, radio: Locator) =>
+    componentsPage.waitForEvent(radio, 'change', { timeout: 100 });
+
   /**
    * BASIC FUNCTIONALITY
    */
@@ -80,34 +112,52 @@ test('mdc-menuitemradio', async ({ componentsPage }) => {
     await test.step('default state', async () => {
       const radio = await setup({ componentsPage });
       await expect(radio).toHaveAttribute('role', ROLE.MENUITEMRADIO);
-      await expect(radio).toHaveAttribute('aria-checked', 'false');
-      await expect(radio).not.toHaveAttribute('checked', '');
+      await expect(radio).toHaveAttribute('control-type', 'uncontrolled');
+      await expectUnchecked(radio);
+
+      // Click should change state when unchecked
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, radio);
+      await radio.click();
+      await expect(waitForChange).toEventEmitted();
+      await expectChecked(radio);
     });
 
     // Checked state
     await test.step('checked state', async () => {
       const radio = await setup({ componentsPage, checked: true });
-      await expect(radio).toHaveAttribute('aria-checked', 'true');
-      await expect(radio).toHaveAttribute('checked', '');
+      await expectChecked(radio);
+
+      // Click should not change state when checked
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, radio);
+      await radio.click();
+      await expect(waitForChange).not.toEventEmitted();
+      await expectChecked(radio);
     });
 
     // Disabled state
     await test.step('disabled state', async () => {
       const radio = await setup({ componentsPage, disabled: true });
-      await expect(radio).toHaveAttribute('aria-disabled', 'true');
-      await expect(radio).toHaveAttribute('disabled', '');
+      await expectDisabled(radio);
+      await expectUnchecked(radio);
 
       // Click should not change state when disabled
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, radio);
       await radio.click({ force: true });
-      await expect(radio).toHaveAttribute('aria-checked', 'false');
-      await expect(radio).not.toHaveAttribute('checked', '');
+      await expect(waitForChange).not.toEventEmitted();
+      await expectUnchecked(radio);
     });
 
     // Soft disabled state
     await test.step('soft disabled state', async () => {
       const radio = await setup({ componentsPage, softDisabled: true });
-      await expect(radio).toHaveAttribute('aria-disabled', 'true');
-      await expect(radio).toHaveAttribute('soft-disabled', '');
+      await expectSoftDisabled(radio);
+      await expectUnchecked(radio);
+
+      // Click should not change state when soft disabled
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, radio);
+      await radio.click({ force: true });
+      await expect(waitForChange).not.toEventEmitted();
+      await expectUnchecked(radio);
     });
   });
 
@@ -116,37 +166,95 @@ test('mdc-menuitemradio', async ({ componentsPage }) => {
    */
   await test.step('selection behavior', async () => {
     // Mouse selection
-    await test.step('mouse selection', async () => {
+    await test.step('mouse selection - uncontrolled', async () => {
       const { lightRadio, darkRadio } = await setupGroup(componentsPage);
 
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
       await lightRadio.click();
-      await expect(lightRadio).toHaveAttribute('aria-checked', 'true');
-      await expect(lightRadio).toHaveAttribute('checked', '');
-      await expect(darkRadio).toHaveAttribute('aria-checked', 'false');
-      await expect(darkRadio).not.toHaveAttribute('checked', '');
+      await expect(waitForChange).toEventEmitted();
+      await expectChecked(lightRadio);
+      await expectUnchecked(darkRadio);
+    });
+
+    await test.step('mouse selection - controlled', async () => {
+      const { lightRadio, darkRadio } = await setupGroup(componentsPage, 'controlled');
+
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
+      await lightRadio.click();
+      await expect(waitForChange).toEventEmitted();
+      await expectUnchecked(lightRadio);
+      await expectChecked(darkRadio);
     });
 
     // Keyboard selection with Enter
-    await test.step('keyboard selection with Enter', async () => {
+    await test.step('keyboard selection with Enter - uncontrolled', async () => {
       const { lightRadio, darkRadio } = await setupGroup(componentsPage);
 
       await componentsPage.actionability.pressTab();
       await expect(lightRadio).toBeFocused();
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
       await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(waitForChange).toEventEmitted();
+      await expectChecked(lightRadio);
+      await expectUnchecked(darkRadio);
+    });
 
-      await expect(lightRadio).toHaveAttribute('checked', '');
-      await expect(darkRadio).not.toHaveAttribute('checked', '');
+    await test.step('keyboard selection with Enter - controlled', async () => {
+      const { lightRadio, darkRadio } = await setupGroup(componentsPage, 'controlled');
+
+      await componentsPage.actionability.pressTab();
+      await expect(lightRadio).toBeFocused();
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(waitForChange).toEventEmitted();
+      await expectUnchecked(lightRadio);
+      await expectChecked(darkRadio);
     });
 
     // Keyboard selection with Space
-    await test.step('keyboard selection with Space', async () => {
+    await test.step('keyboard selection with Space - uncontrolled', async () => {
       const { lightRadio, darkRadio } = await setupGroup(componentsPage);
+
       await componentsPage.actionability.pressTab();
       await expect(lightRadio).toBeFocused();
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
       await componentsPage.page.keyboard.press(KEYS.SPACE);
+      await expect(waitForChange).toEventEmitted();
+      await expectChecked(lightRadio);
+      await expectUnchecked(darkRadio);
+    });
 
-      await expect(lightRadio).toHaveAttribute('checked', '');
-      await expect(darkRadio).not.toHaveAttribute('checked', '');
+    await test.step('keyboard selection with Space - controlled', async () => {
+      const { lightRadio, darkRadio } = await setupGroup(componentsPage, 'controlled');
+
+      await componentsPage.actionability.pressTab();
+      await expect(lightRadio).toBeFocused();
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
+      await expect(waitForChange).toEventEmitted();
+      await expectUnchecked(lightRadio);
+      await expectChecked(darkRadio);
+    });
+
+    // Selection by external control
+    await test.step('selection by external control - uncontrolled', async () => {
+      const { lightRadio, darkRadio } = await setupGroup(componentsPage);
+
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
+      await lightRadio.evaluate(element => element.setAttribute('checked', ''));
+      await expect(waitForChange).not.toEventEmitted();
+      await expectChecked(lightRadio);
+      await expectUnchecked(darkRadio);
+    });
+
+    await test.step('selection by external control - controlled', async () => {
+      const { lightRadio, darkRadio } = await setupGroup(componentsPage, 'controlled');
+
+      const waitForChange = await getChangeEventFiredPromiseFunction(componentsPage, lightRadio);
+      await lightRadio.evaluate(element => element.setAttribute('checked', ''));
+      await expect(waitForChange).not.toEventEmitted();
+      await expectChecked(lightRadio);
+      await expectUnchecked(darkRadio);
     });
   });
 
@@ -175,23 +283,29 @@ test('mdc-menuitemradio', async ({ componentsPage }) => {
   /**
    * INDICATOR TYPES
    */
-  await test.step('indicator types', async () => {
-    // Radio indicator (default)
-    await test.step('radio indicator', async () => {
-      const radio = await setup({ componentsPage, checked: true });
-      await expect(radio.locator('mdc-staticradio[checked]')).toBeVisible();
-    });
-
-    // Checkmark indicator
-    await test.step('checkmark indicator', async () => {
-      const radio = await setup({
-        componentsPage,
-        checked: true,
-        indicator: INDICATOR.CHECKMARK,
+  const testIndicatorTypes = async (controlType: string | undefined) => {
+    await test.step(`indicator types, controlType=${controlType}`, async () => {
+      // Radio indicator (default)
+      await test.step('radio indicator', async () => {
+        const radio = await setup({ componentsPage, controlType, checked: true });
+        await expect(radio.locator('mdc-staticradio[checked]')).toBeVisible();
       });
-      await expect(radio.locator('mdc-icon[name="check-bold"]')).toBeVisible();
+
+      // Checkmark indicator
+      await test.step('checkmark indicator', async () => {
+        const radio = await setup({
+          componentsPage,
+          controlType,
+          checked: true,
+          indicator: INDICATOR.CHECKMARK,
+        });
+        await expect(radio.locator('mdc-icon[name="check-bold"]')).toBeVisible();
+      });
     });
-  });
+  };
+  await testIndicatorTypes('controlled');
+  await testIndicatorTypes('uncontrolled');
+  await testIndicatorTypes(undefined);
 
   /**
    * VISUAL REGRESSION
@@ -200,26 +314,71 @@ test('mdc-menuitemradio', async ({ componentsPage }) => {
     await componentsPage.page.setViewportSize({ width: 600, height: 1000 });
     const radioMenuItemSheet = new StickerSheet(componentsPage, 'mdc-menuitemradio', 'margin: 0.25rem 0;');
     const options = { createNewRow: true };
-    const label = 'Menu Item Radio';
+    const label = 'Default Menu Item Radio';
     radioMenuItemSheet.setAttributes({ label });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, checked: true });
+    radioMenuItemSheet.setAttributes({ label: 'Checked Menu Item Radio', checked: true });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, disabled: true });
+    radioMenuItemSheet.setAttributes({ label: 'Disabled Menu Item Radio', disabled: true });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, checked: true, disabled: true });
+    radioMenuItemSheet.setAttributes({ label: 'Soft Disabled Menu Item Radio', 'soft-disabled': true });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, checked: true, indicator: INDICATOR.CHECKMARK });
+    radioMenuItemSheet.setAttributes({ label: 'Checked Disabled Menu Item Radio', checked: true, disabled: true });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, disabled: true, indicator: INDICATOR.CHECKMARK });
+    radioMenuItemSheet.setAttributes({
+      label: 'Checked Soft Disabled Menu Item Radio',
+      checked: true,
+      'soft-disabled': true,
+    });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, checked: true, disabled: true, indicator: INDICATOR.CHECKMARK });
+    radioMenuItemSheet.setAttributes({
+      label: 'Checked Checkmark Indicator',
+      checked: true,
+      indicator: INDICATOR.CHECKMARK,
+    });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, checked: true, indicator: INDICATOR.NONE });
+    radioMenuItemSheet.setAttributes({
+      label: 'Disabled Checkmark Indicator',
+      disabled: true,
+      indicator: INDICATOR.CHECKMARK,
+    });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, disabled: true, indicator: INDICATOR.NONE });
+    radioMenuItemSheet.setAttributes({
+      label: 'Soft Disabled Checkmark Indicator',
+      'soft-disabled': true,
+      indicator: INDICATOR.CHECKMARK,
+    });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
-    radioMenuItemSheet.setAttributes({ label, checked: true, disabled: true, indicator: INDICATOR.NONE });
+    radioMenuItemSheet.setAttributes({
+      label: 'Checked Disabled Checkmark Indicator',
+      checked: true,
+      disabled: true,
+      indicator: INDICATOR.CHECKMARK,
+    });
+    await radioMenuItemSheet.createMarkupWithCombination({}, options);
+    radioMenuItemSheet.setAttributes({
+      label: 'Checked Soft Disabled Checkmark Indicator',
+      checked: true,
+      'soft-disabled': true,
+      indicator: INDICATOR.CHECKMARK,
+    });
+    await radioMenuItemSheet.createMarkupWithCombination({}, options);
+    radioMenuItemSheet.setAttributes({ label: 'Checked None Indicator', checked: true, indicator: INDICATOR.NONE });
+    await radioMenuItemSheet.createMarkupWithCombination({}, options);
+    radioMenuItemSheet.setAttributes({ label: 'Disabled None Indicator', disabled: true, indicator: INDICATOR.NONE });
+    await radioMenuItemSheet.createMarkupWithCombination({}, options);
+    radioMenuItemSheet.setAttributes({
+      label: 'Soft Disabled None Indicator',
+      'soft-disabled': true,
+      indicator: INDICATOR.NONE,
+    });
+    await radioMenuItemSheet.createMarkupWithCombination({}, options);
+    radioMenuItemSheet.setAttributes({
+      label: 'Checked Disabled None Indicator',
+      checked: true,
+      disabled: true,
+      indicator: INDICATOR.NONE,
+    });
     await radioMenuItemSheet.createMarkupWithCombination({}, options);
     radioMenuItemSheet.setAttributes({
       label: 'Selected Radio With Secondary Label',
@@ -259,5 +418,43 @@ test('mdc-menuitemradio', async ({ componentsPage }) => {
    */
   await test.step('accessibility', async () => {
     await componentsPage.accessibility.checkForA11yViolations('menuitemradio-default');
+  });
+
+  await test.step('spatial navigation', async () => {
+    const radio = await setup({ componentsPage });
+    await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+    const { keyboard } = componentsPage.page;
+
+    await keyboard.press(KEYS.ARROW_DOWN);
+    await expect(radio).toBeFocused();
+
+    const waitForClick = await componentsPage.waitForEvent(radio, 'click');
+    await keyboard.press(KEYS.ENTER);
+    await expect(radio).toBeChecked();
+    await expect(waitForClick).toEventEmitted();
+
+    await keyboard.press(KEYS.ENTER);
+    await expect(radio).toBeChecked();
+  });
+
+  await test.step('programmatic control', async () => {
+    await test.step('click method works as expected', async () => {
+      const menuItemRadio = await setup({ componentsPage });
+
+      const waitForClickAfterChecked = await componentsPage.waitForEvent(menuItemRadio, 'click');
+      await menuItemRadio.evaluate((el: HTMLElement) => el.click());
+      await expect(menuItemRadio).toHaveAttribute('checked');
+      await expect(waitForClickAfterChecked).toEventEmitted();
+    });
+
+    await test.step('click method works as expected when the component disabled', async () => {
+      const menuItemRadio = await setup({ componentsPage, disabled: true });
+
+      const waitForClickAfterDisabled = await componentsPage.waitForEvent(menuItemRadio, 'click');
+      await menuItemRadio.evaluate((el: HTMLElement) => el.click());
+
+      await expect(menuItemRadio).not.toHaveAttribute('checked');
+      await expect(waitForClickAfterDisabled).not.toEventEmitted();
+    });
   });
 });

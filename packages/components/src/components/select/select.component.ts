@@ -1,31 +1,42 @@
 import type { PropertyValueMap, PropertyValues } from 'lit';
 import { CSSResult, html, nothing } from 'lit';
-import { property, query, queryAssignedElements, state } from 'lit/decorators.js';
+import { property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 
-import { KEYS } from '../../utils/keys';
-import { DataAriaLabelMixin } from '../../utils/mixins/DataAriaLabelMixin';
+import type { ElementStoreChangeTypes } from '../../utils/controllers/ElementStore';
+import { ElementStore } from '../../utils/controllers/ElementStore';
 import { AutoFocusOnMountMixin } from '../../utils/mixins/AutoFocusOnMountMixin';
+import { DataAriaLabelMixin } from '../../utils/mixins/DataAriaLabelMixin';
 import { AssociatedFormControl, FormInternalsMixin } from '../../utils/mixins/FormInternalsMixin';
+import { CaptureDestroyEventForChildElement } from '../../utils/mixins/lifecycle/CaptureDestroyEventForChildElement';
+import { LIFE_CYCLE_EVENTS } from '../../utils/mixins/lifecycle/lifecycle.contants';
+import type { LifeCycleModifiedEvent } from '../../utils/mixins/lifecycle/LifeCycleModifiedEvent';
+import { ListNavigationMixin } from '../../utils/mixins/ListNavigationMixin';
 import { ROLE } from '../../utils/roles';
 import FormfieldWrapper from '../formfieldwrapper/formfieldwrapper.component';
 import { DEFAULTS as FORMFIELD_DEFAULTS, VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
 import type Option from '../option/option.component';
 import { TAG_NAME as OPTION_TAG_NAME } from '../option/option.constants';
-import { POPOVER_PLACEMENT, DEFAULTS as POPOVER_DEFAULTS } from '../popover/popover.constants';
+import { DEFAULTS as POPOVER_DEFAULTS, POPOVER_PLACEMENT, TRIGGER } from '../popover/popover.constants';
 import { TYPE, VALID_TEXT_TAGS } from '../text/text.constants';
+import type { PopoverStrategy } from '../popover/popover.types';
+import { debounce } from '../../utils/debounce';
+import type { Debounced } from '../../utils/debounce';
+import { ACTIONS, KeyToActionMixin, NAV_MODES } from '../../utils/mixins/KeyToActionMixin';
 
-import { ARROW_ICON, LISTBOX_ID, TRIGGER_ID } from './select.constants';
+import { ARROW_ICON, DEFAULTS, LISTBOX_ID, TRIGGER_ID } from './select.constants';
 import styles from './select.styles';
 import type { Placement } from './select.types';
 
 /**
  * The mdc-select component is a dropdown selection control that allows users to pick an option from a predefined list.
  * It is designed to work with `mdc-option` for individual options and `mdc-optgroup` for grouping related options.
+ * Optional: Add `mdc-divider` after each option group (`mdc-optgroup`) to separate groups visually.
  *
  * Every mdc-option should have a `value` attribute set to ensure proper form submission.
  *
  * To set a default option, use the `selected` attribute on the `mdc-option` element.
+ * You can also set the `value` attribute on the `mdc-select` element to match the value of the desired option. The component will select the corresponding option automatically.
  *
  * **Note:** Make sure to add `mdc-selectlistbox` as a child of `mdc-select` and wrap options/optgroup in it to ensure proper accessibility functionality. Read more about it in SelectListBox documentation.
  *
@@ -39,59 +50,72 @@ import type { Placement } from './select.types';
  *
  * @tagname mdc-select
  *
- * @slot default - This is a default/unnamed slot for Selectlistbox including options and/or option group.
- *
  * @event click - (React: onClick) This event is dispatched when the select is clicked.
  * @event change - (React: onChange) This event is dispatched when the select is changed.
  * @event input - (React: onInput) This event is dispatched when the select is changed.
  * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the select.
  * @event focus - (React: onFocus) This event is dispatched when the select receives focus.
  *
+ * @slot default - This is a default/unnamed slot for Selectlistbox including options and/or option group.
+ * @slot label - Slot for the label element. If not provided, the `label` property will be used to render the label.
+ * @slot toggletip - Slot for the toggletip info icon button. If not provided, the `toggletip-text` property will be used to render the info icon button and toggletip.
+ * @slot help-icon - Slot for the helper/validation icon. If not provided, the icon will be rendered based on the `helpTextType` property.
+ * @slot help-text - Slot for the helper/validation text. If not provided, the `helpText` property will be used to render the helper/validation text.
+ *
+ * @csspart label - The label element.
+ * @csspart label-text - The container for the label and required indicator elements.
+ * @csspart required-indicator - The required indicator element that is displayed next to the label when the `required` property is set to true.
+ * @csspart info-icon-btn - The info icon button element that is displayed next to the label when the `toggletip-text` property is set.
+ * @csspart label-toggletip - The toggletip element that is displayed when the info icon button is clicked.
+ * @csspart help-text - The helper/validation text element.
+ * @csspart helper-icon - The helper/validation icon element that is displayed next to the helper/validation text.
+ * @csspart help-text-container - The container for the helper/validation icon and text elements.
+ *
+ * @cssproperty --mdc-label-font-size - Font size for the label text.
+ * @cssproperty --mdc-label-font-weight - Font weight for the label text.
+ * @cssproperty --mdc-label-line-height - Line height for the label text.
+ * @cssproperty --mdc-label-color - Color for the label text.
+ * @cssproperty --mdc-help-text-font-size - Font size for the help text.
+ * @cssproperty --mdc-help-text-font-weight - Font weight for the help text.
+ * @cssproperty --mdc-help-text-line-height - Line height for the help text.
+ * @cssproperty --mdc-help-text-color - Color for the help text.
+ * @cssproperty --mdc-required-indicator-color - Color for the required indicator text.
  * @cssproperty --mdc-select-background-color - The background color of the combobox of select.
- * @cssproperty --mdc-select-background-color-hover - The background color of the combobox of select when hovered.
- * @cssproperty --mdc-select-background-color-active - The background color of the combobox of select when active.
- * @cssproperty --mdc-select-background-color-disabled - The background color of the combobox of select when disabled.
  * @cssproperty --mdc-select-text-color - The text color of the select.
- * @cssproperty --mdc-select-text-color-selected - The text color of the selected option in the select.
- * @cssproperty --mdc-select-text-color-disabled - The text color of the select when disabled.
  * @cssproperty --mdc-select-border-color - The border color of the select.
- * @cssproperty --mdc-select-border-color-disabled - The border color of the select when disabled.
- * @cssproperty --mdc-select-border-color-success - The border color of the select when in success state.
- * @cssproperty --mdc-select-border-color-warning - The border color of the select when in warning state.
- * @cssproperty --mdc-select-border-color-error - The border color of the select when in error state.
+ * @cssproperty --mdc-select-height - The height of the select trigger control.
  * @cssproperty --mdc-select-width - The width of the select.
  * @cssproperty --mdc-select-listbox-height - The height of the listbox inside the select.
  * @cssproperty --mdc-select-listbox-width - The width of the listbox inside the select (default: `--mdc-select-width`).
  */
 class Select
-  extends AutoFocusOnMountMixin(FormInternalsMixin(DataAriaLabelMixin(FormfieldWrapper)))
+  extends ListNavigationMixin(
+    KeyToActionMixin(
+      CaptureDestroyEventForChildElement(
+        AutoFocusOnMountMixin(FormInternalsMixin(DataAriaLabelMixin(FormfieldWrapper))),
+      ),
+    ),
+  )
   implements AssociatedFormControl
 {
+  /** @internal */
+  private itemsStore: ElementStore<Option>;
+
   /**
    * The placeholder text which will be shown on the text if provided.
    */
   @property({ type: String }) placeholder?: string;
 
   /**
-   * readonly attribute of the select field. If true, the select is read-only.
-   * @default false
-   */
-  @property({ type: Boolean }) readonly = false;
-
-  /**
-   * The placeholder text which will be shown on the text if provided.
+   * The placement of the popover within Select component.
+   * This defines the position of the popover relative to the select input field.
+   *
+   * Possible values:
+   *  - 'top-start'
+   *  - 'bottom-start'
+   * @default 'bottom-start'
    */
   @property({ type: String, reflect: true }) placement: Placement = POPOVER_PLACEMENT.BOTTOM_START;
-
-  /**
-   * Indicates whether the select is soft disabled.
-   * When set to `true`, the select appears visually disabled but still allows
-   * focus.
-   *
-   * @default undefined
-   */
-  @property({ type: Boolean, attribute: 'soft-disabled', reflect: true })
-  softDisabled?: boolean;
 
   /**
    * This describes the clipping element(s) or area that overflow of the used popover will be checked relative to.
@@ -121,7 +145,7 @@ class Select
    * @see [Floating UI - strategy](https://floating-ui.com/docs/computePosition#strategy)
    */
   @property({ type: String, reflect: true, attribute: 'strategy' })
-  strategy: 'absolute' | 'fixed' = POPOVER_DEFAULTS.STRATEGY;
+  strategy: PopoverStrategy = POPOVER_DEFAULTS.STRATEGY;
 
   /**
    * The z-index of the popover within Select.
@@ -130,7 +154,13 @@ class Select
    * @default 1000
    */
   @property({ type: Number, reflect: true, attribute: 'popover-z-index' })
-  popoverZIndex: number = POPOVER_DEFAULTS.Z_INDEX;
+  popoverZIndex?: number = undefined;
+
+  /**
+   * Determines whether the dropdown should flip its position when it hits the boundary.
+   * @default false
+   */
+  @property({ type: Boolean, reflect: true, attribute: 'disable-flip' }) disableFlip: boolean = DEFAULTS.DISABLE_FLIP;
 
   /**
    * ID of the element where the backdrop will be appended to.
@@ -139,9 +169,6 @@ class Select
    */
   @property({ type: String, reflect: true, attribute: 'backdrop-append-to' })
   backdropAppendTo?: string;
-
-  /** @internal */
-  @queryAssignedElements({ selector: 'mdc-selectlistbox' }) slottedListboxes!: Array<HTMLElement>;
 
   /** @internal */
   @query(`[id="${TRIGGER_ID}"]`) private visualCombobox!: HTMLDivElement;
@@ -153,23 +180,201 @@ class Select
   @state() displayPopover = false;
 
   /** @internal */
+  private animationFrameId?: number;
+
+  /** @internal */
   private initialSelectedOption: Option | null = null;
 
-  private getAllValidOptions(): Array<Option> {
-    return Array.from(this.slottedListboxes[0]?.querySelectorAll(`${OPTION_TAG_NAME}:not([disabled])`) || []);
+  /** @internal */
+  private debounceSearch?: Debounced<() => void>;
+
+  /** @internal */
+  private debounceTime = 500;
+
+  /** @internal */
+  private searchString = '';
+
+  constructor() {
+    super();
+
+    this.addEventListener(LIFE_CYCLE_EVENTS.MODIFIED, this.handleModifiedEvent);
+    this.itemsStore = new ElementStore<Option>(this, {
+      isValidItem: this.isValidItem,
+      onStoreUpdate: this.onStoreUpdate,
+    });
   }
 
-  private getFirstValidOption(): Option | null {
-    return this.slottedListboxes[0]?.querySelector(`${OPTION_TAG_NAME}:not([disabled])`);
+  override connectedCallback(): void {
+    super.connectedCallback();
+
+    this.loop = 'false';
+    this.initialFocus = 0;
+    this.setupDebounceSearch();
   }
 
-  private getLastValidOption(): Option | null {
-    const options = this.getAllValidOptions();
-    return options.length > 0 ? options[options.length - 1] : null;
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    // cancel any pending debounced action and clear DOM timeouts
+    this.debounceSearch?.cancel();
+    // cancel any pending animation frames
+    window.cancelAnimationFrame(this.animationFrameId!);
   }
 
-  private getFirstSelectedOption(): Option | null {
-    return this.slottedListboxes[0]?.querySelector(`${OPTION_TAG_NAME}[selected]:not([disabled])`);
+  /** @internal */
+  get navItems(): Option[] {
+    return this.itemsStore.items;
+  }
+
+  /**
+   * This function is called when the value attribute changes.
+   * It updates the selected option based on the value attribute.
+   *
+   * @param name - attribute name
+   * @param old - old value
+   * @param value - new value
+   */
+  override attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+    super.attributeChangedCallback(name, oldValue, newValue);
+
+    if (
+      name === 'value' &&
+      newValue !== '' &&
+      newValue !== oldValue &&
+      newValue !== this.selectedOption?.value &&
+      this.navItems.length
+    ) {
+      const firstSelectedOption = this.getFirstSelectedOption();
+      const firstValidOption = this.getFirstOption();
+      const valueBasedOption = this.navItems.find(option => option.value === newValue);
+      let optionToSelect: Option | null = null;
+      if (valueBasedOption) {
+        optionToSelect = valueBasedOption;
+      } else if (this.placeholder) {
+        optionToSelect = null;
+      } else if (firstValidOption) {
+        optionToSelect = firstValidOption;
+      } else if (firstSelectedOption) {
+        optionToSelect = firstSelectedOption;
+      } else {
+        return;
+      }
+      this.updateComplete
+        .then(() => {
+          this.setSelectedOption(optionToSelect);
+        })
+        .catch(error => {
+          if (this.onerror) {
+            this.onerror(error);
+          }
+        });
+    }
+  }
+
+  /** @internal */
+  private onStoreUpdate = (
+    option: Option,
+    changeType: ElementStoreChangeTypes,
+    index: number,
+    options: Option[],
+  ): void => {
+    switch (changeType) {
+      case 'added':
+        option.setAttribute('tabindex', index === 0 && options.length === 0 ? '0' : '-1');
+        if (option.hasAttribute('selected')) {
+          this.resetTabIndexes(index);
+        }
+        break;
+      case 'removed': {
+        if (index === -1 || options.length === 0) {
+          return;
+        }
+
+        let newIndex = index + 1;
+        if (newIndex >= options.length) {
+          newIndex = index - 1;
+        }
+
+        if (newIndex === -1 && this.displayPopover) {
+          this.displayPopover = false;
+          this.handleNativeInputFocus();
+          return;
+        }
+
+        if (option.tabIndex === 0) {
+          this.resetTabIndexes(newIndex);
+        }
+
+        if (option.hasAttribute('selected')) {
+          let newOption: Option | null = null;
+          // If there is no placeholder, then we set the first option as selected option.
+          // If the the first option is about to removed then we set the next (second) option as selected.
+          // The next (second) option will become first one, when the option is fully removed.
+          if (!this.placeholder) {
+            newOption = index === 0 ? options[newIndex] : options[0];
+          }
+          this.setSelectedOption(newOption);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
+  /** @internal */
+  private isValidItem = (item: Element): boolean => item.matches(`${OPTION_TAG_NAME}:not([disabled])`);
+
+  /** @internal */
+  private getFirstSelectedOption(): Option | undefined {
+    return this.navItems.find(option => option.hasAttribute('selected'));
+  }
+
+  /** @internal */
+  private getFirstOption(): Option {
+    return this.navItems[0];
+  }
+
+  /**
+   * Update the selected option when an option is modified.
+   *
+   * @internal
+   */
+  private handleModifiedEvent(event: Event): void {
+    const option = event.target as Option;
+    const firstSelectedOption = this.getFirstSelectedOption();
+    switch ((event as LifeCycleModifiedEvent).detail.change) {
+      case 'selected': {
+        // when selected, check if there is any other option is a selected option,
+        // first preference should always be given to the `selected` attribute.
+        // if there is no selected option, then reset it to placeholder or first option
+        if (firstSelectedOption && firstSelectedOption !== this.selectedOption) {
+          this.setSelectedOption(firstSelectedOption);
+        } else {
+          this.setSelectedOption(option);
+        }
+        break;
+      }
+      case 'unselected': {
+        // when unselected, check if there is any other option is a selected option,
+        // if there is no selected option, then reset it to placeholder or first option
+        if (firstSelectedOption) {
+          this.setSelectedOption(firstSelectedOption);
+        } else {
+          this.setSelectedOption(this.placeholder ? null : this.getFirstOption());
+        }
+        break;
+      }
+      case 'enabled': {
+        this.itemsStore.add(option);
+        break;
+      }
+      case 'disabled': {
+        this.itemsStore.delete(option);
+        break;
+      }
+      default:
+        break;
+    }
   }
 
   /**
@@ -179,7 +384,6 @@ class Select
    */
   protected override async firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>) {
     await this.updateComplete;
-    this.modifyListBoxWrapper();
 
     const firstSelectedOption = this.getFirstSelectedOption();
 
@@ -189,7 +393,7 @@ class Select
       // which is already selected in the DOM on first update
       this.setSelectedOption(firstSelectedOption);
     } else if (!this.placeholder) {
-      const firstValidOption = this.getFirstValidOption();
+      const firstValidOption = this.getFirstOption();
       // We will show the first option as selected & fire
       // and event since the selected option changed
       this.setSelectedOption(firstValidOption);
@@ -223,28 +427,6 @@ class Select
         this.displayPopover = false;
       }
     }
-
-    if (changedProperties.has('dataAriaLabel')) {
-      this.modifyListBoxWrapper();
-    }
-  }
-
-  /**
-   * Modifies the listbox wrapper to ensure it has the correct attributes
-   * and IDs for accessibility.
-   *
-   * Once [ariaOwnsElements](https://developer.mozilla.org/en-US/docs/Web/API/ElementInternals/ariaOwnsElements) is supported in browsers,
-   * this an be removed and mdc-option can be used directly in the select component with a listbox in a different
-   * shadow root and aria-owns attribute to connect them.
-   */
-  private modifyListBoxWrapper() {
-    const slottedListBox = this.slottedListboxes[0];
-    if (!slottedListBox) {
-      return;
-    }
-    slottedListBox.setAttribute('id', LISTBOX_ID);
-    slottedListBox.setAttribute('aria-label', this.dataAriaLabel || '');
-    slottedListBox.setAttribute('aria-labelledby', TRIGGER_ID);
   }
 
   /**
@@ -262,6 +444,9 @@ class Select
       !option.hasAttribute('soft-disabled')
     ) {
       this.setSelectedOption(option);
+      if (option.isKeyDownEventHandled) {
+        this.keyDownEventHandled();
+      }
       this.displayPopover = false;
       this.fireEvents();
     }
@@ -277,10 +462,12 @@ class Select
    * @param option - The option element in DOM which gets selected.
    */
   private setSelectedOption(option: Option | null): void {
+    // if the options is already selected, return
+    if (option === this.selectedOption) return;
     // set the attribute 'selected' on the option in HTML and remove it from others
     this.updateSelectedInChildOptions(option);
     // update the tabindex for all options
-    this.updateTabIndexForAllOptions(option);
+    this.resetTabIndexes(this.navItems.indexOf(option!));
 
     // set the selected option in the component state
     this.selectedOption = option;
@@ -294,28 +481,12 @@ class Select
   }
 
   /**
-   * Updates the tabindex of all options.
-   * Sets the tabindex of the selected option to '0' and others to '-1'.
-   *
-   * @param option - The option which tabIndex should be set to 0.
-   */
-  private updateTabIndexForAllOptions(option?: Option | null): void {
-    const options = this.getAllValidOptions();
-    const optionToGetTabIndex0 = option || options[0];
-
-    options.forEach(option => {
-      option.setAttribute('tabindex', option === optionToGetTabIndex0 ? '0' : '-1');
-    });
-  }
-
-  /**
    * Sets selected attribute on the selected option and removes it from all options
    * @param selectedOption - The option which gets selected
    */
   private updateSelectedInChildOptions(selectedOption: Option | null): void {
     selectedOption?.setAttribute('selected', 'true');
-    const options = this.getAllValidOptions();
-    options.forEach(option => {
+    this.navItems.forEach(option => {
       if (option !== selectedOption) {
         option.removeAttribute('selected');
       }
@@ -365,9 +536,7 @@ class Select
 
   /** @internal */
   formStateRestoreCallback(state: string): void {
-    const optionToRestoreTo = this.getAllValidOptions().find(
-      option => option.value === state || option.label === state,
-    );
+    const optionToRestoreTo = this.navItems.find(option => option.value === state || option.label === state);
     if (this.selectedOption?.value !== optionToRestoreTo?.value) {
       this.setSelectedOption(optionToRestoreTo || null);
       // fire events to notify the change in case of restore
@@ -413,126 +582,163 @@ class Select
     event.stopPropagation();
   }
 
+  private setupDebounceSearch(): void {
+    this.debounceSearch = debounce(() => {
+      // for every 500ms, we will reset the search string.
+      this.searchString = '';
+    }, this.debounceTime);
+  }
+
+  private debounceSearchKey(letter: string): string {
+    this.debounceSearch?.();
+    // add most recent letter to saved search string
+    this.searchString += letter;
+    return this.searchString;
+  }
+
+  /**
+   * Filters the given option labels based on the given search key.
+   * It returns a new array of options that have labels starting with the given search key case-insensitive.
+   *
+   * @param options - The options to filter.
+   * @param searchKey - The search key to filter by.
+   * @returns The filtered options.
+   */
+  private filterOptionsBySearchKey(options: Option[], searchKey: string): Option[] {
+    return options.filter(option => option.getAttribute('label')?.toLowerCase().startsWith(searchKey.toLowerCase()));
+  }
+
+  /**
+   * Handles the selection of an option based on the filter string.
+   * It will select the first option from the filtered list if it is not empty.
+   * If the filtered list is empty, it will do nothing.
+   * @param searchKey - The filter string to search for options.
+   */
+  private handleSelectedOptionBasedOnFilter(searchKey: string): void {
+    const startIndex = this.navItems.findIndex(option => option.tabIndex === 0) + 1;
+    const orderedOptions = [...this.navItems.slice(startIndex), ...this.navItems.slice(0, startIndex)];
+    // First, we search for an exact match with then entire search key
+    const filteredResults = this.filterOptionsBySearchKey(orderedOptions, searchKey);
+    let newOption: Option | null = null;
+    if (filteredResults.length) {
+      // If the key is an exact match, then we set the first option
+      [newOption] = filteredResults;
+    } else if (searchKey.split('').every(letter => letter === searchKey[0])) {
+      // If the key is same, then we cycle through all options which start with the same letter
+      const nextOptionFromList = this.navItems[startIndex];
+      const optionsWhichStartWithSameLetter = this.filterOptionsBySearchKey(orderedOptions, searchKey[0]);
+      const nextPossibleOption = optionsWhichStartWithSameLetter.filter(option => option === nextOptionFromList);
+      newOption = nextPossibleOption.length ? nextPossibleOption[0] : optionsWhichStartWithSameLetter[0];
+    }
+    if (this.navItems.indexOf(newOption!) !== -1) {
+      this.resetTabIndexAndSetFocusAfterUpdate(this.navItems.indexOf(newOption!));
+    }
+  }
+
   /**
    * Handles the keydown event on the select element when the popover is closed.
    * The options are as follows:
-   * - ARROW_DOWN, ARROW_UP, SPACE: Opens the popover and prevents the default scrolling behavior.
-   * - ENTER: Opens the popover, prevents default scrolling, and submits the form if the popover is closed.
+   * - ARROW_DOWN, ARROW_UP, ENTER, SPACE: Opens the popover and prevents the default scrolling behavior.
    * - HOME: Opens the popover and sets focus and tabindex on the first option.
    * - END: Opens the popover and sets focus and tabindex on the last option.
+   * - Any key: Opens the popover and sets focus on the first option which starts with the key.
    * @param event - The keyboard event.
    */
   private handleKeydownCombobox(event: KeyboardEvent): void {
     if (this.disabled || this.softDisabled || this.readonly) {
       return;
     }
-    switch (event.key) {
-      case KEYS.ARROW_DOWN:
-      case KEYS.ARROW_UP:
-        this.displayPopover = true;
-        // Prevent the default browser behavior of scrolling down
-        event.preventDefault();
-        event.stopPropagation();
-        break;
-      case KEYS.ENTER:
-      case KEYS.SPACE:
-        this.displayPopover = true;
-        // Prevent the default browser behavior of scrolling down
-        event.preventDefault();
-        event.stopPropagation();
-        break;
-      case KEYS.HOME: {
-        this.displayPopover = true;
-        const firstOption = this.getFirstValidOption();
-        if (firstOption) {
-          firstOption?.focus();
-          this.updateTabIndexForAllOptions(firstOption);
-        }
-        event.preventDefault();
-        break;
-      }
-      case KEYS.END: {
-        this.displayPopover = true;
-        const lastOption = this.getLastValidOption();
-        if (lastOption) {
-          lastOption.focus();
-          this.updateTabIndexForAllOptions(lastOption);
-        }
-        event.preventDefault();
-        break;
-      }
-      default:
-        break;
-    }
-  }
 
-  /**
-   * Handles the keydown event on the select element when the popover is open.
-   * The options are as follows:
-   * - HOME: Sets focus and tabindex on the first option.
-   * - END: Sets focus and tabindex on the last option.
-   * - ARROW_DOWN, ARROW_UP, PAGE_DOWN, PAGE_UP: Handles navigation between options.
-   * @param event - The keyboard event.
-   */
-  private handlePopoverKeydown(event: KeyboardEvent): void {
-    let optionToFocus: Option | null = null;
-    switch (event.key) {
-      case KEYS.HOME: {
-        optionToFocus = this.getFirstValidOption();
-        break;
-      }
-      case KEYS.END: {
-        optionToFocus = this.getLastValidOption();
-        break;
-      }
-      case KEYS.ARROW_DOWN: {
-        const options = this.getAllValidOptions();
-        const currentIndex = options.findIndex(option => option === event.target);
-        const newIndex = Math.min(currentIndex + 1, options.length - 1);
-        optionToFocus = options[newIndex];
-        break;
-      }
-      case KEYS.ARROW_UP: {
-        const options = this.getAllValidOptions();
-        const currentIndex = options.findIndex(option => option === event.target);
-        const newIndex = Math.max(currentIndex - 1, 0);
-        optionToFocus = options[newIndex];
-        break;
-      }
-      case KEYS.PAGE_DOWN: {
-        const options = this.getAllValidOptions();
-        const currentIndex = options.findIndex(option => option === event.target);
-        const newIndex = Math.min(currentIndex + 10, options.length - 1);
-        optionToFocus = options[newIndex];
-        break;
-      }
-      case KEYS.PAGE_UP: {
-        const options = this.getAllValidOptions();
-        const currentIndex = options.findIndex(option => option === event.target);
-        const newIndex = Math.max(currentIndex - 10, 0);
-        optionToFocus = options[newIndex];
-        break;
-      }
-      default:
-        break;
-    }
+    const action = this.getActionForKeyEvent(event);
+    const isDefaultNavigation = this.getKeyboardNavMode() === NAV_MODES.DEFAULT;
 
-    if (optionToFocus) {
-      this.focusAndUpdateTabIndexes(optionToFocus);
+    if (isDefaultNavigation) {
+      switch (action) {
+        case ACTIONS.DOWN:
+        case ACTIONS.UP:
+        case ACTIONS.ENTER:
+          if (!this.displayPopover) {
+            this.keyDownEventHandled();
+          }
+          this.displayPopover = true;
+          event.preventDefault();
+          event.stopPropagation();
+          break;
+        case ACTIONS.SPACE:
+          event.preventDefault();
+          event.stopPropagation();
+          break;
+        case ACTIONS.HOME: {
+          this.displayPopover = true;
+          this.resetTabIndexAndSetFocusAfterUpdate(0);
+          event.preventDefault();
+          event.stopPropagation();
+          break;
+        }
+        case ACTIONS.END: {
+          this.displayPopover = true;
+          this.resetTabIndexAndSetFocusAfterUpdate(this.navItems.length - 1);
+          event.preventDefault();
+          event.stopPropagation();
+          break;
+        }
+        default: {
+          if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+            this.displayPopover = true;
+            this.handleSelectedOptionByKeyInput(event.key);
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          break;
+        }
+      }
+    } else if (action === ACTIONS.ENTER) {
+      this.displayPopover = true;
       event.preventDefault();
       event.stopPropagation();
     }
   }
 
   /**
-   * Focuses the given option and updates the tabindex for all options.
-   * @param option - The option to focus.
-   * @internal
+   * Handles the keyup event on the select element when the popover is closed for Space Key, following the default
+   * onKeyDown = Enter, onKeyUp = Space behavior as a button has.
+   *
+   * @param event - The keyboard event.
    */
-  private focusAndUpdateTabIndexes(option: Option | null): void {
-    if (option) {
-      option.focus();
-      this.updateTabIndexForAllOptions(option);
+  private handleKeyupCombobox(event: KeyboardEvent): void {
+    if (this.disabled || this.softDisabled || this.readonly) {
+      return;
+    }
+
+    const action = this.getActionForKeyEvent(event);
+    const isDefaultNavigation = this.getKeyboardNavMode() === NAV_MODES.DEFAULT;
+
+    if (isDefaultNavigation && action === ACTIONS.SPACE) {
+      if (!this.displayPopover) {
+        this.keyDownEventHandled();
+      }
+      this.displayPopover = true;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  private resetTabIndexAndSetFocusAfterUpdate(newOptionIndex: number): void {
+    if (this.displayPopover) {
+      // When the popover is opened (`this.displayPopover` is true), the underlying DOM (especially
+      // the select listbox inside the popover) may not yet be fully rendered or attached to the layout tree.
+      // Calling `resetTabIndexAndSetFocus()` immediately in the same frame would fail because
+      // the listbox or its scroll container might still have a height of `0` or not be ready for focus.
+      // Wrapping the call inside `window.requestAnimationFrame()` defers the execution until the next
+      // browser paint cycle — ensuring that:
+      //   1. The DOM updates from Lit’s rendering cycle are flushed.
+      //   2. The popover and its scroll container are laid out and measurable.
+      //   3. The correct element can safely receive focus and scroll into view.
+      this.animationFrameId = window.requestAnimationFrame(() => {
+        // We need to reset the tabindex after the component renders,
+        // so that the dropdown will open and the focus can be set.
+        this.resetTabIndexAndSetFocus(newOptionIndex);
+      });
     }
   }
 
@@ -548,23 +754,15 @@ class Select
     this.visualCombobox.focus();
   }
 
-  /**
-   * Updates the state of the select component.
-   * This public method should be fired when the selected on the option components is updated from the outside.
-   * It ensures that the selected attribute is set correctly on the options
-   * and that the aria-selected attribute is updated accordingly.
-   */
-  public updateState(): void {
-    const newSelectedOption = this.getFirstSelectedOption();
+  private handleSelectedOptionByKeyInput(searchKey: string): void {
+    const searchString = this.debounceSearchKey(searchKey);
+    this.handleSelectedOptionBasedOnFilter(searchString);
+  }
 
-    if (!this.inputElement) {
-      return;
-    }
-
-    if (!newSelectedOption) {
-      this.setSelectedOption(this.placeholder ? null : this.getFirstValidOption());
-    } else if (this.selectedOption?.value !== newSelectedOption.value) {
-      this.setSelectedOption(newSelectedOption);
+  private handleKeydownPopover(event: KeyboardEvent): void {
+    const isDefaultNavigation = this.getKeyboardNavMode() === NAV_MODES.DEFAULT;
+    if (isDefaultNavigation && event.key.length === 1) {
+      this.handleSelectedOptionByKeyInput(event.key);
     }
   }
 
@@ -577,6 +775,7 @@ class Select
           part="base-container"
           @click="${this.handleClickCombobox}"
           @keydown="${this.handleKeydownCombobox}"
+          @keyup="${this.handleKeyupCombobox}"
           tabindex="${this.disabled ? '-1' : '0'}"
           class="${this.disabled ? '' : 'mdc-focus-ring'}"
           role="${ROLE.COMBOBOX}"
@@ -628,9 +827,8 @@ class Select
           aria-disabled="${ifDefined(this.disabled || this.softDisabled)}"
         />
         <mdc-popover
-          trigger="manual"
+          trigger="${TRIGGER.MANUAL}"
           triggerid="${TRIGGER_ID}"
-          @keydown="${this.handlePopoverKeydown}"
           interactive
           ?visible="${this.displayPopover}"
           role=""
@@ -641,11 +839,15 @@ class Select
           focus-back-to-trigger
           focus-trap
           size
+          @keydown="${this.handleKeydownPopover}"
+          ?disable-flip="${this.disableFlip}"
           boundary="${ifDefined(this.boundary)}"
           strategy="${ifDefined(this.strategy)}"
           placement="${this.placement}"
-          @closebyescape="${() => {
-            this.displayPopover = false;
+          @closebyescape="${(event: Event) => {
+            if (event.target === event.currentTarget) {
+              this.displayPopover = false;
+            }
           }}"
           @closebyoutsideclick="${() => {
             this.displayPopover = false;

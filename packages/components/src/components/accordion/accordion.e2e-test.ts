@@ -1,12 +1,10 @@
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
 import type { Size } from '../accordiongroup/accordiongroup.types';
 import { KEYS } from '../../utils/keys';
 import { SIZE } from '../accordiongroup/accordiongroup.constants';
 import type { Variant } from '../accordionbutton/accordionbutton.types';
-import { VARIANT } from '../accordionbutton/accordionbutton.constants';
+import { VARIANT, TOGGLE_POSITION } from '../accordionbutton/accordionbutton.constants';
 import { ROLE } from '../../utils/roles';
 
 type SetupOptions = {
@@ -18,6 +16,8 @@ type SetupOptions = {
   headerText?: string;
   prefixIcon?: string;
   children?: string;
+  closeButtonAriaLabel?: string;
+  openButtonAriaLabel?: string;
 };
 
 const defaultHeaderText = 'Header';
@@ -28,6 +28,8 @@ const defaultContent = `<mdc-chip slot="leading-controls" label="Label"></mdc-ch
   <mdc-chip slot="trailing-controls" label="Label"></mdc-chip>
   <mdc-badge slot="trailing-controls" type="counter" counter="911" max-counter="99"></mdc-badge>
   Lorem ipsum sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua`;
+const defaultCloseButtonAriaLabel = 'Close';
+const defaultOpenButtonAriaLabel = 'Open';
 
 const setup = async (args: SetupOptions) => {
   const { componentsPage, ...restArgs } = args;
@@ -39,6 +41,8 @@ const setup = async (args: SetupOptions) => {
         ${restArgs.size ? `size="${restArgs.size}"` : ''}
         ${restArgs.variant ? `variant="${restArgs.variant}"` : ''}
         ${restArgs.prefixIcon ? `prefix-icon="${restArgs.prefixIcon}"` : ''}
+        ${`close-button-aria-label="${restArgs.closeButtonAriaLabel ? restArgs.closeButtonAriaLabel : defaultCloseButtonAriaLabel}"`}
+        ${`open-button-aria-label="${restArgs.openButtonAriaLabel ? restArgs.openButtonAriaLabel : defaultOpenButtonAriaLabel}"`}
         header-text="${restArgs.headerText ?? defaultHeaderText}"
       >
         ${restArgs.children}
@@ -68,13 +72,20 @@ test.describe('Accordion Feature Scenarios', () => {
       const options = { createNewRow: true };
 
       // Default accordion (collapsed)
-      accordionSheet.setAttributes({ 'header-text': defaultHeaderText, 'prefix-icon': defaultPrefixIcon });
+      accordionSheet.setAttributes({
+        'header-text': defaultHeaderText,
+        'prefix-icon': defaultPrefixIcon,
+        'open-button-aria-label': defaultOpenButtonAriaLabel,
+        'close-button-aria-label': defaultCloseButtonAriaLabel,
+      });
       await accordionSheet.createMarkupWithCombination({}, options);
 
       // Expanded accordion
       accordionSheet.setAttributes({
         'header-text': defaultHeaderText,
         'prefix-icon': defaultPrefixIcon,
+        'open-button-aria-label': defaultOpenButtonAriaLabel,
+        'close-button-aria-label': defaultCloseButtonAriaLabel,
         expanded: true,
       });
       accordionSheet.setChildren(defaultContent);
@@ -84,8 +95,22 @@ test.describe('Accordion Feature Scenarios', () => {
       accordionSheet.setAttributes({
         'header-text': defaultHeaderText,
         'prefix-icon': defaultPrefixIcon,
+        'open-button-aria-label': defaultOpenButtonAriaLabel,
+        'close-button-aria-label': defaultCloseButtonAriaLabel,
         disabled: true,
       });
+      await accordionSheet.createMarkupWithCombination({}, options);
+
+      // Leading toggle position (expanded)
+      accordionSheet.setAttributes({
+        'header-text': defaultHeaderText,
+        'prefix-icon': defaultPrefixIcon,
+        'open-button-aria-label': defaultOpenButtonAriaLabel,
+        'close-button-aria-label': defaultCloseButtonAriaLabel,
+        'toggle-position': TOGGLE_POSITION.LEADING,
+        expanded: true,
+      });
+      accordionSheet.setChildren(defaultContent);
       await accordionSheet.createMarkupWithCombination({}, options);
 
       await accordionSheet.mountStickerSheet();
@@ -116,6 +141,7 @@ test.describe('Accordion Feature Scenarios', () => {
           'role',
           ROLE.HEADING,
         );
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultOpenButtonAriaLabel);
         await expect(headerButtonSection).toHaveAttribute('role', ROLE.BUTTON);
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'false');
       });
@@ -146,6 +172,7 @@ test.describe('Accordion Feature Scenarios', () => {
         });
 
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'true');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultCloseButtonAriaLabel);
         await expect(content).toBeVisible();
       });
 
@@ -184,23 +211,26 @@ test.describe('Accordion Feature Scenarios', () => {
 
         // Initially collapsed
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'false');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultOpenButtonAriaLabel);
         await expect(accordion).not.toHaveAttribute('expanded');
         await expect(content).not.toBeVisible();
 
         // Expand
-        let waitForShownEvent = await componentsPage.waitForEvent(accordion, 'shown');
+        let waitForShown = await componentsPage.waitForEvent(accordion, 'shown');
         await headerButtonSection.click();
-        await waitForShownEvent();
+        await expect(waitForShown).toEventEmitted();
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'true');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultCloseButtonAriaLabel);
         await expect(accordion).toHaveAttribute('expanded');
         await expect(content).toBeVisible();
         await expect(content).toHaveAttribute('role', ROLE.REGION);
 
         // Collapse
-        waitForShownEvent = await componentsPage.waitForEvent(accordion, 'shown');
+        waitForShown = await componentsPage.waitForEvent(accordion, 'shown');
         await headerButtonSection.click();
-        await waitForShownEvent();
+        await expect(waitForShown).toEventEmitted();
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'false');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultOpenButtonAriaLabel);
         await expect(accordion).not.toHaveAttribute('expanded');
         await expect(content).not.toBeVisible();
       });
@@ -213,19 +243,21 @@ test.describe('Accordion Feature Scenarios', () => {
         await expect(headerButtonSection).toBeFocused();
 
         // Test Enter key
-        let waitForShownEvent = await componentsPage.waitForEvent(accordion, 'shown');
+        let waitForShown = await componentsPage.waitForEvent(accordion, 'shown');
         await headerButtonSection.press(KEYS.ENTER);
-        await waitForShownEvent();
+        await expect(waitForShown).toEventEmitted();
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'true');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultCloseButtonAriaLabel);
         await expect(accordion).toHaveAttribute('expanded');
         await expect(content).toBeVisible();
         await expect(content).toHaveAttribute('role', ROLE.REGION);
 
         // Test Space key
-        waitForShownEvent = await componentsPage.waitForEvent(accordion, 'shown');
+        waitForShown = await componentsPage.waitForEvent(accordion, 'shown');
         await headerButtonSection.press(KEYS.SPACE);
-        await waitForShownEvent();
+        await expect(waitForShown).toEventEmitted();
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'false');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultOpenButtonAriaLabel);
         await expect(accordion).not.toHaveAttribute('expanded');
         await expect(content).not.toBeVisible();
       });
@@ -238,13 +270,57 @@ test.describe('Accordion Feature Scenarios', () => {
         // Should not expand when clicked
         await headerButtonSection.click({ force: true });
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'false');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultOpenButtonAriaLabel);
         await expect(content).not.toBeVisible();
 
         // Should not respond to keyboard
         await headerButtonSection.focus();
         await headerButtonSection.press(KEYS.ENTER);
         await expect(headerButtonSection).toHaveAttribute('aria-expanded', 'false');
+        await expect(headerButtonSection).toHaveAttribute('aria-label', defaultOpenButtonAriaLabel);
         await expect(content).not.toBeVisible();
+      });
+
+      await test.step('stop propagation of child shown events from header controls', async () => {
+        const { accordion } = await setup({
+          componentsPage,
+          children: `
+          <mdc-button slot="leading-controls" variant="tertiary" size="20" prefix-icon="info-circle-regular" id="tooltip-trigger-id"></mdc-button>
+          <mdc-tooltip slot="leading-controls" triggerID="tooltip-trigger-id">
+            Tooltip message
+          </mdc-tooltip>
+        `,
+        });
+
+        const tooltipButton = accordion.locator('mdc-button[id="tooltip-trigger-id"]');
+        const tooltip = accordion.locator('mdc-tooltip[slot="leading-controls"]');
+
+        await accordion.waitFor();
+
+        const waitForShown = await componentsPage.waitForEvent(accordion, 'shown');
+
+        // Trigger tooltip to show (which may fire a 'shown' event internally)
+        await tooltipButton.hover();
+        await tooltip.waitFor({ state: 'visible' });
+        await componentsPage.page.waitForTimeout(100);
+
+        // Check that the 'shown' event was NOT propagated to the accordion
+        await expect(waitForShown).not.toEventEmitted();
+      });
+
+      await test.step('spatial navigation', async () => {
+        const { accordion, headerButtonSection, content } = await setup({ componentsPage, children: 'Content' });
+        await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+        const { keyboard } = componentsPage.page;
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(headerButtonSection).toBeFocused();
+
+        const waitForShown = await componentsPage.waitForEvent(accordion, 'shown');
+        await keyboard.press(KEYS.ENTER);
+        await expect(waitForShown).toEventEmitted();
+        await expect(accordion).toHaveAttribute('expanded');
+        await expect(content).toBeVisible();
       });
     });
   });

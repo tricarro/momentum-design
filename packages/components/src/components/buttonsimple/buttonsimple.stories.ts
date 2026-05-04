@@ -1,7 +1,7 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
@@ -17,23 +17,22 @@ const render = (args: Args) =>
     ?active="${args.active}"
     ?disabled="${args.disabled}"
     ?soft-disabled="${args['soft-disabled']}"
-    size="${args.size}"
-    type="${args.type}"
-    role="${args.role}"
-    tabIndex="${args.tabIndex}"
+    size="${ifDefined(args.size)}"
+    type="${ifDefined(args.type)}"
+    role="${ifDefined(args.role)}"
+    tabindex="${ifDefined(args.tabIndex)}"
     ariaStateKey="${ifDefined(args.ariaStateKey)}"
+    name="${ifDefined(args.name)}"
+    value="${ifDefined(args.value)}"
     ?auto-focus-on-mount="${args['auto-focus-on-mount']}"
     >${args.children}</mdc-buttonsimple
   >`;
 
 const meta: Meta = {
-  title: 'Internal/buttonsimple',
+  title: 'Components/buttonsimple',
   tags: ['autodocs'],
   component: 'mdc-buttonsimple',
   render,
-  parameters: {
-    badges: ['internal'],
-  },
   argTypes: {
     children: {
       description: 'Text label for the button.',
@@ -58,6 +57,12 @@ const meta: Meta = {
     type: {
       control: 'select',
       options: Object.values(BUTTON_TYPE),
+    },
+    name: {
+      control: 'text',
+    },
+    value: {
+      control: 'text',
     },
     'auto-focus-on-mount': {
       control: 'boolean',

@@ -1,9 +1,8 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-restricted-syntax */
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { KEYS } from '../../utils/keys';
 
 import { DEFAULTS, LINK_SIZES } from './link.constants';
 
@@ -111,14 +110,14 @@ test('mdc-link', async ({ componentsPage }) => {
 
     const sizes = Object.values(LINK_SIZES);
     const baseCombos: Record<string, string | undefined>[] = [
-      {},
-      { 'icon-name': ICON_PLACEHOLDER },
-      { disabled: '' },
-      { disabled: '', 'icon-name': ICON_PLACEHOLDER },
-      { inline: '' },
-      { inline: '', 'icon-name': ICON_PLACEHOLDER },
-      { inline: '', disabled: '' },
-      { inline: '', disabled: '', 'icon-name': ICON_PLACEHOLDER },
+      { href: '#' },
+      { href: '#', 'icon-name': ICON_PLACEHOLDER },
+      { href: '#', disabled: '' },
+      { href: '#', disabled: '', 'icon-name': ICON_PLACEHOLDER },
+      { href: '#', inline: '' },
+      { href: '#', inline: '', 'icon-name': ICON_PLACEHOLDER },
+      { href: '#', inline: '', disabled: '' },
+      { href: '#', inline: '', disabled: '', 'icon-name': ICON_PLACEHOLDER },
     ];
 
     const createVariants = async (baseAttrs: Record<string, string | undefined>, inline = false, inverted = false) => {
@@ -162,6 +161,19 @@ test('mdc-link', async ({ componentsPage }) => {
     await test.step('accessibility', async () => {
       await componentsPage.accessibility.checkForA11yViolations('link-default');
     });
+
+    await test.step('matches screenshot of multi-line link', async () => {
+      const multiLineHtml = `
+        <div style="width: 200px;">
+          <mdc-link href="#" icon-name="placeholder-bold">This is a link that will wrap onto multiple lines</mdc-link>
+        </div>
+      `;
+      await componentsPage.mount({ html: multiLineHtml, clearDocument: true });
+      const multiLineContainer = componentsPage.page.locator('div').first();
+      await multiLineContainer.waitFor();
+      await componentsPage.page.mouse.move(0, 0);
+      await componentsPage.visualRegression.takeScreenshot('mdc-link-multi-line', { element: multiLineContainer });
+    });
   });
 
   /**
@@ -194,6 +206,39 @@ test('mdc-link', async ({ componentsPage }) => {
 
       await link.click();
       await expect(componentsPage.page).toHaveURL('https://www.webex.com');
+    });
+
+    await test.step('focus using JavaScript focus() method', async () => {
+      await componentsPage.page.goto(originalURL);
+      const focusableLink = await setup({ componentsPage, addPageFooter: true, href: '#content' });
+
+      // Use JavaScript to focus the element
+      await focusableLink.evaluate((el: HTMLElement) => el.focus());
+
+      // Verify the internal anchor element is focused (delegatesFocus delegates to shadow DOM)
+      const isFocused = await focusableLink.evaluate(el => {
+        const { shadowRoot } = el;
+        if (!shadowRoot) return false;
+        const anchor = shadowRoot.querySelector('a');
+        return document.activeElement === el && anchor === shadowRoot.activeElement;
+      });
+
+      expect(isFocused).toBe(true);
+    });
+
+    await test.step('spatial navigation', async () => {
+      await componentsPage.page.goto(originalURL);
+      const link = await setup({ componentsPage, addPageFooter: true, href: '#content' });
+
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(link).toBeFocused();
+
+      const waitForClick = await componentsPage.waitForEvent(link, 'click');
+      await keyboard.press(KEYS.ENTER);
+      await expect(waitForClick).toEventEmitted();
     });
   });
 });

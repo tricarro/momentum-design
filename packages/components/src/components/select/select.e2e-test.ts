@@ -3,8 +3,10 @@ import { expect, Locator } from '@playwright/test';
 import { KEYS } from '../../utils/keys';
 import { ComponentsPage, test } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { POPOVER_PLACEMENT, TRIGGER } from '../popover/popover.constants';
 
 import type Select from './select.component';
+import { TRIGGER_ID } from './select.constants';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
@@ -31,6 +33,7 @@ const defaultChildren = (selected?: boolean) => `
     <mdc-option value="option3" label="Option Label 3"></mdc-option>
   </mdc-selectlistbox>
 `;
+const mockFruits = ['Apple', 'Banana', 'Blackberry', 'Blueberry', 'Cherry', 'Mango', 'Orange'];
 
 const setup = async (args: SetupOptions, isForm = false) => {
   const { componentsPage, ...restArgs } = args;
@@ -106,6 +109,9 @@ test('mdc-select', async ({ componentsPage }) => {
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toHaveText('White and Black are the biggest colors on the spectrum');
 
+    // Wait for tooltip positioning to stabilize (floating-ui may recompute position)
+    await componentsPage.page.waitForTimeout(500);
+
     // Visual regression snapshot of the tooltip
     await componentsPage.visualRegression.takeScreenshot('mdc-select', {
       source: 'userflow',
@@ -145,12 +151,24 @@ test('mdc-select', async ({ componentsPage }) => {
       label,
       placeholder: defaultPlaceholder,
       disabled: true,
+      'toggletip-text': 'This is additional toggletip text that provides more context',
+      'info-icon-aria-label': 'Additional information',
     });
     await selectSheet.createMarkupWithCombination({}, markUpOptions);
     selectSheet.setAttributes({
       label,
       placeholder: defaultPlaceholder,
       readonly: true,
+    });
+    await selectSheet.createMarkupWithCombination({}, markUpOptions);
+
+    // Short width test for word wrapping
+    selectSheet.setAttributes({
+      label: 'This is a very long label text that should wrap when constrained to a narrow width',
+      placeholder: defaultPlaceholder,
+      style: 'width: 7.5rem;',
+      'toggletip-text': 'This is additional toggletip text that provides more context',
+      'info-icon-aria-label': 'Additional information',
     });
     await selectSheet.createMarkupWithCombination({}, markUpOptions);
 
@@ -204,6 +222,25 @@ test('mdc-select', async ({ componentsPage }) => {
       const arrowIcon = select.locator('mdc-icon[name="arrow-down-bold"]');
       await arrowIcon.waitFor();
       expect(arrowIcon).toBeDefined();
+    });
+
+    await test.step('should have default attributes on select dropdown popover', async () => {
+      const select = await setup({ componentsPage, children: defaultChildren() });
+      const popover = select.locator('mdc-popover');
+      await expect(popover).toHaveAttribute('trigger', TRIGGER.MANUAL);
+      await expect(popover).toHaveAttribute('triggerid', TRIGGER_ID);
+      await expect(popover).toHaveAttribute('interactive');
+      await expect(popover).not.toHaveAttribute('visible');
+      await expect(popover).not.toHaveAttribute('role');
+      await expect(popover).toHaveAttribute('backdrop');
+      await expect(popover).toHaveAttribute('hide-on-outside-click');
+      await expect(popover).toHaveAttribute('hide-on-escape');
+      await expect(popover).toHaveAttribute('focus-back-to-trigger');
+      await expect(popover).toHaveAttribute('focus-trap');
+      await expect(popover).toHaveAttribute('size');
+      await expect(popover).not.toHaveAttribute('disable-flip');
+      await expect(popover).toHaveAttribute('placement', POPOVER_PLACEMENT.BOTTOM_START);
+      await expect(popover).toHaveAttribute('z-index', '1000');
     });
 
     await test.step('should respect select width, listbox width and height overrides via CSS variables', async () => {
@@ -292,7 +329,7 @@ test('mdc-select', async ({ componentsPage }) => {
         await expect(select.locator('mdc-popover')).toBeVisible();
 
         await select.click();
-        await expect(select.locator('mdc-popover')).not.toBeVisible();
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
       });
 
       await test.step('component should open dropdown and select 2nd option and close popover', async () => {
@@ -302,7 +339,7 @@ test('mdc-select', async ({ componentsPage }) => {
 
         await select.locator('mdc-option').nth(1).click();
         await expect(select.locator('mdc-text[part="base-text selected"]')).toHaveText('Option Label 2');
-        await expect(select.locator('mdc-popover')).not.toBeVisible();
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
       });
     });
 
@@ -362,7 +399,7 @@ test('mdc-select', async ({ componentsPage }) => {
       await mdcSelect.locator('mdc-option').nth(1).click();
 
       // Verify the selected value and popover is closed
-      await expect(mdcSelect.locator('mdc-popover')).not.toBeVisible();
+      await expect(mdcSelect.locator('mdc-popover')).not.toHaveAttribute('visible');
       await expect(mdcSelect).toHaveAttribute('value', 'option2');
 
       // Try to submit the form again
@@ -451,7 +488,6 @@ test('mdc-select', async ({ componentsPage }) => {
 
       await test.step('should update selected option when selected attribute is changed from option1 to option2', async () => {
         await componentsPage.page.evaluate(() => {
-          const select = document.querySelector('mdc-select[label="Select an option"]');
           const selectListbox = document.querySelector('mdc-select[label="Select an option"] mdc-selectlistbox');
           if (selectListbox) {
             const options = selectListbox.querySelectorAll('mdc-option');
@@ -463,8 +499,6 @@ test('mdc-select', async ({ componentsPage }) => {
                 option.setAttribute('selected', '');
               }
             });
-            // @ts-ignore
-            select.updateState();
           }
         });
 
@@ -472,28 +506,105 @@ test('mdc-select', async ({ componentsPage }) => {
         await expect(select.locator('mdc-option').nth(1)).toHaveAttribute('selected');
       });
 
-      await test.step('should fallback to placeholder when selected attribute get removed', async () => {
-        await componentsPage.page.evaluate(() => {
-          const select = document.querySelector('mdc-select[label="Select an option"]');
-          const selectListbox = document.querySelector('mdc-select[label="Select an option"] mdc-selectlistbox');
-          if (selectListbox) {
-            const options = selectListbox.querySelectorAll('mdc-option');
-            options.forEach(option => {
-              option.removeAttribute('selected');
-            });
-            // @ts-ignore
-            select.updateState();
-          }
+      await test.step('selected option should be updated when changing the value attribute programmatically', async () => {
+        const select = await setup({
+          componentsPage,
+          label: 'Select an option',
+          placeholder: 'Select an option',
+          value: 'option2',
+          children: `
+          <mdc-selectlistbox>
+            <mdc-option label="Option 1" secondary-label="Secondary Label 1" value="option1"></mdc-option>
+            <mdc-option label="Option 2" secondary-label="Secondary Label 2" value="option2"></mdc-option>
+            <mdc-option label="Option 3" secondary-label="Secondary Label 3" value="option3"></mdc-option>
+            <mdc-option label="Option 4" secondary-label="Secondary Label 4" value="option4"></mdc-option>
+          </mdc-selectlistbox>
+        `,
         });
 
-        await expect(select).toHaveAttribute('value', '');
-        const selectedOptions = await select.locator('mdc-option[selected]').count();
-        expect(selectedOptions).toBe(0);
+        await test.step('should update selected option when value attribute is changed from option2 to option3', async () => {
+          await componentsPage.page.evaluate(() => {
+            const select = document.querySelector('mdc-select[label="Select an option"]') as Select;
+            if (select) {
+              select.value = 'option3';
+            }
+          });
 
-        const mdcTextElement = select.locator('mdc-text[part="base-text "]');
-        const textContent = await mdcTextElement.textContent();
-        expect(textContent?.trim()).toBe('Select an option');
+          await expect(select).toHaveAttribute('value', 'option3');
+          await expect(select.locator('mdc-option').nth(2)).toHaveAttribute('selected');
+        });
+
+        await test.step('should fallback to placeholder when an invalid value is passed', async () => {
+          await componentsPage.page.evaluate(() => {
+            const select = document.querySelector('mdc-select[label="Select an option"]') as Select;
+            if (select) {
+              select.value = 'invalid-option';
+            }
+          });
+
+          await expect(select).toHaveAttribute('value', '');
+          const selectedOptions = await select.locator('mdc-option[selected]').count();
+          expect(selectedOptions).toBe(0);
+
+          const mdcTextElement = select.locator('mdc-text[part="base-text "]');
+          const textContent = await mdcTextElement.textContent();
+          expect(textContent?.trim()).toBe('Select an option');
+        });
       });
+    });
+
+    await test.step('should update selected option when the value is changed progrmatically', async () => {
+      const select = await setup({
+        componentsPage,
+        label: 'Select an option',
+        value: 'option2',
+        children: `
+          <mdc-selectlistbox>
+            <mdc-option label="Option 1" value="option1"></mdc-option>
+            <mdc-option label="Option 2" value="option2" selected></mdc-option>
+            <mdc-option label="Option 3" value="option3"></mdc-option>
+            <mdc-option label="Option 4" value="option4"></mdc-option>
+          </mdc-selectlistbox>
+        `,
+      });
+
+      const optionsList = select.locator('mdc-option');
+      await expect(optionsList.nth(1)).toHaveAttribute('selected');
+      await componentsPage.page.evaluate(() => {
+        const selectDOM = document.querySelector('mdc-select[label="Select an option"]');
+        if (selectDOM) {
+          selectDOM.setAttribute('value', 'option4');
+        }
+      });
+      await expect(optionsList.nth(1)).not.toHaveAttribute('selected');
+      await expect(optionsList.nth(3)).toHaveAttribute('selected');
+    });
+
+    await test.step('should have only one selected option in the select', async () => {
+      const select = await setup({
+        componentsPage,
+        label: 'Select an option',
+        placeholder: 'Select an option',
+        children: `
+          <mdc-selectlistbox>
+            <mdc-option label="Option 1" value="option1" selected></mdc-option>
+            <mdc-option label="Option 2" value="option2"></mdc-option>
+            <mdc-option label="Option 3" value="option3"></mdc-option>
+          </mdc-selectlistbox>
+        `,
+      });
+      await expect(select).toHaveAttribute('value', 'option1');
+      await componentsPage.page.evaluate(() => {
+        const selectListbox = document.querySelector('mdc-select[label="Select an option"] mdc-selectlistbox');
+        const options = selectListbox?.querySelectorAll('mdc-option');
+        options?.forEach((option, index) => {
+          if (index === 2) option.setAttribute('selected', '');
+        });
+      });
+      await expect(select.locator('mdc-option').nth(0)).not.toHaveAttribute('selected');
+      await expect(select.locator('mdc-option').nth(2)).toHaveAttribute('selected');
+      await expect(select).toHaveAttribute('value', 'option3');
+      await expect(select.locator('mdc-option[selected]')).toHaveCount(1);
     });
 
     await test.step('should update help-text and help-text-type dynamically based on select validity (FormFieldSelectWithHelpTextValidation)', async () => {
@@ -502,8 +613,8 @@ test('mdc-select', async ({ componentsPage }) => {
           <form id="test-form" novalidate>
             <fieldset style="display: flex; flex-direction: column; gap: 1rem;">
               <legend>Select your Avengers and Infinity Stones (with validation)</legend>
-              <mdc-select label="Who is your favorite Avenger?" name="avengers-name" required></mdc-select>
-              <mdc-select label="How many Infinity Stones exist?" name="stone-count" required></mdc-select>
+              <mdc-select label="Who is your favorite Avenger?" placeholder="Select the avenger" name="avengers-name" required></mdc-select>
+              <mdc-select label="How many Infinity Stones exist?" placeholder="Select the count" name="stone-count" required></mdc-select>
               <div style="display: flex; gap: 0.25rem;">
                 <mdc-button type="submit" size="24">Submit</mdc-button>
                 <mdc-button type="reset" size="24" variant="secondary">Reset</mdc-button>
@@ -534,8 +645,6 @@ test('mdc-select', async ({ componentsPage }) => {
             <mdc-option value="hawkeye" label="Hawkeye"></mdc-option>
           </mdc-selectlistbox>
         `;
-        // @ts-ignore
-        el.updateState();
       });
       await stoneSelect.evaluate(select => {
         const el = select as HTMLElement;
@@ -628,13 +737,13 @@ test('mdc-select', async ({ componentsPage }) => {
         await expect(select.locator('mdc-popover')).toBeVisible();
 
         await componentsPage.page.keyboard.press(KEYS.ENTER);
-        await expect(select.locator('mdc-popover')).not.toBeVisible();
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
 
         await componentsPage.page.keyboard.press(KEYS.SPACE);
         await expect(select.locator('mdc-popover')).toBeVisible();
 
         await componentsPage.page.keyboard.press(KEYS.SPACE);
-        await expect(select.locator('mdc-popover')).not.toBeVisible();
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
       });
 
       await test.step('component should open dropdown select an option and then close the dropdown', async () => {
@@ -646,7 +755,7 @@ test('mdc-select', async ({ componentsPage }) => {
         await componentsPage.page.keyboard.press(KEYS.ARROW_DOWN);
         await componentsPage.page.keyboard.press(KEYS.ENTER);
         await expect(select.locator('mdc-text[part="base-text selected"]')).toHaveText('Option Label 2');
-        await expect(select.locator('mdc-popover')).not.toBeVisible();
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
       });
 
       await test.step('component should navigate in between options list', async () => {
@@ -667,6 +776,274 @@ test('mdc-select', async ({ componentsPage }) => {
         await componentsPage.page.keyboard.press(KEYS.ARROW_UP);
         await expect(select.locator('mdc-option').filter({ hasText: 'Option Label 1' })).toBeFocused();
       });
+
+      await test.step('component should navigate in between options list with disabled list items within', async () => {
+        const select = await setup({
+          componentsPage,
+          children: `
+          <mdc-selectlistbox>
+            <mdc-option label="Option 1" value="option1"></mdc-option>
+            <mdc-option label="Option 2" value="option2"></mdc-option>
+            <mdc-option label="Option 3" value="option3"></mdc-option>
+            <mdc-option label="Option 4" value="option4" disabled></mdc-option>
+            <mdc-option label="Option 5" value="option5"></mdc-option>
+          </mdc-selectlistbox>
+        `,
+        });
+
+        // update the Option with label "Option 2" to be disabled after mount
+        await componentsPage.page.evaluate(() => {
+          const selectListbox = document.querySelector('mdc-select mdc-selectlistbox');
+          if (selectListbox) {
+            const options = selectListbox.querySelectorAll('mdc-option');
+            options.forEach((option, idx) => {
+              if (idx === 1) {
+                option.toggleAttribute('disabled');
+              }
+            });
+          }
+        });
+
+        await componentsPage.actionability.pressTab();
+        await componentsPage.page.keyboard.press(KEYS.ENTER);
+        await expect(select.locator('mdc-option').filter({ hasText: 'Option 1' })).toBeFocused();
+
+        await componentsPage.page.keyboard.press(KEYS.ARROW_DOWN);
+        // Option 2 is disabled, so focus should move to Option 3
+        await expect(select.locator('mdc-option').filter({ hasText: 'Option 3' })).toBeFocused();
+
+        await componentsPage.page.keyboard.press(KEYS.ARROW_DOWN);
+        // Option 4 is disabled, so focus should move to Option 5
+        await expect(select.locator('mdc-option').filter({ hasText: 'Option 5' })).toBeFocused();
+
+        await componentsPage.page.keyboard.press(KEYS.ARROW_UP);
+        // Option 4 is disabled, so focus should move to Option 3
+        await expect(select.locator('mdc-option').filter({ hasText: 'Option 3' })).toBeFocused();
+
+        await componentsPage.page.keyboard.press(KEYS.ARROW_UP);
+        // Option 2 is disabled, so focus should move to Option 1
+        await expect(select.locator('mdc-option').filter({ hasText: 'Option 1' })).toBeFocused();
+
+        // press escape to close the popover
+        await componentsPage.page.keyboard.press(KEYS.ESCAPE);
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
+      });
+
+      const setupArguments = {
+        componentsPage,
+        children: `
+          <mdc-selectlistbox>
+            ${mockFruits.map(fruit => `<mdc-option value="${fruit.toLowerCase()}" label="${fruit}"></mdc-option>`).join('\n')}
+          </mdc-selectlistbox>
+        `,
+      };
+
+      await test.step('component should focus on the base-container and not the select element with no options', async () => {
+        const select = await setup({
+          componentsPage,
+          children: `
+            <mdc-selectlistbox></mdc-selectlistbox>
+          `,
+        });
+
+        await componentsPage.actionability.pressTab();
+
+        await expect(select.locator(`div[id="${TRIGGER_ID}"]`)).toBeFocused();
+      });
+
+      await test.step('component should focus on the base-container and not the select element with options', async () => {
+        const select = await setup(setupArguments);
+
+        await componentsPage.actionability.pressTab();
+
+        await expect(select.locator(`div[id="${TRIGGER_ID}"]`)).toBeFocused();
+      });
+
+      await test.step('component should focus an option by typing a letter', async () => {
+        const select = await setup(setupArguments);
+        await componentsPage.actionability.pressTab();
+        await componentsPage.actionability.pressAndCheckFocus('b', [
+          select.locator('mdc-option').filter({ hasText: 'Banana' }),
+        ]);
+      });
+
+      await test.step('component should type multiple characters and filters options', async () => {
+        const select = await setup(setupArguments);
+        await componentsPage.actionability.pressTab();
+        await componentsPage.page.keyboard.press('b');
+        await componentsPage.page.keyboard.press('l');
+        await expect(select.locator('mdc-option').filter({ hasText: 'Banana' })).not.toBeFocused();
+        await expect(select.locator('mdc-option').filter({ hasText: 'Blackberry' })).toBeFocused();
+      });
+
+      await test.step('component search resets after 500ms of inactivity', async () => {
+        const select = await setup(setupArguments);
+        await componentsPage.actionability.pressTab();
+        await componentsPage.page.keyboard.press('b');
+        await componentsPage.page.keyboard.press('l');
+        await componentsPage.page.waitForTimeout(500);
+        await componentsPage.page.keyboard.press('a');
+        await expect(select.locator('mdc-option').filter({ hasText: 'Banana' })).not.toBeFocused();
+        await expect(select.locator('mdc-option').filter({ hasText: 'Blackberry' })).not.toBeFocused();
+        await expect(select.locator('mdc-option').filter({ hasText: 'Apple' })).toBeFocused();
+      });
+
+      await test.step('component options should cycle letter based option focus', async () => {
+        const select = await setup(setupArguments);
+        await componentsPage.actionability.pressTab();
+        await componentsPage.actionability.pressAndCheckFocus('b', [
+          select.locator('mdc-option').filter({ hasText: 'Banana' }),
+          select.locator('mdc-option').filter({ hasText: 'Blackberry' }),
+          select.locator('mdc-option').filter({ hasText: 'Blueberry' }),
+          select.locator('mdc-option').filter({ hasText: 'Banana' }),
+        ]);
+      });
+
+      await test.step('component should focus first option if the letter doesn`t match any option', async () => {
+        const select = await setup(setupArguments);
+        await componentsPage.actionability.pressTab();
+        // When no option matches with user entered text and there is no selected option then, first option should be focused
+        await componentsPage.actionability.pressAndCheckFocus('z', [
+          select.locator('mdc-option').filter({ hasText: 'Apple' }),
+        ]);
+      });
+
+      await test.step('component should not intercept keyboard shortcuts with modifier keys', async () => {
+        const select = await setup(setupArguments);
+        await componentsPage.actionability.pressTab();
+        await expect(select.locator(`div[id="${TRIGGER_ID}"]`)).toBeFocused();
+
+        // Pressing a letter with modifier keys should not open the popover or trigger type-ahead
+        await componentsPage.page.keyboard.press('Meta+Shift+c');
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
+
+        await componentsPage.page.keyboard.press('Control+c');
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
+
+        await componentsPage.page.keyboard.press('Alt+c');
+        await expect(select.locator('mdc-popover')).not.toHaveAttribute('visible');
+      });
+
+      await test.step('component should not change focus of already selected option if the letter doesn`t match any option', async () => {
+        const select = await setup(setupArguments);
+        await componentsPage.actionability.pressTab();
+        await componentsPage.actionability.pressAndCheckFocus('c', [
+          select.locator('mdc-option').filter({ hasText: 'Cherry' }),
+        ]);
+        await componentsPage.page.keyboard.press(KEYS.ENTER);
+        await expect(select.locator('mdc-option').filter({ hasText: 'Cherry' })).toHaveAttribute('selected');
+        // When no option matches with user entered text then the current selected option should be focused.
+        await componentsPage.actionability.pressAndCheckFocus('z', [
+          select.locator('mdc-option').filter({ hasText: 'Cherry' }),
+        ]);
+      });
+    });
+
+    await test.step('should handle option removal', async () => {
+      await test.step('when a selected option is removed then placeholder should be set', async () => {
+        const select = await setup({
+          componentsPage,
+          children: defaultChildren(true),
+          placeholder: defaultPlaceholder,
+        });
+        await componentsPage.page.evaluate(() => {
+          const selectListbox = document.querySelector('mdc-select mdc-selectlistbox');
+          if (selectListbox) {
+            const options = selectListbox.querySelectorAll('mdc-option');
+            options[1].remove(); // Remove selected option
+          }
+        });
+        const mdcTextElement = select.locator('mdc-text[part="base-text "]');
+        const textContent = await mdcTextElement.textContent();
+        expect(textContent?.trim()).toBe(defaultPlaceholder);
+      });
+
+      await test.step('when a selected option is removed then first option should be selected', async () => {
+        const select = await setup({ componentsPage, children: defaultChildren(true) });
+        await componentsPage.page.evaluate(() => {
+          const selectListbox = document.querySelector('mdc-select mdc-selectlistbox');
+          if (selectListbox) {
+            const options = selectListbox?.querySelectorAll('mdc-option');
+            options[1].remove(); // Remove selected option
+          }
+        });
+        await expect(select.locator('mdc-option').first()).toHaveAttribute('selected');
+        await expect(select).toHaveAttribute('value', 'option1');
+      });
+
+      await test.step('when a focused option is removed then the next option should be focused via tabindex', async () => {
+        const select = await setup({ componentsPage, children: defaultChildren(false) });
+        await componentsPage.actionability.pressTab();
+        await componentsPage.actionability.pressAndCheckFocus(KEYS.ARROW_DOWN, [
+          select.locator('mdc-option').nth(0),
+          select.locator('mdc-option').nth(1),
+        ]);
+        await expect(select.locator('mdc-option').nth(1)).toHaveAttribute('tabindex', '0');
+        await expect(select.locator('mdc-option').nth(1)).toHaveAttribute('value', 'option2');
+        await componentsPage.page.evaluate(() => {
+          const selectListbox = document.querySelector('mdc-select mdc-selectlistbox');
+          if (selectListbox) {
+            const options = selectListbox.querySelectorAll('mdc-option');
+            options[1].remove(); // Remove second option.
+          }
+        });
+        // After removing 2nd option, the 3rd option will be second.
+        await expect(select.locator('mdc-option').nth(1)).toHaveAttribute('tabindex', '0');
+        await expect(select.locator('mdc-option').nth(1)).toHaveAttribute('value', 'option3');
+      });
+    });
+
+    await test.step('should handle tab correctly when dropdown is closed', async () => {
+      const form = await setup({ componentsPage, children: defaultChildren() }, true);
+      await componentsPage.actionability.pressTab();
+      await expect(form.locator('mdc-select')).toBeFocused();
+
+      await componentsPage.actionability.pressTab();
+      await expect(form.locator('mdc-button')).toBeFocused();
+    });
+
+    await test.step('spatial navigation', async () => {
+      const select = await setup({ componentsPage, children: defaultChildren(true) });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      const popover = select.locator('mdc-popover');
+
+      // Move focus to select
+      await keyboard.press(KEYS.ARROW_DOWN);
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(popover).not.toHaveAttribute('visible');
+      await keyboard.press(KEYS.ARROW_UP);
+      await expect(popover).not.toHaveAttribute('visible');
+
+      // Open Select oly via ENTER key
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(popover).toBeVisible();
+
+      // Escape closes the popover
+      await keyboard.press(KEYS.ESCAPE);
+      await expect(popover).not.toHaveAttribute('visible');
+
+      await keyboard.press(KEYS.ENTER);
+      await expect(select.locator('mdc-option').filter({ hasText: 'Option Label 1' })).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(select.locator('mdc-option').filter({ hasText: 'Option Label 2' })).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(select.locator('mdc-option').filter({ hasText: 'Option Label 3' })).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_UP);
+      await expect(select.locator('mdc-option').filter({ hasText: 'Option Label 2' })).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_UP);
+      await expect(select.locator('mdc-option').filter({ hasText: 'Option Label 1' })).toBeFocused();
+
+      // Select option via ENTER key
+      await keyboard.press(KEYS.ENTER);
+      await expect(select.locator('mdc-option').filter({ hasText: 'Option Label 1' })).toHaveAttribute('selected');
+      await expect(popover).not.toHaveAttribute('visible');
     });
   });
 });

@@ -7,44 +7,59 @@ import { DisabledMixin } from '../../utils/mixins/DisabledMixin';
 import styles from './staticradio.styles';
 
 /**
- * This is a decorative component that is styled to look as a radio.
- * It has 2 properties - checked and disabled.
+ * The StaticRadio component is a decorative, non-interactive radio button used for visual
+ * presentation in read-only scenarios. Unlike the interactive `mdc-radio`, it does not
+ * handle user interactions or form submissions.
  *
- * We are using the same styling that has been created for the `mdc-radio` component.
+ * This component supports multiple visual states: checked, disabled, readonly, and soft-disabled.
+ *
+ * ## When to use
+ * Use StaticRadio to display radio button states in read-only contexts such as summary views,
+ * confirmation screens, or when showing historical form data. For interactive radio buttons, use
+ * `mdc-radio` instead.
+ *
+ * ## Accessibility
+ * - StaticRadio is decorative and non-interactive by design
+ * - Always pair with descriptive text labels in the default slot
+ * - Do not use this as a replacement for interactive radio buttons in forms
  *
  * @tagname mdc-staticradio
  *
- * @cssproperty --mdc-staticradio-inner-circle-size - size of the inner circle
- * @cssproperty --mdc-staticradio-text-disabled-color - color of the label when disabled
- * @cssproperty --mdc-staticradio-normal-border-color - color of the radio button border when normal
- * @cssproperty --mdc-staticradio-disabled-border-color - color of the radio button border when disabled
- * @cssproperty --mdc-staticradio-inner-circle-normal-background - background color of the inner circle when normal
- * @cssproperty --mdc-staticradio-inner-circle-disabled-background - background color of the inner circle when disabled
- * @cssproperty --mdc-staticradio-control-inactive-color - color of the radio button when inactive
- * @cssproperty --mdc-staticradio-control-inactive-disabled-background - background color of the radio button when
- *  inactive and disabled
- * @cssproperty --mdc-staticradio-control-active-color - color of the radio button when active
- * @cssproperty --mdc-staticradio-control-active-disabled-background - background color of the radio button
- *  when active and disabled
+ * @cssproperty --mdc-staticradio-inner-circle-size - Size of the inner circle when checked.
+ * @cssproperty --mdc-staticradio-outer-circle-size - Size of the outer circle border.
+ * @cssproperty --mdc-staticradio-inner-circle-background-color - Background color of the inner circle when checked.
+ * @cssproperty --mdc-staticradio-outer-circle-border-color - Border color of the outer circle.
+ * @cssproperty --mdc-staticradio-outer-circle-background-color - Background color of the outer circle.
+ *
+ * @csspart radio-icon - The radio icon element.
+ *
+ * @slot - Default slot for the label of the radio.
  */
 class StaticRadio extends DisabledMixin(Component) {
   /**
-   * Determines whether the radio is selected or unselected.
-   *
+   * Determines whether the radio appears checked (selected) or unchecked.
    * @default false
    */
   @property({ type: Boolean, reflect: true }) checked = false;
 
   /**
-   * Determines whether the radio is read-only.
-   *
+   * Determines whether the radio appears in a read-only state.
+   * Note: This is purely visual as StaticRadio is non-interactive by design.
    * @default false
    */
   @property({ type: Boolean, reflect: true }) readonly = false;
 
+  /**
+   * Determines whether the radio appears in a soft-disabled state.
+   * Soft-disabled provides a less prominent disabled appearance than the standard disabled state.
+   * Note: This is purely visual as StaticRadio is non-interactive by design.
+   * @default false
+   */
+  @property({ type: Boolean, attribute: 'soft-disabled', reflect: true }) softDisabled = false;
+
   public override render() {
     return html` <slot></slot>
-      <span part="radio-icon" class="icon"></span>`;
+      <span part="radio-icon" class="radio-icon"></span>`;
   }
 
   public static override styles: Array<CSSResult> = [...Component.styles, ...styles];

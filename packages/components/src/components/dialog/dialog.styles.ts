@@ -8,7 +8,10 @@ const styles = css`
     --mdc-dialog-description-text-color: var(--mds-color-theme-text-secondary-normal);
     --mdc-dialog-elevation-3: var(--mds-elevation-3);
     --mdc-dialog-width: 27rem; /* Default to small */
+    --mdc-dialog-height: auto;
     --mdc-dialog-padding: 1.5rem;
+    --mdc-dialog-backdrop-color: var(--mds-color-theme-common-overlays-secondary-normal);
+    --mdc-backdrop-mixin-background-color: var(--mdc-dialog-backdrop-color);
 
     background-color: var(--mdc-dialog-primary-background-color);
     border: 0.0625rem solid var(--mdc-dialog-border-color);
@@ -19,11 +22,35 @@ const styles = css`
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 1rem;
     position: absolute;
     right: 50%;
     bottom: 50%;
-    transform: translate(50%, 50%);
+    transform: translateX(50%) translateY(50%);
+  }
+
+  @supports (transform: translateX(round(to-zero, 1px, 1px))) {
+    :host {
+      transform: translateX(round(to-zero, 50%, 1px)) translateY(round(to-zero, 50%, 1px));
+    }
+  }
+
+  :host > [part='body']:first-of-type {
+    padding-top: 0;
+  }
+
+  :host > [part='dialog-close-btn'] {
+    margin-top: 0;
+  }
+
+  :host > slot[name='footer'] {
+    margin-top: 0;
+  }
+
+  slot[name='footer-link']::slotted(*),
+  slot[name='footer-button-primary']::slotted(*),
+  slot[name='footer-button-secondary']::slotted(*),
+  slot[name='footer']::slotted(*) {
+    margin-top: 1rem;
   }
 
   :host([variant='promotional']) {
@@ -57,11 +84,14 @@ const styles = css`
     height: 100%;
     border: none;
     border-radius: 0;
+    max-height: 100vh;
   }
 
   :host {
     width: var(--mdc-dialog-width);
+    height: var(--mdc-dialog-height);
     max-width: 100%;
+    max-height: calc(100vh - 2rem);
   }
 
   :host::part(header-section),
@@ -99,6 +129,7 @@ const styles = css`
     align-items: center;
     height: 100%;
     width: 100%;
+    padding-top: 1rem;
   }
 
   :host::part(footer) {

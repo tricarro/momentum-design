@@ -1,4 +1,4 @@
-import { CSSResult, html, nothing, PropertyValues } from 'lit';
+import { CSSResult, html, PropertyValues } from 'lit';
 import { queryAssignedElements } from 'lit/decorators.js';
 
 import { Component } from '../../models';
@@ -11,31 +11,30 @@ import styles from './card.styles';
 
 /**
  * The card component allows users to organize information in a structured and tangible
- * format that is visually appealing. `mdc-card` is a static component that supports
- * the following features:
- * - Image
- * - Header
- *    - Icon
- *    - Title
- *    - Subtitle
- * - Body
+ * format that is visually appealing. `mdc-card` is a static component.
  *
- * The card can either be vertically or horizontally oriented. The vertical card has a min-width of 20rem and the horizontal card has a min-width of 40rem.
+ * ## Card Structure
+ * - **Image**: Optional visual content at the top
+ * - **Header**: Contains icon, title, subtitle, and action buttons
+ * - **Body**: Main text content area
+ * - **Footer**: Optional footer with links and buttons
  *
- * There are 2 variants for the card that represent the border styling - 'border' and 'ghost'.
+ * ## Features
+ * - Supports two orientations (vertical and horizontal) and three visual variants (border, ghost, and promotional).
+ * - Can be made interactive by adding elements to slots like `icon-button`, `footer-link`, and footer buttons.
  *
- * To make this card interactive, use the following slots:
- * - `icon-button`: This slot supports action icon buttons in the header section (maximum of 3 buttons).
- * - `footer-link`: This slot is for passing `mdc-link` component within the footer section.
- * - `footer-button-primary`: This slot is for passing primary variant of `mdc-button` component within the footer section.
- * - `footer-button-secondary`: This slot is for passing secondary variant of `mdc-button` component
- * within the footer section.
+ * @tagname mdc-card
  *
- * Interactive card additionally supports 'promotional' variant that represents the border styling - 'promotional'.
+ * @dependency mdc-icon
+ * @dependency mdc-text
  *
+ * @slot image - This slot is for overriding the image content of the card
  * @slot before-body - This slot is for passing the content before the body
  * @slot body - This slot is for passing the text content for the card
  * @slot after-body - This slot is for passing the content after the body
+ * @slot title - This slot is for passing the title of the card in the header section
+ * @slot subtitle - This slot is for passing the subtitle of the card in the header section
+ * @slot icon-button - This slot supports action icon buttons in the header section (maximum of 3 buttons)
  * @slot footer-link - This slot is for passing `mdc-link` component within the footer section.
  * @slot footer-button-primary - This slot is for passing primary variant of
  * `mdc-button` component within the footer section.
@@ -55,13 +54,7 @@ import styles from './card.styles';
  * @csspart icon-button - The icon button part of the card header
  * @csspart text - The text part of the card
  *
- * @tagname mdc-card
- *
- * @dependency mdc-icon
- * @dependency mdc-text
- *
  * @cssproperty --mdc-card-width - The width of the card
- *
  */
 class Card extends CardComponentMixin(FooterMixin(Component)) {
   /**
@@ -97,9 +90,6 @@ class Card extends CardComponentMixin(FooterMixin(Component)) {
    * @returns The header element
    */
   protected renderHeader() {
-    if (!this.cardTitle) {
-      return nothing;
-    }
     return html`<div part="header">
       ${this.renderIcon()} ${this.renderTitle()}
       <div part="icon-button"><slot name="icon-button" @slotchange=${this.handleIconButtons}></slot></div>
@@ -108,7 +98,7 @@ class Card extends CardComponentMixin(FooterMixin(Component)) {
 
   public override render() {
     return html`
-      ${this.renderImage()}
+      <slot name="image"> ${this.renderImage()} </slot>
       <div part="body">
         ${this.renderHeader()}
         <div part="text-content">

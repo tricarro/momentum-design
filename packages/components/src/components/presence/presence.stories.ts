@@ -1,21 +1,20 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 
-import { disableControls, textControls } from '../../../config/storybook/utils';
+import { disableControls, hideAllControls } from '../../../config/storybook/utils';
+import { ROLE } from '../../utils/roles';
 
 import { PRESENCE_TYPE, PRESENCE_SIZE, DEFAULTS } from './presence.constants';
 
 const render = (args: Args) => html` <mdc-presence type="${args.type}" size="${args.size}"></mdc-presence> `;
 
 const meta: Meta = {
-  title: 'Components/presence',
+  title: 'Components/avatar/presence',
   tags: ['autodocs'],
   component: 'mdc-presence',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
     type: {
       options: Object.values(PRESENCE_TYPE),
@@ -26,23 +25,6 @@ const meta: Meta = {
       control: { type: 'select' },
     },
     ...disableControls(['icon']),
-    ...textControls([
-      '--mdc-presence-active-background-color',
-      '--mdc-presence-away-background-color',
-      '--mdc-presence-away-calling-background-color',
-      '--mdc-presence-busy-background-color',
-      '--mdc-presence-dnd-background-color',
-      '--mdc-presence-meeting-background-color',
-      '--mdc-presence-on-call-background-color',
-      '--mdc-presence-on-device-background-color',
-      '--mdc-presence-on-mobile-background-color',
-      '--mdc-presence-pause-background-color',
-      '--mdc-presence-pto-background-color',
-      '--mdc-presence-presenting-background-color',
-      '--mdc-presence-quiet-background-color',
-      '--mdc-presence-scheduled-background-color',
-      '--mdc-presence-overlay-background-color',
-    ]),
   },
 };
 
@@ -53,4 +35,41 @@ export const Example: StoryObj = {
     type: DEFAULTS.TYPE,
     size: DEFAULTS.SIZE,
   },
+};
+
+export const AllPresenceTypes: StoryObj = {
+  render: () => html`
+    <div style="display: flex;  flex-wrap: wrap; justify-content: space-around;" role="${ROLE.MAIN}">
+      ${repeat(
+        Object.values(PRESENCE_TYPE),
+        presence => html`
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+            <mdc-presence type="${presence}"></mdc-presence>
+            <span>${presence}</span>
+          </div>
+        `,
+      )}
+    </div>
+  `,
+  ...hideAllControls(),
+};
+
+export const AllPresenceSizes: StoryObj = {
+  render: () => html`
+    <div style="display: flex;  flex-wrap: wrap; justify-content: space-around;" role="${ROLE.MAIN}">
+      ${repeat(
+        Object.values(PRESENCE_SIZE),
+        size => html`
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px">
+            <mdc-presence size="${size}"></mdc-presence>
+            <span>size: ${size}</span>
+          </div>
+        `,
+      )}
+    </div>
+  `,
+  args: {
+    type: DEFAULTS.TYPE,
+  },
+  ...hideAllControls(),
 };

@@ -15,8 +15,10 @@ export const IconNameMixin = <T extends Constructor<LitElement>>(superClass: T) 
      * Name of the icon (= filename).
      *
      * If no `icon-name` is provided, no icon will be rendered.
+     *
+     * @default undefined
      */
-    @property({ type: String, attribute: 'icon-name' })
+    @property({ type: String, attribute: 'icon-name', reflect: true })
     iconName?: IconNames;
   }
   // Cast return type to your mixin's interface intersected with the superClass type

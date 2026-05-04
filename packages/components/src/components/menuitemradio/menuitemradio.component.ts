@@ -8,6 +8,7 @@ import MenuItem from '../menuitem/menuitem.component';
 import { TYPE } from '../text/text.constants';
 import { TAG_NAME as MENUSECTION_TAGNAME } from '../menusection/menusection.constants';
 import { TAG_NAME as MENUPOPOVER_TAGNAME } from '../menupopover/menupopover.constants';
+import { ControlTypeMixin } from '../../utils/mixins/ControlTypeMixin';
 
 import { Indicator } from './menuitemradio.types';
 import { INDICATOR, DEFAULTS } from './menuitemradio.constants';
@@ -57,8 +58,18 @@ import styles from './menuitemradio.styles';
  * @event change - (React: onChange) This event is dispatched when the menuitemradio changes.
  * @event click - (React: onClick) This event is dispatched when the menuitemradio is clicked.
  * @event focus - (React: onFocus) This event is dispatched when the menuitemradio receives focus.
+ *
+ * @cssproperty --mdc-listitem-padding-left-and-right - Controls the padding on the left and right of the menuitemradio.
+ *
+ * @csspart checkmark-icon - Allows customization of the checkmark icon.
+ * @csspart leading - Allows customization of the leading part.
+ * @csspart leading-arrow - Allows customization of leading arrow icon.
+ * @csspart leading-text - Allows customization of the leading text part.
+ * @csspart trailing - Allows customization of the trailing part.
+ * @csspart trailing-arrow - Allows customization of trailing arrow icon.
+ * @csspart trailing-text - Allows customization of the trailing text part.
  */
-class MenuItemRadio extends MenuItem {
+class MenuItemRadio extends ControlTypeMixin(MenuItem) {
   /**
    * The aria-checked attribute is used to indicate that the menuitemradio is checked or not.
    * @default false
@@ -107,16 +118,24 @@ class MenuItemRadio extends MenuItem {
 
   /**
    * Handles click events to set checked state and uncheck siblings in the same group and container.
+   * If the menuitemradio is disabled, soft-disabled, or already checked, it does nothing.
    * If the menuitemradio is not checked, it sets its checked state to `true`
    * and sets all other menuitemradio elements of the same group with checked state to `false`.
    */
   private handleMouseClick() {
-    if (this.disabled || this.checked) return;
+    if (this.disabled || this.softDisabled || this.checked) return;
 
-    this.updateOtherRadiosCheckedState();
-    this.checked = true;
+    if (this.controlType !== 'controlled') {
+      this.updateOtherRadiosCheckedState();
+      this.checked = true;
+    }
 
     this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+  }
+
+  override click() {
+    if (this.disabled || this.softDisabled) return;
+    super.click();
   }
 
   public override update(changedProperties: PropertyValues): void {
@@ -141,6 +160,7 @@ class MenuItemRadio extends MenuItem {
           slot="leading-controls"
           ?checked="${this.checked}"
           ?disabled="${this.disabled}"
+          ?soft-disabled="${this.softDisabled}"
         ></mdc-staticradio>
       `;
     }

@@ -1,0 +1,408 @@
+/* eslint-disable no-await-in-loop */
+/* eslint-disable no-restricted-syntax */
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
+import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+
+type SetupOptions = {
+  componentsPage: ComponentsPage;
+  id?: string;
+  value?: string;
+  placeholder?: string;
+  readonly?: boolean;
+  disabled?: boolean;
+  maxlength?: number;
+  minlength?: number;
+  prefixText?: string;
+  leadingIcon?: string;
+  label?: string;
+  autocapitalize?: string;
+  autofocus?: boolean;
+  autocomplete?: string;
+  dirname?: string;
+  pattern?: string;
+  list?: string;
+  size?: number;
+  dataAriaLabel?: string;
+  clearAriaLabel?: string;
+  displayPopover?: boolean;
+  children?: string;
+  popoverAriaLabel?: string;
+  filters?: boolean;
+  controlType?: string;
+};
+
+const setup = async (args: SetupOptions) => {
+  const { componentsPage, ...restArgs } = args;
+  await componentsPage.mount({
+    html: `
+    <div id="wrapper">
+      <mdc-searchpopover
+        id="${restArgs.id}"
+        ${restArgs.value ? `value="${restArgs.value}"` : ''}
+        ${restArgs.placeholder ? `placeholder="${restArgs.placeholder}"` : ''}
+        ${restArgs.readonly ? 'readonly' : ''}
+        ${restArgs.disabled ? 'disabled' : ''}
+        ${restArgs.maxlength ? `maxlength="${restArgs.maxlength}"` : ''}
+        ${restArgs.minlength ? `minlength="${restArgs.minlength}"` : ''}
+        ${restArgs.prefixText ? `prefix-text="${restArgs.prefixText}"` : ''}
+        ${restArgs.leadingIcon ? `leading-icon="${restArgs.leadingIcon}"` : ''}
+        ${restArgs.label ? `label="${restArgs.label}"` : ''}
+        ${restArgs.autocapitalize ? `autocapitalize="${restArgs.autocapitalize}"` : ''}
+        ${restArgs.autofocus ? 'auto-focus-on-mount' : ''}
+        ${restArgs.autocomplete ? `autocomplete="${restArgs.autocomplete}"` : ''}
+        ${restArgs.dirname ? `dirname="${restArgs.dirname}"` : ''}
+        ${restArgs.pattern ? `pattern="${restArgs.pattern}"` : ''}
+        ${restArgs.list ? `list="${restArgs.list}"` : ''}
+        ${restArgs.size ? `size="${restArgs.size}"` : ''}
+        ${restArgs.dataAriaLabel ? `data-aria-label="${restArgs.dataAriaLabel}"` : ''}
+        ${restArgs.clearAriaLabel ? `clear-aria-label="${restArgs.clearAriaLabel}"` : ''}
+        ${restArgs.displayPopover ? 'display-popover' : ''}
+        ${restArgs.popoverAriaLabel ? `popover-aria-label="${restArgs.popoverAriaLabel}"` : ''}
+        ${restArgs.controlType ? `control-type="${restArgs.controlType}"` : ''}
+      >
+        ${restArgs.filters ? `<mdc-chip label="Category" slot="filters"></mdc-chip>` : ''}
+        ${restArgs.children ?? ''}
+      </mdc-searchpopover>
+    </div>
+    `,
+    clearDocument: true,
+  });
+  const element = componentsPage.page.locator('mdc-searchpopover');
+  await element.waitFor();
+  return element;
+};
+
+test.use({ viewport: { width: 800, height: 300 } });
+test('mdc-searchpopover', async ({ componentsPage }) => {
+  /**
+   * VISUAL REGRESSION
+   */
+  await test.step('visual-regression', async () => {
+    const attributes = {
+      id: 'test-mdc-searchpopover',
+      placeholder: 'Placeholder',
+      'clear-aria-label': 'clear',
+      label: 'Label',
+      value: 'Result',
+      'display-popover': true,
+      'popover-aria-label': 'Search results',
+    };
+    const searchpopoverStickerSheet = new StickerSheet(componentsPage, 'mdc-searchpopover');
+
+    searchpopoverStickerSheet.setAttributes(attributes);
+
+    searchpopoverStickerSheet.setChildren(`<mdc-chip slot="filters" label="Category"></mdc-chip><mdc-chip slot="filters" label="Priority"></mdc-chip>
+      <mdc-list>
+        <mdc-listitem label="Result 1"></mdc-listitem>
+        <mdc-listitem label="Result 2"></mdc-listitem>
+      </mdc-list>`);
+    await searchpopoverStickerSheet.createMarkupWithCombination({});
+
+    await searchpopoverStickerSheet.mountStickerSheet({
+      wrapperStyle: 'display: flex; flex-direction: column; gap: 0.5rem;',
+    });
+
+    await test.step('matches screenshot of element', async () => {
+      await componentsPage.visualRegression.takeScreenshot('mdc-searchpopover');
+    });
+  });
+
+  /**
+   * ACCESSIBILITY
+   */
+  await test.step('accessibility', async () => {
+    await componentsPage.accessibility.checkForA11yViolations('searchpopover-default');
+  });
+
+  /**
+   * ATTRIBUTES
+   */
+  await test.step('attributes', async () => {
+    const searchpopover = await setup({
+      componentsPage,
+      placeholder: 'Placeholder',
+      label: 'Label',
+      clearAriaLabel: 'clear',
+      value: 'Result',
+      displayPopover: true,
+      children:
+        '<mdc-list><mdc-listitem label="Result 1"></mdc-listitem><mdc-listitem label="Result 2"></mdc-listitem></mdc-list>',
+    });
+
+    await test.step('attributes should be present on component', async () => {
+      await expect(searchpopover).toHaveAttribute('placeholder', 'Placeholder');
+      await expect(searchpopover).toHaveAttribute('label', 'Label');
+      const label = searchpopover.locator('label');
+      await expect(label).toHaveText('Label');
+      await componentsPage.setAttributes(searchpopover, { value: 'text' });
+      const clearBtn = searchpopover.locator('mdc-button[part="trailing-button"]');
+      await expect(clearBtn).toHaveAttribute('aria-label', 'clear');
+    });
+
+    await test.step('attributes readonly should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { readonly: '' });
+      await expect(searchpopover).toHaveAttribute('readonly');
+      await componentsPage.removeAttribute(searchpopover, 'readonly');
+    });
+
+    await test.step('attributes disabled should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { disabled: '' });
+      await expect(searchpopover).toHaveAttribute('disabled');
+      await componentsPage.removeAttribute(searchpopover, 'disabled');
+    });
+
+    await test.step('attributes size, minlength and maxlength should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { maxlength: '10', minlength: '5', size: '10' });
+      await expect(searchpopover).toHaveAttribute('maxlength', '10');
+      await expect(searchpopover).toHaveAttribute('minlength', '5');
+      await expect(searchpopover).toHaveAttribute('size', '10');
+      await componentsPage.removeAttribute(searchpopover, 'maxlength');
+      await componentsPage.removeAttribute(searchpopover, 'minlength');
+      await componentsPage.removeAttribute(searchpopover, 'size');
+    });
+
+    await test.step('attribute clear-aria-label should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { value: 'text' });
+      const trailingButton = searchpopover.locator('mdc-button[part="trailing-button"]');
+      await expect(trailingButton).toHaveAttribute('aria-label', 'clear');
+    });
+
+    await test.step('attribute autofocus should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { 'auto-focus-on-mount': '' });
+      await expect(searchpopover).toHaveAttribute('auto-focus-on-mount');
+      await componentsPage.removeAttribute(searchpopover, 'auto-focus-on-mount');
+    });
+
+    await test.step('attribute autocapitalize should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { autocapitalize: 'sentences' });
+      await expect(searchpopover).toHaveAttribute('autocapitalize', 'sentences');
+      await componentsPage.removeAttribute(searchpopover, 'autocapitalize');
+    });
+
+    await test.step('attribute autocomplete should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { autocomplete: 'on' });
+      await expect(searchpopover).toHaveAttribute('autocomplete', 'on');
+      await componentsPage.removeAttribute(searchpopover, 'autocomplete');
+    });
+
+    await test.step('attribute dirname should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { dirname: 'ltr' });
+      await expect(searchpopover).toHaveAttribute('dirname', 'ltr');
+      await componentsPage.removeAttribute(searchpopover, 'dirname');
+    });
+
+    await test.step('attribute pattern should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { pattern: '[A-Za-z]{3}' });
+      await expect(searchpopover).toHaveAttribute('pattern', '[A-Za-z]{3}');
+      await componentsPage.removeAttribute(searchpopover, 'pattern');
+    });
+
+    await test.step('attribute list should be present on component', async () => {
+      await componentsPage.setAttributes(searchpopover, { list: 'browsers' });
+      await expect(searchpopover).toHaveAttribute('list', 'browsers');
+      await componentsPage.removeAttribute(searchpopover, 'list');
+    });
+
+    await test.step('aria attributes set on input & popover', async () => {
+      await componentsPage.setAttributes(searchpopover, { 'popover-aria-label': 'Search results' });
+      const inputEl = searchpopover.locator('input');
+      const popoverEl = searchpopover.locator('mdc-popover');
+      const popoverId = await popoverEl.getAttribute('id');
+
+      await expect(inputEl).toHaveAttribute('aria-controls', popoverId!);
+      await expect(inputEl).toHaveAttribute('aria-owns', popoverId!);
+      await expect(inputEl).toHaveAttribute('aria-expanded', 'true');
+      await expect(inputEl).toHaveAttribute('aria-haspopup', 'dialog');
+      await expect(popoverEl).toHaveAttribute('aria-label', 'Search results');
+    });
+  });
+
+  await test.step('focus', async () => {
+    await test.step('focus should move to input when popover is closed and focus is within popover', async () => {
+      const searchpopover = await setup({
+        componentsPage,
+        placeholder: 'Placeholder',
+        label: 'Label',
+        clearAriaLabel: 'clear',
+        value: 'Result',
+        displayPopover: true,
+        children:
+          '<mdc-list><mdc-listitem label="Result 1"></mdc-listitem><mdc-listitem label="Result 2"></mdc-listitem></mdc-list>',
+      });
+
+      await componentsPage.actionability.pressTab();
+      await componentsPage.actionability.pressTab();
+      await componentsPage.actionability.pressTab();
+      await expect(searchpopover.locator('mdc-listitem').first()).toBeFocused();
+
+      await componentsPage.page.keyboard.press('Escape');
+      await expect(searchpopover.locator('input')).toBeFocused();
+    });
+
+    await test.step('focus should not move to input when popover is closed and focus is outside of popover', async () => {
+      await componentsPage.mount({
+        html: `
+          <div id="wrapper">
+            <mdc-button id="before">Before</mdc-button>
+            <mdc-searchpopover display-popover>
+              <mdc-list><mdc-listitem label="Item 1"></mdc-listitem></mdc-list>
+            </mdc-searchpopover>
+          </div>
+        `,
+        clearDocument: true,
+      });
+
+      await componentsPage.page.pause();
+      const element = componentsPage.page.locator('mdc-searchpopover');
+      await element.waitFor();
+
+      await componentsPage.actionability.pressTab();
+      await expect(componentsPage.page.locator('#before')).toBeFocused();
+      await componentsPage.page.keyboard.press('Escape');
+      await expect(componentsPage.page.locator('#before')).toBeFocused();
+    });
+  });
+
+  /**
+   * INTERACTIONS
+   */
+  await test.step('interactions', async () => {
+    const searchpopover = await setup({
+      componentsPage,
+      placeholder: 'Placeholder',
+      label: 'Label',
+      clearAriaLabel: 'clear',
+      value: 'Result',
+      displayPopover: true,
+      children:
+        '<mdc-list><mdc-listitem label="Result 1"></mdc-listitem><mdc-listitem label="Result 2"></mdc-listitem></mdc-list>',
+    });
+
+    const inputEl = searchpopover.locator('input');
+    const clearBtn = searchpopover.locator('mdc-button[part="trailing-button"]');
+    const firstListItemInPopover = searchpopover.locator('mdc-listitem').first();
+
+    await test.step('component should be focusable', async () => {
+      await componentsPage.actionability.pressTab();
+      await expect(inputEl).toBeFocused();
+      await inputEl.fill('test');
+      await expect(inputEl).toHaveValue('test');
+      await componentsPage.actionability.pressTab();
+      await expect(inputEl).not.toBeFocused();
+      await expect(clearBtn).toBeFocused();
+      await componentsPage.actionability.pressTab();
+      await expect(clearBtn).not.toBeFocused();
+      await expect(firstListItemInPopover).toBeFocused();
+    });
+
+    // AI-Assisted: controlled/uncontrolled chip removal tests
+    const filterChip = searchpopover.locator('mdc-chip');
+    await test.step('control-type attribute defaults to uncontrolled', async () => {
+      await setup({
+        componentsPage,
+        value: '',
+        clearAriaLabel: 'clear',
+        filters: true,
+      });
+      await expect(searchpopover).toHaveAttribute('control-type', 'uncontrolled');
+    });
+
+    await test.step('control-type=controlled: remove event fires but chip stays in DOM on Backspace', async () => {
+      await setup({
+        componentsPage,
+        value: '',
+        clearAriaLabel: 'clear',
+        filters: true,
+        controlType: 'controlled',
+      });
+      await expect(searchpopover).toHaveAttribute('control-type', 'controlled');
+      await expect(filterChip).toBeAttached();
+
+      const waitForRemoved = await componentsPage.waitForEvent(searchpopover, 'chipRemove');
+      await componentsPage.actionability.pressTab();
+      await expect(inputEl).toBeFocused();
+      // Backspace at cursor position 0 in an empty input triggers removal of the last chip
+      await componentsPage.page.keyboard.press('Backspace');
+      await expect(waitForRemoved).toEventEmitted();
+      // In controlled mode the chip must NOT be removed from the DOM
+      await expect(filterChip).toBeAttached();
+    });
+
+    await test.step('control-type=uncontrolled: remove event fires and chip is removed from DOM on Backspace', async () => {
+      await setup({
+        componentsPage,
+        value: '',
+        clearAriaLabel: 'clear',
+        filters: true,
+        controlType: 'uncontrolled',
+      });
+      await expect(searchpopover).toHaveAttribute('control-type', 'uncontrolled');
+      await expect(filterChip).toBeAttached();
+
+      const waitForRemoved = await componentsPage.waitForEvent(searchpopover, 'chipRemove');
+      await componentsPage.actionability.pressTab();
+      await expect(inputEl).toBeFocused();
+      // Backspace at cursor position 0 in an empty input triggers removal of the last chip
+      await componentsPage.page.keyboard.press('Backspace');
+      await expect(waitForRemoved).toEventEmitted();
+      // In uncontrolled mode the chip must be removed from the DOM
+      await expect(filterChip).not.toBeAttached();
+    });
+
+    await test.step('control-type=controlled: remove event fires but chip stays in DOM on Delete from chip', async () => {
+      await setup({
+        componentsPage,
+        value: '',
+        clearAriaLabel: 'clear',
+        filters: true,
+        controlType: 'controlled',
+      });
+      await expect(filterChip).toBeAttached();
+
+      await componentsPage.actionability.pressTab();
+      await componentsPage.page.keyboard.press('ArrowLeft'); // focus chip
+      await expect(filterChip).toBeFocused();
+
+      const waitForRemoved = await componentsPage.waitForEvent(searchpopover, 'chipRemove');
+      await componentsPage.page.keyboard.press('Delete');
+      await expect(waitForRemoved).toEventEmitted();
+      await expect(filterChip).toBeAttached();
+    });
+
+    await test.step('control-type=controlled: clear button fires remove event per chip but chips stay in DOM', async () => {
+      await setup({
+        componentsPage,
+        value: 'search',
+        clearAriaLabel: 'clear',
+        filters: true,
+        controlType: 'controlled',
+      });
+      await expect(filterChip).toBeAttached();
+
+      const waitForRemoved = await componentsPage.waitForEvent(searchpopover, 'chipRemove');
+      const clearBtn2 = searchpopover.locator('mdc-button[part="trailing-button"]');
+      await clearBtn2.click();
+      await expect(waitForRemoved).toEventEmitted();
+      // Chip must remain in DOM; consumer controls removal
+      await expect(filterChip).toBeAttached();
+    });
+
+    await test.step('control-type=uncontrolled: clear button removes all chips from DOM', async () => {
+      await setup({
+        componentsPage,
+        value: 'search',
+        clearAriaLabel: 'clear',
+        filters: true,
+        controlType: 'uncontrolled',
+      });
+      await expect(filterChip).toBeAttached();
+
+      const waitForRemoved = await componentsPage.waitForEvent(searchpopover, 'chipRemove');
+      const clearBtn2 = searchpopover.locator('mdc-button[part="trailing-button"]');
+      await clearBtn2.click();
+      await expect(waitForRemoved).toEventEmitted();
+      await expect(filterChip).not.toBeAttached();
+    });
+    // End AI-Assisted
+  });
+});

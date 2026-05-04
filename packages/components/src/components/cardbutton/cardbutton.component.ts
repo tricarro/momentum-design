@@ -1,4 +1,4 @@
-import { CSSResult, html, nothing } from 'lit';
+import { CSSResult, html } from 'lit';
 
 import Buttonsimple from '../buttonsimple/buttonsimple.component';
 import Card from '../card/card.component';
@@ -10,13 +10,26 @@ import styles from './cardbutton.styles';
 /**
  * cardbutton component looks like a card and behaves as a button component.
  *
- * **Note**: This is a single selection card i.e. interacting anywhere on the card would trigger the click event.
- * Make sure to pass only non-interactable elements within the slots.
+ * ## Features
+ * - Supports two orientations (vertical and horizontal) and three visual variants (border, ghost, and promotional).
+ * - Interacting anywhere on the card triggers the click event.
+ * - Use `name` and `value` attributes when using within forms.
+ *
+ * **Note**: Only pass non-interactable elements within the slots to avoid nested interactive elements.
  *
  * @tagname mdc-cardbutton
  *
  * @dependency mdc-icon
  * @dependency mdc-text
+ *
+ * @slot image - This slot is for overriding the image content of the card
+ * @slot before-body - This slot is for passing the content before the body
+ * @slot body - This slot is for passing the text content for the card
+ * @slot after-body - This slot is for passing the content after the body
+ * @slot title - This slot is for passing the title of the card in the header section
+ * @slot subtitle - This slot is for passing the subtitle of the card in the header section
+ * @slot footer-link - This slot is for passing `mdc-link` component within the footer section.
+ * @slot footer-button-primary - This slot is for passing primary variant of `mdc-button` component within the footer section.
  *
  * @event click - (React: onClick) Event that gets dispatched when the card is clicked.
  * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the card.
@@ -24,12 +37,6 @@ import styles from './cardbutton.styles';
  * @event keyup - (React: onKeyUp) This event is dispatched when a key is released on the card.
  * It fires the click event when space key is used.
  * @event focus - (React: onFocus) Event that gets dispatched when the card receives focus.
- *
- * @slot before-body - This slot is for passing the content before the body
- * @slot body - This slot is for passing the text content for the card
- * @slot after-body - This slot is for passing the content after the body
- * @slot footer-link - This slot is for passing `mdc-link` component within the footer section.
- * @slot footer-button-primary - This slot is for passing primary variant of `mdc-button` component within the footer section.
  *
  * @csspart header - The header part of the card
  * @csspart icon - The icon part of the card header
@@ -51,22 +58,11 @@ class CardButton extends CardComponentMixin(Buttonsimple) {
     this.size = undefined as unknown as ButtonSize;
   }
 
-  /**
-   * Renders the header of the card if title is provided
-   * @returns The header element
-   */
-  protected renderHeader() {
-    if (!this.cardTitle) {
-      return nothing;
-    }
-    return html`<div part="header">${this.renderIcon()} ${this.renderTitle()}</div>`;
-  }
-
   public override render() {
     return html`
-      ${this.renderImage()}
+      <slot name="image"> ${this.renderImage()} </slot>
       <div part="body">
-        ${this.renderHeader()}
+        <div part="header">${this.renderIcon()} ${this.renderTitle()}</div>
         <slot name="before-body"></slot>
         <slot name="body"></slot>
         <slot name="after-body"></slot>

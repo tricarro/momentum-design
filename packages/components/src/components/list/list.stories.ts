@@ -1,4 +1,4 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
 import { html } from 'lit';
 import '.';
@@ -6,7 +6,7 @@ import { createRef, ref } from 'lit/directives/ref.js';
 import { repeat } from 'lit/directives/repeat.js';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, hideControls } from '../../../config/storybook/utils';
+import { hideControls } from '../../../config/storybook/utils';
 import { LISTITEM_VARIANTS } from '../listitem/listitem.constants';
 
 import '../avatar';
@@ -23,6 +23,8 @@ import '../toggle';
 import '../select';
 import '../selectlistbox';
 import '../option';
+import '../menupopover';
+import '../menuitem';
 import type List from '.';
 
 const fakeUserNamesList = [
@@ -39,7 +41,12 @@ const fakeUserNamesList = [
 ];
 
 const render = (args: Args) =>
-  html` <mdc-list aria-label="${args['aria-label']}" loop="${args.loop}" initial-focus="${args['initial-focus']}">
+  html` <mdc-list
+    aria-label="${args['aria-label']}"
+    loop="${args.loop}"
+    initial-focus="${args['initial-focus']}"
+    orientation="${args.orientation}"
+  >
     ${args.textPassedToListHeader
       ? html`<mdc-listheader slot="list-header" header-text="${args.textPassedToListHeader}"></mdc-listheader>`
       : ''}
@@ -69,9 +76,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-list',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     textPassedToListHeader: {
       control: 'text',
@@ -80,8 +85,6 @@ const meta: Meta = {
     'aria-label': {
       control: 'text',
     },
-    ...disableControls(['default', 'list-header']),
-    ...hideControls(['itemsStore']),
     loop: {
       control: 'select',
       options: ['true', 'false'],
@@ -89,6 +92,14 @@ const meta: Meta = {
         defaultValue: { summary: 'true' },
       },
     },
+    orientation: {
+      control: 'select',
+      options: ['vertical', 'horizontal'],
+      table: {
+        defaultValue: { summary: 'vertical' },
+      },
+    },
+    ...hideControls(['itemsStore']),
     ...classArgType,
     ...styleArgType,
   },
@@ -100,6 +111,7 @@ export const Example: StoryObj = {
   args: {
     textPassedToListHeader: 'Participants List',
     'aria-label': 'View all participants',
+    orientation: 'vertical',
   },
 };
 
@@ -175,9 +187,8 @@ export const ListWithRemovalElements: StoryObj = {
       }
     };
 
-    const removeLast = (event: Event) => {
-      const button = event.target as HTMLElement;
-      const items = [...button.closest('mdc-list')!.querySelectorAll('mdc-listitem')];
+    const removeLast = () => {
+      const items = [...document.querySelector('mdc-list')!.querySelectorAll('mdc-listitem')];
 
       items[items.length - 1]?.remove();
     };
@@ -200,6 +211,7 @@ export const ListWithRemovalElements: StoryObj = {
             </mdc-listitem> `,
         )}
       </mdc-list>
+      <mdc-button @click=${removeLast}>Remove Last</mdc-button>
     `;
   },
 };
@@ -292,3 +304,162 @@ export const ScrollingList: StoryObj = {
       )}
     </mdc-list>`,
 };
+
+export const ListWithInteractiveElements: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story: html`<mdc-text tagname="h1" type="heading-large-bold">Interactive Elements in list</mdc-text>
+          <ul>
+            <li>Interactive elements are focusable inside list items</li>
+            <li>
+              Clicking or pressing Enter/Space on them should change the selected row in the list without moving focus
+            </li>
+          </ul>`,
+      },
+    },
+  },
+  render: () => html`
+    <mdc-text tagname="h2" type="heading-midsize-bold">With stock list items</mdc-text>
+    <mdc-list>
+      <mdc-listitem label="List item with button">
+        List item with button
+        <mdc-button slot="trailing-controls" variant="secondary">Action</mdc-button>
+      </mdc-listitem>
+      <mdc-listitem label="List item with toggle">
+        List item with toggle
+        <mdc-toggle slot="trailing-controls" data-aria-label="mock label" size="compact"></mdc-toggle>
+      </mdc-listitem>
+      <mdc-listitem label="List item with badge">
+        List item with menu
+        <div slot="trailing-controls">
+          <mdc-button id="copy-menu-trigger-1" variant="secondary" prefix-icon="more-bold"></mdc-button>
+          <mdc-menupopover triggerID="copy-menu-trigger-1" placement="bottom" show-arrow>
+            <mdc-menuitem label="Copy"></mdc-menuitem>
+          </mdc-menupopover>
+        </div>
+      </mdc-listitem>
+    </mdc-list>
+
+    <mdc-text tagname="h2" type="heading-midsize-bold">With customised list items</mdc-text>
+    <mdc-list>
+      <mdc-listitem label="List item with button">
+        <div slot="content">
+          List item with button
+          <mdc-button slot="trailing-controls" variant="secondary">Action</mdc-button>
+        </div>
+      </mdc-listitem>
+      <mdc-listitem label="List item with toggle">
+        <div slot="content">
+          List item with toggle
+          <mdc-toggle slot="trailing-controls" data-aria-label="mock label" size="compact"></mdc-toggle>
+        </div>
+      </mdc-listitem>
+      <mdc-listitem label="List item with badge">
+        <div slot="content">
+          List item with menu
+          <div slot="trailing-controls">
+            <mdc-button id="copy-menu-trigger-2" variant="secondary" prefix-icon="more-bold"></mdc-button>
+            <mdc-menupopover triggerID="copy-menu-trigger-2" placement="bottom" show-arrow>
+              <mdc-menuitem label="Copy"></mdc-menuitem>
+            </mdc-menupopover>
+          </div>
+        </div>
+      </mdc-listitem>
+    </mdc-list>
+  `,
+};
+
+export const HorizontalOrientation: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story: html`<mdc-text tagname="p" type="body-large-bold">Horizontal List Orientation</mdc-text>
+          <ul>
+            <li>List items are arranged horizontally, by setting orientation="horizontal"</li>
+            <li>Use Left/Right arrow keys to navigate instead of Up/Down</li>
+            <li>Home/End keys still move to first/last items</li>
+          </ul>`,
+      },
+    },
+  },
+  render: args => html`
+    <mdc-list
+      aria-label="${args['aria-label']}"
+      orientation="horizontal"
+      style="display: flex; gap: 12px; overflow-x: auto; padding: 12px;"
+    >
+      ${args.textPassedToListHeader
+        ? html`<mdc-listheader slot="list-header" header-text="${args.textPassedToListHeader}"></mdc-listheader>`
+        : ''}
+      ${repeat(
+        fakeUserNamesList.slice(0, 5),
+        name =>
+          html`<mdc-listitem
+            @click="${action('onclick')}"
+            label="${name}"
+            variant="${LISTITEM_VARIANTS.INSET_PILL}"
+            style="flex-shrink: 0; width: fit-content;"
+          >
+            <mdc-avatarbutton
+              slot="leading-controls"
+              initials="${[name.split(' ')[0][0], name.split(' ')[1][0]].join('')}"
+            ></mdc-avatarbutton>
+          </mdc-listitem> `,
+      )}
+    </mdc-list>
+  `,
+  args: {
+    'aria-label': 'Horizontal participants list',
+  },
+};
+
+// AI-Assisted
+export const NestedList: StoryObj = {
+  parameters: {
+    docs: {
+      description: {
+        story: html`<mdc-text tagname="p" type="body-large-bold">Nested List</mdc-text>
+          <ul>
+            <li>A list can be nested inside a list item to create hierarchical structures</li>
+            <li>Each nested list maintains its own keyboard navigation context</li>
+          </ul>`,
+      },
+    },
+  },
+  render: args => html`
+    <mdc-list aria-label="${args['aria-label']}">
+      ${args.textPassedToListHeader
+        ? html`<mdc-listheader slot="list-header" header-text="${args.textPassedToListHeader}"></mdc-listheader>`
+        : ''}
+      <mdc-listitem @click=${action('onclick')} label="Fruits">
+        <mdc-icon slot="leading-controls" name="category-bold"></mdc-icon>
+        <mdc-list slot="trailing-controls" aria-label="Fruits sublist">
+          <mdc-listitem @click=${action('onclick')} label="Apples"></mdc-listitem>
+          <mdc-listitem @click=${action('onclick')} label="Bananas"></mdc-listitem>
+          <mdc-listitem @click=${action('onclick')} label="Oranges"></mdc-listitem>
+        </mdc-list>
+      </mdc-listitem>
+      <mdc-listitem @click=${action('onclick')} label="Vegetables">
+        <mdc-icon slot="leading-controls" name="category-bold"></mdc-icon>
+        <mdc-list slot="trailing-controls" aria-label="Vegetables sublist">
+          <mdc-listitem @click=${action('onclick')} label="Carrots"></mdc-listitem>
+          <mdc-listitem @click=${action('onclick')} label="Broccoli"></mdc-listitem>
+          <mdc-listitem @click=${action('onclick')} label="Spinach"></mdc-listitem>
+        </mdc-list>
+      </mdc-listitem>
+      <mdc-listitem @click=${action('onclick')} label="Dairy">
+        <mdc-icon slot="leading-controls" name="category-bold"></mdc-icon>
+        <mdc-list slot="trailing-controls" aria-label="Dairy sublist">
+          <mdc-listitem @click=${action('onclick')} label="Milk"></mdc-listitem>
+          <mdc-listitem @click=${action('onclick')} label="Cheese"></mdc-listitem>
+        </mdc-list>
+      </mdc-listitem>
+    </mdc-list>
+  `,
+  args: {
+    textPassedToListHeader: 'Grocery Categories',
+    'aria-label': 'Grocery list with nested categories',
+  },
+};
+// End AI-Assisted

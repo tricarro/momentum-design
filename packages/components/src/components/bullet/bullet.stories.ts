@@ -4,7 +4,10 @@ import { html } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { textControls } from '../../../config/storybook/utils';
+import { hideAllControls } from '../../../config/storybook/utils';
+
+import '../list';
+import '../listitem';
 
 import { SIZE } from './bullet.constants';
 
@@ -15,22 +18,16 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-bullet',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
     size: {
       control: 'select',
       options: Object.values(SIZE),
     },
-    ...textControls([
-      '--mdc-bullet-background-color',
-      '--mdc-bullet-size-small',
-      '--mdc-bullet-size-medium',
-      '--mdc-bullet-size-large',
-    ]),
     ...classArgType,
     ...styleArgType,
+  },
+  parameters: {
+    actions: { disable: true },
   },
 };
 
@@ -40,4 +37,23 @@ export const Example: StoryObj = {
   args: {
     size: SIZE.SMALL,
   },
+};
+
+export const UnorderedList: StoryObj = {
+  render: () => html`
+    <main>
+      <mdc-list aria-label="Fruit list">
+        <mdc-listitem label="Apple">
+          <mdc-bullet size="${SIZE.MEDIUM}" slot="leading-controls"></mdc-bullet>
+        </mdc-listitem>
+        <mdc-listitem label="Banana">
+          <mdc-bullet size="${SIZE.MEDIUM}" slot="leading-controls"></mdc-bullet>
+        </mdc-listitem>
+        <mdc-listitem label="Cherry">
+          <mdc-bullet size="${SIZE.MEDIUM}" slot="leading-controls"></mdc-bullet>
+        </mdc-listitem>
+      </mdc-list>
+    </main>
+  `,
+  ...hideAllControls(),
 };

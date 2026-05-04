@@ -1,25 +1,31 @@
 /* eslint-disable no-param-reassign */
-import { CSSResult, html, nothing, PropertyValues } from 'lit';
+import { CSSResult, html, PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
 
 import { DisabledMixin } from '../../utils/mixins/DisabledMixin';
 import { TabIndexMixin } from '../../utils/mixins/TabIndexMixin';
 import Card from '../card/card.component';
 import { ROLE } from '../../utils/roles';
-import { KEYS } from '../../utils/keys';
+import { KeyToActionMixin, ACTIONS } from '../../utils/mixins/KeyToActionMixin';
+import { KeyDownHandledMixin } from '../../utils/mixins/KeyDownHandledMixin';
 
 import styles from './cardradio.styles';
 
 /**
- * cardradio component extends `mdc-card` and supports radio selection interaction addtionally.
+ * cardradio component extends `mdc-card` and supports radio selection interaction.
+ * Only one card can be selected at a time within the same group (defined by `name` attribute).
  *
- * While using this component within a form or group of cards, make sure cards are in a role = "radio-group".
- * This card would have events for selected and unselected (similar to radio)
+ * ## Features
+ * - Supports two orientations (vertical and horizontal) and three visual variants (border, ghost, and promotional).
+ * - Selecting a card automatically unselects other cards in the same group and dispatches a `change` event.
+ * - Supports keyboard navigation with arrow keys to move between cards in the same group.
+ * - Card has `role="radio"` and manages `aria-checked` and `aria-disabled` attributes automatically.
  *
- * **Note**: This is a single selection card i.e. interacting anywhere on the card would toggle the checked state.
- * Make sure to pass only non-interactable elements within the slots.
+ * ## Usage
+ * - Both `card-title` and `name` attributes are required.
+ * - When using within a form or group, wrap cards in a container with `role="radiogroup"` and provide an `aria-label`.
  *
- * Make sure to pass the `card-title` mandatorily for this card.
+ * **Note**: Only pass non-interactable elements within the slots to avoid nested interactive elements.
  *
  * @tagname mdc-cardradio
  *
@@ -30,8 +36,18 @@ import styles from './cardradio.styles';
  * @slot before-body - This slot is for passing the content before the body
  * @slot body - This slot is for passing the text content for the card
  * @slot after-body - This slot is for passing the content after the body
+ * @slot title - This slot is for passing the title of the card in the header section
+ * @slot subtitle - This slot is for passing the subtitle of the card in the header section
  * @slot footer-link - This slot is for passing `mdc-link` component within the footer section.
  * @slot footer-button-primary - This slot is for passing primary variant of `mdc-button` component within the footer section.
+ *
+ * @event click - (React: onClick) Event that gets dispatched when the card is clicked. It selects the card and unselects others in the same group.
+ * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the card.
+ * It selects the card when enter key or arrow keys are used.
+ * @event keyup - (React: onKeyUp) This event is dispatched when a key is released on the card.
+ * It selects the card when space key is used.
+ * @event focus - (React: onFocus) Event that gets dispatched when the card receives focus.
+ * @event change - (React: onChange) Event that gets dispatched when the card's checked state changes.
  *
  * @csspart header - The header part of the card
  * @csspart icon - The icon part of the card header
@@ -48,16 +64,8 @@ import styles from './cardradio.styles';
  * @csspart check-icon-button - The check icon button part of the card
  *
  * @cssproperty --mdc-card-width - The width of the card
- *
- * @event click - (React: onClick) Event that gets dispatched when the card is clicked. It toggles the checked state.
- * @event keydown - (React: onKeyDown) This event is dispatched when a key is pressed down on the card.
- * It toggles the checked state when enter key is used.
- * @event keyup - (React: onKeyUp) This event is dispatched when a key is released on the card.
- * It toggles the checked state when space key is used.
- * @event focus - (React: onFocus) Event that gets dispatched when the card receives focus.
- * @event change - (React: onChange) Event that gets dispatched when the card's checked state changes.
  */
-class CardRadio extends DisabledMixin(TabIndexMixin(Card)) {
+class CardRadio extends KeyDownHandledMixin(KeyToActionMixin(DisabledMixin(TabIndexMixin(Card)))) {
   /**
    * The checked state of the card
    * @default false
@@ -66,7 +74,8 @@ class CardRadio extends DisabledMixin(TabIndexMixin(Card)) {
   checked = false;
 
   /**
-   * The name of the radio.
+   * The name of the radio group. Cards with the same name are grouped together,
+   * ensuring only one card in the group can be selected at a time.
    * @default ''
    */
   @property({ type: String })
@@ -75,7 +84,7 @@ class CardRadio extends DisabledMixin(TabIndexMixin(Card)) {
   constructor() {
     super();
     this.addEventListener('click', this.toggleChecked.bind(this));
-    this.addEventListener('keydown', this.toggleOnEnter.bind(this));
+    this.addEventListener('keydown', this.handleKeyDown.bind(this));
     this.addEventListener('keyup', this.toggleOnSpace.bind(this));
   }
 
@@ -111,6 +120,13 @@ class CardRadio extends DisabledMixin(TabIndexMixin(Card)) {
     this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
   }
 
+  override click(): void {
+    if (this.disabled) return;
+
+    super.click();
+    this.toggleChecked();
+  }
+
   setDisabled(disabled: boolean): void {
     this.setAttribute('aria-disabled', `${disabled}`);
     this.tabIndex = disabled ? -1 : 0;
@@ -132,27 +148,36 @@ class CardRadio extends DisabledMixin(TabIndexMixin(Card)) {
   }
 
   /**
-   * Toggles the checked state when enter key is used
+   * Handles keydown events - Loss checked on Enter, arrow navigation, and prevents space scroll
    * @param event - The keyboard event
    */
-  private toggleOnEnter(event: KeyboardEvent) {
+  private handleKeyDown(event: KeyboardEvent) {
+    const action = this.getActionForKeyEvent(event);
+    if (action === ACTIONS.SPACE) {
+      event.preventDefault();
+      return;
+    }
+
     if (this.disabled) return;
 
     const cards = this.getAllCardsWithinSameGroup();
     const enabledCards = cards.filter(card => !card.disabled);
     const currentIndex = enabledCards.indexOf(this);
 
-    if (['ArrowDown', 'ArrowRight'].includes(event.key)) {
+    if (action === ACTIONS.DOWN || ACTIONS.RIGHT === action) {
       // Move focus to the next radio
       const nextIndex = (currentIndex + 1) % enabledCards.length;
       this.updateCardRadio(enabledCards, nextIndex);
-    } else if (['ArrowUp', 'ArrowLeft'].includes(event.key)) {
+      this.keyDownEventHandled();
+    } else if (action === ACTIONS.UP || ACTIONS.LEFT === action) {
       // Move focus to the previous radio
       const prevIndex = (currentIndex - 1 + enabledCards.length) % enabledCards.length;
       this.updateCardRadio(enabledCards, prevIndex);
+      this.keyDownEventHandled();
     }
-    if (event.key === KEYS.ENTER) {
+    if (action === ACTIONS.ENTER) {
       this.toggleChecked();
+      this.keyDownEventHandled();
     }
   }
 
@@ -161,7 +186,7 @@ class CardRadio extends DisabledMixin(TabIndexMixin(Card)) {
    * @param event - The keyboard event
    */
   private toggleOnSpace(event: KeyboardEvent) {
-    if (event.key === KEYS.SPACE) {
+    if (this.getActionForKeyEvent(event) === ACTIONS.SPACE) {
       this.toggleChecked();
     }
   }
@@ -171,9 +196,6 @@ class CardRadio extends DisabledMixin(TabIndexMixin(Card)) {
    * @returns The header of the card
    */
   override renderHeader() {
-    if (!this.cardTitle) {
-      return nothing;
-    }
     return html`<div part="header">
       ${this.renderIcon()} ${this.renderTitle()}
       <mdc-staticradio part="check" ?checked="${this.checked}" ?disabled="${this.disabled}"></mdc-staticradio>

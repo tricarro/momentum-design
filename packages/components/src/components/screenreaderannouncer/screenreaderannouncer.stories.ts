@@ -15,7 +15,12 @@ const render = (args: Args) => html`
       @click="${() => {
         const screenreaderannouncer = document.querySelector('mdc-screenreaderannouncer');
         if (screenreaderannouncer) {
-          screenreaderannouncer.setAttribute('announcement', args.announcement);
+          screenreaderannouncer.announce({
+            announcement: args.announcement,
+            ariaLive: args['data-aria-live'],
+            delay: args.delay,
+            timeout: args.timeout,
+          });
         }
       }}"
       >Announce</mdc-button
@@ -26,6 +31,7 @@ const render = (args: Args) => html`
     delay="${args.delay}"
     identity="${args.identity}"
     timeout="${args.timeout}"
+    debounce-time="${args['debounce-time']}"
   >
   </mdc-screenreaderannouncer>
   <mdc-text type="body-midsize-regular"
@@ -55,9 +61,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-screenreaderannouncer',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     announcement: {
       control: 'text',
@@ -75,6 +79,9 @@ const meta: Meta = {
     timeout: {
       control: 'number',
     },
+    'debounce-time': {
+      control: 'number',
+    },
   },
 };
 
@@ -84,8 +91,9 @@ const defaultArgs = {
   announcement: 'Momentum Design Components',
   'data-aria-live': DEFAULTS.ARIA_LIVE,
   delay: DEFAULTS.DELAY,
-  identity: '',
+  identity: undefined,
   timeout: DEFAULTS.TIMEOUT,
+  'debounce-time': DEFAULTS.DEBOUNCE,
 };
 
 export const Example: StoryObj = {

@@ -1,13 +1,15 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
+import '../banner';
+import '../text';
 import { html } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
 import { VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
-import { disableControls, textControls } from '../../../config/storybook/utils';
-import { POPOVER_PLACEMENT } from '../popover/popover.constants';
+import { disableControls } from '../../../config/storybook/utils';
+import { POPOVER_PLACEMENT, STRATEGY } from '../popover/popover.constants';
 
 import type Input from './input.component';
 import { AUTO_CAPITALIZE } from './input.constants';
@@ -25,8 +27,9 @@ const render = (args: Args) => {
     help-text="${args['help-text']}"
     validation-message="${args['validation-message']}"
     placeholder="${args.placeholder}"
-    toggletip-placement="${args['toggletip-placement']}"
     toggletip-text="${args['toggletip-text']}"
+    toggletip-placement="${args['toggletip-placement']}"
+    toggletip-strategy="${args['toggletip-strategy']}"
     info-icon-aria-label="${args['info-icon-aria-label']}"
     name="${args.name}"
     value="${value}"
@@ -50,6 +53,7 @@ const render = (args: Args) => {
     list="${ifDefined(args.list)}"
     size="${ifDefined(args.size)}"
     clear-aria-label="${ifDefined(args['clear-aria-label'])}"
+    data-aria-describedby="${ifDefined(args['data-aria-describedby'])}"
   ></mdc-input>`;
 };
 
@@ -58,9 +62,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-input',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     ...classArgType,
     ...styleArgType,
@@ -138,6 +140,9 @@ const meta: Meta = {
     'data-aria-label': {
       control: 'text',
     },
+    'data-aria-describedby': {
+      control: 'text',
+    },
     'toggletip-text': {
       control: 'text',
     },
@@ -145,30 +150,16 @@ const meta: Meta = {
       control: 'select',
       options: Object.values(POPOVER_PLACEMENT),
     },
+    'toggletip-strategy': {
+      control: 'select',
+      options: Object.values(STRATEGY),
+    },
     'validation-message': {
       control: 'text',
     },
     'info-icon-aria-label': {
       control: 'text',
     },
-    ...textControls([
-      '--mdc-input-disabled-border-color',
-      '--mdc-input-disabled-text-color',
-      '--mdc-input-disabled-background-color',
-      '--mdc-input-border-color',
-      '--mdc-input-text-color',
-      '--mdc-input-background-color',
-      '--mdc-input-selection-background-color',
-      '--mdc-input-selection-text-color',
-      '--mdc-input-support-text-color',
-      '--mdc-input-hover-background-color',
-      '--mdc-input-focused-background-color',
-      '--mdc-input-focused-border-color',
-      '--mdc-input-error-border-color',
-      '--mdc-input-warning-border-color',
-      '--mdc-input-success-border-color',
-      '--mdc-input-primary-border-color',
-    ]),
   },
 };
 
@@ -191,6 +182,7 @@ export const Example: StoryObj = {
     autocapitalize: 'off',
     'clear-aria-label': 'clear input',
     'data-aria-label': '',
+    'data-aria-describedby': '',
   },
 };
 
@@ -383,5 +375,32 @@ export const FormFieldInputWithCustomValidationMessage: StoryObj = {
         </fieldset>
       </form>
     `;
+  },
+};
+
+export const SlottedInputElement: StoryObj = {
+  render: () => html`
+    <mdc-input>
+      <input slot="input" type="number" aria-label="Custom aria-label on slotted input element" value="42" />
+    </mdc-input>
+  `,
+  parameters: {
+    docs: {
+      description: {
+        story: html`<mdc-text tagname="span" style="margin-bottom: 0.5rem;">
+            In the example below a native input element is slotted into the mdc-input component (see code preview).<br />
+            This allows for more control over the input element itself, such as setting a different type or adding
+            custom attributes directly to the input.<br />
+          </mdc-text>
+          <mdc-banner
+            variant="warning"
+            label="When using a slotted input, certain features of mdc-input (like validation messages, a11y) 
+          may need to be handled manually."
+          ></mdc-banner> `,
+      },
+    },
+    controls: {
+      disable: true,
+    },
   },
 };

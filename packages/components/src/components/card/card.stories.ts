@@ -1,9 +1,11 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
+import iconsManifest from '@momentum-design/icons/dist/manifest.json';
 import { html } from 'lit';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { hideControls, textControls } from '../../../config/storybook/utils';
+import { hideControls } from '../../../config/storybook/utils';
 import { VALID_TEXT_TAGS } from '../text/text.constants';
 import { imageFixtures } from '../../../config/playwright/setup/utils/imageFixtures';
 
@@ -12,29 +14,28 @@ import '../link';
 import '../button';
 
 const render = (args: Args) =>
-  html` <mdc-card
-    variant="${args.variant}"
-    orientation="${args.orientation}"
-    card-title="${args['card-title']}"
-    subtitle="${args.subtitle}"
-    image-src="${args['image-src']}"
-    image-alt="${args['image-alt']}"
-    icon-name="${args['icon-name']}"
-    title-tag-name="${args['title-tag-name']}"
-    subtitle-tag-name="${args['subtitle-tag-name']}"
-    class="${args.class}"
-    style="${args.style}"
-    >${args.children}</mdc-card
-  >`;
+  html`<div role="main">
+    <mdc-card
+      variant="${ifDefined(args.variant)}"
+      orientation="${ifDefined(args.orientation)}"
+      card-title="${ifDefined(args['card-title'])}"
+      subtitle="${ifDefined(args.subtitle)}"
+      image-src="${ifDefined(args['image-src'])}"
+      image-alt="${ifDefined(args['image-alt'])}"
+      icon-name="${ifDefined(args['icon-name'])}"
+      title-tag-name="${ifDefined(args['title-tag-name'])}"
+      subtitle-tag-name="${ifDefined(args['subtitle-tag-name'])}"
+      class="${args.class}"
+      style="${args.style}"
+      >${args.children}</mdc-card
+    >
+  </div>`;
 
 const meta: Meta = {
   title: 'Components/card/card',
   tags: ['autodocs'],
   component: 'mdc-card',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
     variant: {
       control: 'select',
@@ -57,7 +58,8 @@ const meta: Meta = {
       control: 'text',
     },
     'icon-name': {
-      control: 'text',
+      control: 'select',
+      options: Object.keys(iconsManifest),
     },
     'title-tag-name': {
       control: 'select',
@@ -68,7 +70,6 @@ const meta: Meta = {
       options: Object.values(VALID_TEXT_TAGS),
     },
     ...hideControls(['children']),
-    ...textControls(['--mdc-card-width']),
     ...classArgType,
     ...styleArgType,
   },
@@ -203,6 +204,17 @@ const interactiveChildren = html`<mdc-text slot="body" type="body-midsize-medium
   <mdc-button slot="footer-button-secondary">Label</mdc-button>
   <mdc-button slot="footer-button-primary">Label</mdc-button>`;
 
+const interactiveChildrenWithoutHeader = html`<mdc-text slot="body" type="body-midsize-medium" tagname="span"
+    >Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam vulputate aliquet risus, eget auctor ante egestas
+    facilisis. Curabitur malesuada tempor pulvinar. Quisque sollicitudin magna leo, gravida ultrices lacus lobortis at.
+    Praesent gravida dui diam, non elementum risus laoreet vitae. Sed sed nunc ullamcorper, porttitor dui id, posuere
+    justo. Curabitur laoreet sem ut pharetra hendrerit. Vivamus mattis ligula eget imperdiet tempor. Ut in massa luctus
+    lacus sodales accumsan. Praesent at aliquam leo. Ut a scelerisque turpis.</mdc-text
+  >
+  <mdc-link slot="footer-link" icon-name="placeholder-bold" href="#">Label</mdc-link>
+  <mdc-button slot="footer-button-secondary">Label</mdc-button>
+  <mdc-button slot="footer-button-primary">Label</mdc-button>`;
+
 export const InteractiveHorizontalCard: StoryObj = {
   args: {
     'card-title': 'Title',
@@ -237,7 +249,7 @@ export const InteractiveCardWithoutHeader: StoryObj = {
     'image-alt': 'Image Alt',
     variant: DEFAULTS.VARIANT,
     orientation: DEFAULTS.ORIENTATION,
-    children: interactiveChildren,
+    children: interactiveChildrenWithoutHeader,
   },
 };
 

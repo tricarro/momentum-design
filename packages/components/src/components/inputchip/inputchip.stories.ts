@@ -1,10 +1,12 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
+import '../avatar';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { textControls } from '../../../config/storybook/utils';
+import { imageFixtures } from '../../../config/playwright/setup/utils/imageFixtures';
+import { hideAllControls } from '../../../config/storybook/utils';
 
 const render = (args: Args) =>
   html` <mdc-inputchip
@@ -17,13 +19,11 @@ const render = (args: Args) =>
   ></mdc-inputchip>`;
 
 const meta: Meta = {
-  title: 'Components/chip/input',
+  title: 'Components/chip/inputchip',
   tags: ['autodocs'],
   component: 'mdc-inputchip',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     label: {
       control: 'text',
@@ -42,7 +42,6 @@ const meta: Meta = {
     },
     ...classArgType,
     ...styleArgType,
-    ...textControls(['--mdc-chip-color', '--mdc-chip-border-color', '--mdc-chip-background-color']),
   },
 };
 
@@ -52,8 +51,6 @@ export const Example: StoryObj = {
   args: {
     label: 'Input Chip',
     'clear-aria-label': 'Clear',
-    error: false,
-    disabled: false,
   },
 };
 
@@ -62,8 +59,6 @@ export const WithIcon: StoryObj = {
     label: 'Input Chip',
     'icon-name': 'placeholder-bold',
     'clear-aria-label': 'Clear',
-    error: false,
-    disabled: false,
   },
 };
 
@@ -72,7 +67,6 @@ export const Error: StoryObj = {
     label: 'Input Chip',
     'clear-aria-label': 'Clear',
     error: true,
-    disabled: false,
   },
 };
 
@@ -80,7 +74,6 @@ export const Disabled: StoryObj = {
   args: {
     label: 'Input Chip',
     'clear-aria-label': 'Clear',
-    error: false,
     disabled: true,
   },
 };
@@ -123,4 +116,23 @@ export const WithRemove: StoryObj = {
       clear-aria-label="Clear"
     ></mdc-inputchip>`;
   },
+};
+
+export const WithAvatarVariants: StoryObj = {
+  render: () =>
+    html` <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <mdc-inputchip label="Avatar Img" clear-aria-label="Clear" @remove="${action('remove')}">
+        <mdc-avatar slot="prefix" src="${imageFixtures.avatar}" initials="AP"></mdc-avatar>
+      </mdc-inputchip>
+      <mdc-inputchip label="Avatar Error Img" clear-aria-label="Clear" error @remove="${action('remove')}">
+        <mdc-avatar slot="prefix" src="${imageFixtures.avatar}" initials="AE"></mdc-avatar>
+      </mdc-inputchip>
+      <mdc-inputchip label="Avatar Disabled Img" clear-aria-label="Clear" disabled @remove="${action('remove')}">
+        <mdc-avatar slot="prefix" src="${imageFixtures.avatar}" initials="AD"></mdc-avatar>
+      </mdc-inputchip>
+      <mdc-inputchip label="Avatar Error Disabled Img" clear-aria-label="Clear" error disabled @remove="${action('remove')}">
+        <mdc-avatar slot="prefix" src="${imageFixtures.avatar}" initials="ED"></mdc-avatar>
+      </mdc-inputchip>
+    </div>`,
+  ...hideAllControls(),
 };

@@ -1,12 +1,13 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
+import iconsManifest from '@momentum-design/icons/dist/manifest.json';
 import { html } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
 import { PRESENCE_TYPE } from '../presence/presence.constants';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { hideControls, textControls } from '../../../config/storybook/utils';
+import { hideControls } from '../../../config/storybook/utils';
 import { imageFixtures } from '../../../config/playwright/setup/utils/imageFixtures';
 import { AVATAR_SIZE } from '../avatar/avatar.constants';
 
@@ -29,13 +30,10 @@ const render = (args: Args) => html`
 `;
 
 const meta: Meta = {
-  title: 'Components/avatarbutton',
+  title: 'Components/avatar/avatarbutton',
   tags: ['autodocs'],
   component: 'mdc-avatarbutton',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
     src: {
       control: 'text',
@@ -55,7 +53,8 @@ const meta: Meta = {
       control: 'boolean',
     },
     'icon-name': {
-      control: 'text',
+      control: 'select',
+      options: Object.keys(iconsManifest),
     },
     counter: {
       control: 'number',
@@ -66,11 +65,20 @@ const meta: Meta = {
     'auto-focus-on-mount': {
       control: 'boolean',
     },
-    ...hideControls(['active', 'disabled', 'soft-disabled', 'tabIndex', 'role', 'type']),
-    ...textControls([
-      '--mdc-avatarbutton-overlay-background-color-rest',
-      '--mdc-avatarbutton-overlay-background-color-hover',
-      '--mdc-avatarbutton-overlay-background-color-active',
+    ...hideControls([
+      'active',
+      'disabled',
+      'soft-disabled',
+      'tabIndex',
+      'role',
+      'type',
+      'ariaStateKey',
+      'name',
+      'value',
+      '--mdc-button-height',
+      '--mdc-button-background',
+      '--mdc-button-border-color',
+      '--mdc-button-text-color',
     ]),
     ...classArgType,
     ...styleArgType,

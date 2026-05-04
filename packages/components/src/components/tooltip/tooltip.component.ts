@@ -1,21 +1,30 @@
 import type { PropertyValues } from '@lit/reactive-element';
 import type { CSSResult } from 'lit';
-import { property, queryAssignedNodes } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 import { v4 as uuidv4 } from 'uuid';
 
 import { ROLE } from '../../utils/roles';
 import Popover from '../popover/popover.component';
-import { POPOVER_PLACEMENT } from '../popover/popover.constants';
+import { DEFAULTS as POPOVER_DEFAULTS, POPOVER_PLACEMENT } from '../popover/popover.constants';
+import { hasOverflowMixin } from '../../utils/dom';
 
 import { DEFAULTS, TOOLTIP_TYPES } from './tooltip.constants';
 import styles from './tooltip.styles';
 import type { TooltipType } from './tooltip.types';
 
 /**
+ * A Tooltip is a special type of popovers that provide additional context to content on the screen. <br/>
+ * Tooltip is triggered by mouse hover or by keyboard focus and will disappear upon mouse exit or focus change.
+ *
+ * Because of this, tooltips cannot contain content that can be focused or interacted with.
+ * When a tooltip must contain a focusable element like a link or button, use a toggle tip instead.
+ *
  * A tooltip is triggered by mouse hover or by keyboard focus
  * and will disappear upon mouse exit or focus change.
  *
- * Note: Tooltips cannot contain content that can be focused or interacted with.
+ * Note:
+ *  - Tooltips cannot contain content that can be focused or interacted with.
+ *  - Tooltips will contain the default `aria-hidden="true"` so that VO will never focus the tooltip.
  *
  * @tagname mdc-tooltip
  *
@@ -41,42 +50,42 @@ class Tooltip extends Popover {
   @property({ type: String, attribute: 'tooltip-type', reflect: true })
   tooltipType: TooltipType = DEFAULTS.TOOLTIP_TYPE;
 
-  @queryAssignedNodes()
-  private defaultSlotNodes!: Array<Node>;
+  /**
+   * If true, the tooltip will only be shown when the trigger element's content is overflowing on the x-axis.
+   *
+   * Supports the following components:
+   * - mdc-button
+   * - mdc-text
+   *
+   * @default false
+   */
+  @property({ type: Boolean, attribute: 'only-show-when-trigger-overflows', reflect: true })
+  onlyShowWhenTriggerOverflows: boolean = DEFAULTS.ONLY_SHOW_WHEN_TRIGGER_OVERFLOWS;
 
   override connectedCallback(): void {
     super.connectedCallback();
-    this.backdrop = false;
+    this.role = ROLE.TOOLTIP;
+    // We don't want the tooltip to be visible for screen readers as they are not focusable
+    this.ariaHidden = DEFAULTS.ARIA_HIDDEN;
+    // Tooltip defaults
+    this.backdrop = DEFAULTS.BACKDROP;
     this.delay = this.delay || DEFAULTS.DELAY;
-    this.focusTrap = false;
-    this.hideOnBlur = true;
-    this.hideOnEscape = true;
-    this.interactive = false;
+    this.disableAriaExpanded = DEFAULTS.DISABLE_ARIA_EXPANDED;
+    this.hideOnBlur = DEFAULTS.HIDE_ON_BLUR;
+    this.hideOnEscape = DEFAULTS.HIDE_ON_ESCAPE;
     this.offset = this.offset || DEFAULTS.OFFSET;
     this.placement = this.placement || DEFAULTS.PLACEMENT;
-    this.role = ROLE.TOOLTIP;
-    this.trigger = 'mouseenter focusin';
+    this.trigger = DEFAULTS.TRIGGER;
 
-    this.preventScroll = false;
-    this.flip = true;
-    this.preventScroll = false;
-    this.closeButton = false;
-    this.hideOnOutsideClick = false;
-    this.focusBackToTrigger = false;
-    this.size = false;
-    this.disableAriaExpanded = true;
-  }
-
-  /**
-   * @returns The tooltip text.
-   */
-  private getTooltipText(): string {
-    return (
-      this.defaultSlotNodes
-        ?.map(node => node.textContent)
-        .join(' ')
-        ?.trim() || ''
-    );
+    // Popover defaults
+    this.closeButton = POPOVER_DEFAULTS.CLOSE_BUTTON;
+    this.disableFlip = POPOVER_DEFAULTS.DISABLE_FLIP;
+    this.focusBackToTrigger = POPOVER_DEFAULTS.FOCUS_BACK;
+    this.focusTrap = POPOVER_DEFAULTS.FOCUS_TRAP;
+    this.hideOnOutsideClick = POPOVER_DEFAULTS.HIDE_ON_CLICK_OUTSIDE;
+    this.interactive = POPOVER_DEFAULTS.INTERACTIVE;
+    this.preventScroll = POPOVER_DEFAULTS.PREVENT_SCROLL;
+    this.size = POPOVER_DEFAULTS.SIZE;
   }
 
   /**
@@ -129,7 +138,7 @@ class Tooltip extends Popover {
    * Updates the tooltip type attribute and sets the appropriate aria props on the trigger component.
    * @param changedProperties - The changed properties.
    */
-  private onTooltipTypeUpdated(changedProperties: PropertyValues): void {
+  private onTooltipTypeUpdated(changedProperties: PropertyValues<this>): void {
     const previousTooltipType = changedProperties.get('tooltipType');
 
     if (!Object.values(TOOLTIP_TYPES).includes(this.tooltipType)) {
@@ -137,7 +146,6 @@ class Tooltip extends Popover {
     }
 
     if (this.triggerElement) {
-      const tooltipText = this.getTooltipText();
       switch (this.tooltipType) {
         case TOOLTIP_TYPES.DESCRIPTION:
           if (previousTooltipType === TOOLTIP_TYPES.LABEL) {
@@ -159,13 +167,30 @@ class Tooltip extends Popover {
           }
           break;
       }
-      if (tooltipText.length > 0 && this.tooltipType !== TOOLTIP_TYPES.NONE && !this.ariaLabel) {
-        this.ariaLabel = tooltipText;
-      }
     }
   }
 
-  public override async update(changedProperties: PropertyValues): Promise<void> {
+  protected override async isOpenUpdated(oldValue: boolean, newValue: boolean) {
+    const { triggerElement } = this;
+    if (oldValue === newValue || !triggerElement) {
+      return;
+    }
+
+    if (!newValue) {
+      // Timing is critical when the popover pushed/popped from the stack.
+      //
+      // Timing here:
+      // Tooltip closes -> New Popover opens -> Tooltip popped from the stack -> it popes out the new popover as well.
+      //
+      // It happens because by default the popped element automatically pop the element above it in the stack.
+      // To avoid this, we explicitly remove the tooltip from the stack before it is popped.
+      this.depthManager.remove([this]);
+    }
+
+    await super.isOpenUpdated(oldValue, newValue);
+  }
+
+  public override async update(changedProperties: PropertyValues<this>): Promise<void> {
     super.update(changedProperties);
 
     if (changedProperties.has('id')) {
@@ -177,6 +202,16 @@ class Tooltip extends Popover {
     if (changedProperties.has('tooltipType')) {
       this.onTooltipTypeUpdated(changedProperties);
     }
+  }
+
+  public override show() {
+    if (this.onlyShowWhenTriggerOverflows && this.triggerElement && hasOverflowMixin(this.triggerElement)) {
+      if (!this.triggerElement.isWidthOverflowing()) {
+        return;
+      }
+    }
+
+    super.show();
   }
 
   public static override styles: Array<CSSResult> = [...Popover.styles, ...styles];

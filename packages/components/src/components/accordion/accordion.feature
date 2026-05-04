@@ -4,13 +4,14 @@ Feature: Accordion Component
     Given the Accordion component is rendered on the page
     And the accordion header has role="heading"
     And the accordion contains:
-      | Property         | Value                  | State    |
-      | ---------------- | ---------------------- | -------- |
-      | Header Text      | string                 | Optional |
-      | Leading Label    | string                 | Optional |
-      | Trailing Label   | string                 | Optional |
-      | Expanded         | true/false             | Required |
-      | Disabled         | true/false             | Optional |
+      | Property         | Value                    | State    |
+      | ---------------- | ------------------------ | -------- |
+      | Header Text      | string                   | Optional |
+      | Leading Label    | string                   | Optional |
+      | Trailing Label   | string                   | Optional |
+      | Expanded         | true/false               | Required |
+      | Disabled         | true/false               | Optional |
+      | Toggle Position  | 'leading'/'trailing'     | Optional |
 
   Rule: ✅ Rendering and Visual States
 
@@ -41,6 +42,20 @@ Feature: Accordion Component
       Then the trailing controls should be positioned before the arrow up/down icon
       And the layout should be properly aligned
 
+  Rule: ✅ Toggle Position
+
+    Scenario: Default trailing toggle position
+      Given the accordion is rendered with default settings
+      When the accordion is displayed
+      Then the expand/collapse button should appear at the end (trailing position)
+      And the header text, prefix icon, and controls should appear at the start
+
+    Scenario: Leading toggle position
+      Given the accordion has toggle-position="leading"
+      When the accordion is rendered
+      Then the expand/collapse button should appear at the start (leading position)
+      And the header text, prefix icon, and controls should appear after the toggle button
+
   Rule: ✅ User Interaction
 
     Scenario: Clicking accordion header button
@@ -63,6 +78,7 @@ Feature: Accordion Component
       Then the accordion header button should have role="button"
       And proper aria-expanded states should be maintained
       And proper aria-controls should reference the content section
+      And an accessible name provided by aria-label or aria-labelledby is given to the trigger button
 
     Scenario: Disabled state
       Given the accordion is disabled
@@ -92,6 +108,7 @@ Feature: Accordion Component
       When the component initializes
       Then the accordion should be expanded
       And aria-expanded state should be true
+      And aria-label of trigger button should be about closing the accordion
       And content should be visible
 
     Scenario: Toggle state persistence
@@ -99,6 +116,7 @@ Feature: Accordion Component
       When toggling visibility multiple times
       Then the state should persist
       And aria-expanded state should be properly updated
+      And aria-label of trigger button should be proparly updated
 
   Rule: ✅ Error Handling
 

@@ -5,6 +5,7 @@ import AccordionGroup from './components/accordiongroup';
 import AccordionButton from './components/accordionbutton';
 import AlertChip from './components/alertchip';
 import Animation from './components/animation';
+import AnnouncementDialog from './components/announcementdialog';
 import Appheader from './components/appheader';
 import Avatar from './components/avatar';
 import AvatarButton from './components/avatarbutton';
@@ -21,12 +22,17 @@ import CardRadio from './components/cardradio';
 import Checkbox from './components/checkbox';
 import Chip from './components/chip';
 import Coachmark from './components/coachmark';
+import ControlTypeProvider from './components/controltypeprovider';
+import Calendar from './components/calendar';
+import DatePicker from './components/datepicker';
 import Dialog from './components/dialog';
 import Divider from './components/divider';
 import FilterChip from './components/filterchip';
 import FormfieldGroup from './components/formfieldgroup';
 import Icon from './components/icon';
 import IconProvider from './components/iconprovider';
+import Illustration from './components/illustration';
+import IllustrationProvider from './components/illustrationprovider';
 import Input from './components/input';
 import InputChip from './components/inputchip';
 import Link from './components/link';
@@ -52,8 +58,10 @@ import Progressbar from './components/progressbar';
 import Progressspinner from './components/progressspinner';
 import Radio from './components/radio';
 import RadioGroup from './components/radiogroup';
+import ResponsiveSettingsProvider from './components/responsivesettingsprovider';
 import ScreenreaderAnnouncer from './components/screenreaderannouncer';
 import Searchfield from './components/searchfield';
+import Searchpopover from './components/searchpopover';
 import Select from './components/select';
 import SelectListbox from './components/selectlistbox';
 import SideNavigation from './components/sidenavigation';
@@ -70,6 +78,7 @@ import Tab from './components/tab';
 import TabList from './components/tablist';
 import Text from './components/text';
 import Textarea from './components/textarea';
+import TimePicker from './components/timepicker';
 import Typewriter from './components/typewriter';
 import ThemeProvider from './components/themeprovider';
 import Toast from './components/toast';
@@ -80,18 +89,26 @@ import VirtualizedList from './components/virtualizedlist';
 import Combobox from './components/combobox';
 import Slider from './components/slider';
 import ListBox from './components/listbox';
+import Banner from './components/banner';
+import Buttonsimple from './components/buttonsimple';
+import Verticaltablist from './components/verticaltablist';
 
 // Types Imports
+import type { AvatarSize } from './components/avatar/avatar.types';
 import type { BadgeType } from './components/badge/badge.types';
+import type { ColorType as ChipColorType } from './components/staticchip/staticchip.types';
 import type { ButtonColor, ButtonVariant, IconButtonSize, PillButtonSize } from './components/button/button.types';
 import type { PopoverPlacement } from './components/popover/popover.types';
+import type { PresenceType } from './components/presence/presence.types';
 import type { SkeletonVariant } from './components/skeleton/skeleton.types';
 import type { SpinnerSize, SpinnerVariant } from './components/spinner/spinner.types';
 import type { TextType } from './components/text/text.types';
+import type { LinkButtonSize } from './components/linkbutton/linkbutton.types';
 import type { TextType as TypewriterType } from './components/typewriter/typewriter.types';
 import type { MenuPopoverActionEvent, MenuPopoverChangeEvent } from './components/menupopover/menupopover.types';
 import type { SelectChangeEvent, SelectInputEvent } from './components/select/select.types';
 import type { MenuSectionChangeEvent } from './components/menusection/menusection.types';
+import type { SliderChangeEvent } from './components/slider/slider.types';
 import type {
   InputInputEvent,
   InputChangeEvent,
@@ -100,6 +117,17 @@ import type {
   InputClearEvent,
 } from './components/input/input.types';
 import type { VirtualizedListScrollEvent } from './components/virtualizedlist/virtualizedlist.types';
+import type {
+  TextareaInputEvent,
+  TextareaChangeEvent,
+  TextareaFocusEvent,
+  TextareaBlurEvent,
+  TextareaLimitExceededEvent,
+} from './components/textarea/textarea.types';
+import type { TablistChangeEvent } from './components/tablist/tablist.types';
+import type { ToggleOnChangeEvent } from './components/toggle/toggle.types';
+import type { CheckboxOnChangeEvent } from './components/checkbox/checkbox.types';
+import type { VerticaltablistChangeEvent } from './components/verticaltablist/verticaltablist.types';
 
 // Constants / Utils Imports
 import {
@@ -109,7 +137,11 @@ import {
   PILL_BUTTON_SIZES,
 } from './components/button/button.constants';
 import { SKELETON_VARIANTS } from './components/skeleton/skeleton.constants';
-import { inMemoryCache, webAPIIconsCache } from './utils/icon-cache';
+import { inMemoryCache, webAPIAssetsCache } from './utils/assets-cache';
+import type { TimePickerChangeEvent, TimePickerInputEvent } from './components/timepicker/timepicker.types';
+import type { DatePickerChangeEvent, DatePickerInputEvent } from './components/datepicker/datepicker.types';
+import type { CalendarDateSelectedEvent, CalendarMonthChangedEvent } from './components/calendar/calendar.types';
+import type { ListBoxChangeEvent } from './components/listbox/listbox.types';
 
 // Components Exports
 export {
@@ -118,6 +150,7 @@ export {
   AccordionGroup,
   AlertChip,
   Animation,
+  AnnouncementDialog,
   Appheader,
   Avatar,
   AvatarButton,
@@ -127,6 +160,7 @@ export {
   Button,
   ButtonGroup,
   ButtonLink,
+  Calendar,
   Card,
   CardButton,
   CardCheckbox,
@@ -134,12 +168,16 @@ export {
   Checkbox,
   Chip,
   Coachmark,
+  ControlTypeProvider,
+  DatePicker,
   Dialog,
   Divider,
   FilterChip,
   FormfieldGroup,
   Icon,
   IconProvider,
+  Illustration,
+  IllustrationProvider,
   Input,
   InputChip,
   Link,
@@ -165,8 +203,10 @@ export {
   Progressspinner,
   Radio,
   RadioGroup,
+  ResponsiveSettingsProvider,
   ScreenreaderAnnouncer,
   Searchfield,
+  Searchpopover,
   Select,
   SelectListbox,
   SideNavigation,
@@ -183,6 +223,7 @@ export {
   TabList,
   Text,
   Textarea,
+  TimePicker,
   ThemeProvider,
   Toast,
   Toggle,
@@ -193,11 +234,16 @@ export {
   Combobox,
   Slider,
   ListBox,
+  Banner,
+  Buttonsimple,
+  Verticaltablist,
 };
 
 // Types Exports
 export type {
+  AvatarSize,
   BadgeType,
+  ChipColorType,
   ButtonColor,
   ButtonVariant,
   IconButtonSize,
@@ -206,11 +252,13 @@ export type {
   MenuSectionChangeEvent,
   PillButtonSize,
   PopoverPlacement,
+  PresenceType,
   SkeletonVariant,
   SelectChangeEvent,
   SelectInputEvent,
   SpinnerSize,
   SpinnerVariant,
+  SliderChangeEvent,
   TextType,
   TypewriterType,
   InputInputEvent,
@@ -219,6 +267,23 @@ export type {
   InputBlurEvent,
   InputClearEvent,
   VirtualizedListScrollEvent,
+  TablistChangeEvent,
+  TextareaInputEvent,
+  TextareaChangeEvent,
+  TextareaFocusEvent,
+  TextareaBlurEvent,
+  TextareaLimitExceededEvent,
+  ToggleOnChangeEvent,
+  CheckboxOnChangeEvent,
+  LinkButtonSize,
+  TimePickerChangeEvent,
+  TimePickerInputEvent,
+  DatePickerChangeEvent,
+  DatePickerInputEvent,
+  CalendarDateSelectedEvent,
+  CalendarMonthChangedEvent,
+  VerticaltablistChangeEvent,
+  ListBoxChangeEvent,
 };
 
 // Constants / Utils Exports
@@ -229,5 +294,5 @@ export {
   inMemoryCache,
   PILL_BUTTON_SIZES,
   SKELETON_VARIANTS,
-  webAPIIconsCache,
+  webAPIAssetsCache,
 };

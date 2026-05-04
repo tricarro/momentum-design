@@ -1,13 +1,15 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import '.';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { hideAllControls, hideControls, textControls } from '../../../config/storybook/utils';
+import { hideAllControls, hideControls } from '../../../config/storybook/utils';
 import '../menusection';
 import '../divider';
+import * as CONTROL_TYPE_CONSTANTS from '../controltypeprovider/controltypeprovider.constants';
 
 import { INDICATOR } from './menuitemradio.constants';
 
@@ -15,15 +17,17 @@ const wrapWithDiv = (htmlString: TemplateResult) => html`<div role="menu" style=
 
 const render = (args: Args) =>
   wrapWithDiv(
-    html` <mdc-menuitemradio     
+    html` <mdc-menuitemradio
       @change="${action('onchange')}"
       @click="${action('onclick')}"
       @focus="${action('onfocus')}"
       ?checked="${args.checked}"
       ?disabled="${args.disabled}"
+      ?soft-disabled="${args['soft-disabled']}"
       indicator="${args.indicator}"
       label="${args.label}"
       secondary-label="${args['secondary-label']}"
+      control-type="${ifDefined(args['control-type'])}"
     ></mdc-menuitemradio>`,
   );
 
@@ -32,9 +36,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-menuitemradio',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     checked: {
       control: 'boolean',
@@ -52,6 +54,13 @@ const meta: Meta = {
     'secondary-label': {
       control: 'text',
     },
+    'soft-disabled': {
+      control: 'boolean',
+    },
+    'control-type': {
+      control: 'select',
+      options: [undefined, ...CONTROL_TYPE_CONSTANTS.VALID_VALUES],
+    },
     ...hideControls([
       'data-aria-label',
       'variant',
@@ -67,16 +76,6 @@ const meta: Meta = {
       'trailing-controls',
       'arrow-position',
       'arrow-direction',
-    ]),
-    ...textControls([
-      '--mdc-listitem-default-background-color',
-      '--mdc-listitem-background-color-hover',
-      '--mdc-listitem-background-color-active',
-      '--mdc-listitem-primary-label-color',
-      '--mdc-listitem-secondary-label-color',
-      '--mdc-listitem-disabled-color',
-      '--mdc-listitem-column-gap',
-      '--mdc-listitem-padding-left-and-right',
     ]),
     ...classArgType,
     ...styleArgType,

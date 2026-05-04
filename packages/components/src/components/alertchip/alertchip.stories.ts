@@ -1,10 +1,12 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
+import iconsManifest from '@momentum-design/icons/dist/manifest.json';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { hideControls, textControls } from '../../../config/storybook/utils';
+import { hideAllControls, hideControls } from '../../../config/storybook/utils';
 
 import { VARIANTS } from './alertchip.constants';
 
@@ -14,19 +16,17 @@ const render = (args: Args) =>
     @keydown="${action('onkeydown')}"
     @keyup="${action('onkeyup')}"
     @focus="${action('onfocus')}"
-    variant="${args.variant}"
-    label="${args.label}"
+    variant="${ifDefined(args.variant)}"
+    label="${ifDefined(args.label)}"
+    icon-name="${ifDefined(args['icon-name'])}"
     ?auto-focus-on-mount="${args['auto-focus-on-mount']}"
   ></mdc-alertchip>`;
 
 const meta: Meta = {
-  title: 'Components/chip/alert',
+  title: 'Components/chip/alertchip',
   tags: ['autodocs'],
   component: 'mdc-alertchip',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
     variant: {
       control: 'select',
@@ -35,17 +35,26 @@ const meta: Meta = {
     label: {
       control: 'text',
     },
+    'icon-name': {
+      control: 'select',
+      options: Object.keys(iconsManifest),
+    },
     'auto-focus-on-mount': {
       control: 'boolean',
     },
     ...classArgType,
     ...styleArgType,
-    ...hideControls(['soft-disabled', 'size', 'role', 'type', 'active', 'disabled']),
-    ...textControls([
-      '--mdc-chip-color',
-      '--mdc-chip-icon-color',
-      '--mdc-chip-border-color',
-      '--mdc-chip-background-color',
+    ...hideControls([
+      'soft-disabled',
+      'size',
+      'role',
+      'type',
+      'active',
+      'disabled',
+      'name',
+      'value',
+      'tabIndex',
+      'ariaStateKey',
     ]),
   },
 };
@@ -59,6 +68,14 @@ export const Example: StoryObj = {
   },
 };
 
+export const WithIcon: StoryObj = {
+  args: {
+    variant: VARIANTS.INFORMATIONAL,
+    label: 'Announcement',
+    'icon-name': 'announcement-regular',
+  },
+};
+
 export const AllVariants: StoryObj = {
   render: () =>
     html` <div style="display: flex; gap: 0.5rem;">
@@ -66,4 +83,5 @@ export const AllVariants: StoryObj = {
         variant => html` <mdc-alertchip variant="${variant}" label="${variant}"></mdc-alertchip> `,
       )}
     </div>`,
+  ...hideAllControls(),
 };

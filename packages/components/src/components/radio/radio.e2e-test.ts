@@ -1,19 +1,18 @@
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { KEYS } from '../../utils/keys';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
   name?: string;
   value?: string;
   label?: string;
-  'help-text'?: string;
   readonly?: boolean;
   disabled?: boolean;
   checked?: boolean;
-  'data-aria-label'?: string;
+  'aria-label'?: string;
   secondRadioBtn?: boolean;
+  'soft-disabled'?: boolean;
 };
 
 const setup = async (args: SetupOptions) => {
@@ -25,11 +24,11 @@ const setup = async (args: SetupOptions) => {
           ${restArgs.name ? `name="${restArgs.name}"` : ''}
           ${restArgs.value ? `value="${restArgs.value}"` : ''}
           ${restArgs.label ? `label="${restArgs.label}"` : ''}
-          ${restArgs['help-text'] ? `help-text="${restArgs['help-text']}"` : ''}
           ${restArgs.disabled ? 'disabled' : ''}
           ${restArgs.checked ? 'checked' : ''}
           ${restArgs.readonly ? 'readonly' : ''}
-          ${restArgs['data-aria-label'] ? `data-aria-label="${restArgs['data-aria-label']}"` : ''}
+          ${restArgs['soft-disabled'] ? 'soft-disabled' : ''}
+          ${restArgs['aria-label'] ? `aria-label="${restArgs['aria-label']}"` : ''}
         >
         </mdc-radio>
         ${
@@ -67,7 +66,7 @@ test('mdc-radio', async ({ componentsPage }) => {
 
       // Radio btn without label
       radioStickerSheet.setAttributes({
-        'data-aria-label': 'Standard Plan',
+        'aria-label': 'Standard Plan',
       });
 
       // Radio btn with label
@@ -125,6 +124,29 @@ test('mdc-radio', async ({ componentsPage }) => {
         checked: true,
       });
       await radioStickerSheet.createMarkupWithCombination({}, { createNewRow: true });
+
+      radioStickerSheet.setAttributes({
+        label: 'Soft Disabled Radio Label',
+        'help-text': 'This is a help text',
+        'soft-disabled': true,
+      });
+      await radioStickerSheet.createMarkupWithCombination({}, { createNewRow: true });
+      radioStickerSheet.setAttributes({
+        label: 'Soft Disabled Selected Radio Label',
+        'help-text': 'This is a help text',
+        'soft-disabled': true,
+        checked: true,
+      });
+      await radioStickerSheet.createMarkupWithCombination({}, { createNewRow: true });
+
+      // Short width test for word wrapping
+      radioStickerSheet.setAttributes({
+        label: 'This is a very long label that should wrap to multiple lines when constrained to a short width',
+        'help-text': 'This is also a very long help text that should wrap properly',
+        style: 'width: 7.5rem;',
+      });
+      await radioStickerSheet.createMarkupWithCombination({}, { createNewRow: true });
+
       await radioStickerSheet.mountStickerSheet();
 
       await test.step('matches screenshot of radio stickersheet', async () => {
@@ -153,16 +175,16 @@ test('mdc-radio', async ({ componentsPage }) => {
       });
       await test.step('select radio by pressing space', async () => {
         await setup({ componentsPage, label: 'Standard Plan for student' });
-        const radio = componentsPage.page.locator('mdc-radio').locator('input[type="radio"]');
+        const radio = componentsPage.page.locator('mdc-radio');
 
         await componentsPage.actionability.pressTab();
-        await componentsPage.page.keyboard.press('Space');
+        await componentsPage.page.keyboard.press(KEYS.SPACE);
         await expect(radio).toBeChecked();
       });
 
       await test.step('radio clicked', async () => {
         await setup({ componentsPage, label: 'Standard Plan for student' });
-        const radio = componentsPage.page.locator('mdc-radio').locator('input[type="radio"]');
+        const radio = componentsPage.page.locator('mdc-radio');
 
         await radio.click();
         await expect(radio).toBeChecked();
@@ -170,7 +192,7 @@ test('mdc-radio', async ({ componentsPage }) => {
 
       await test.step('radio focus and click on disabled radio', async () => {
         await setup({ componentsPage, label: 'Standard Plan for student', disabled: true });
-        const radio = componentsPage.page.locator('mdc-radio').locator('input[type="radio"]');
+        const radio = componentsPage.page.locator('mdc-radio');
 
         await componentsPage.actionability.pressTab();
         await expect(radio).not.toBeFocused();
@@ -185,13 +207,38 @@ test('mdc-radio', async ({ componentsPage }) => {
           value: 'standard',
           readonly: true,
         });
-        const radio = componentsPage.page.locator('mdc-radio').locator('input[name="student-plan"]');
+        const radio = componentsPage.page.locator('mdc-radio[name="student-plan"]');
+        await componentsPage.actionability.pressTab();
+        await componentsPage.page.pause();
+        await expect(radio).toBeFocused();
+        await expect(radio).not.toBeChecked();
+
+        await componentsPage.page.keyboard.press(KEYS.SPACE);
+        await expect(radio).not.toBeChecked();
+
+        await radio.click({ force: true });
+        await expect(radio).not.toBeChecked();
+      });
+
+      await test.step('radio should be focused but not change state when soft-disabled', async () => {
+        await setup({
+          componentsPage,
+          label: 'Standard Plan for student',
+          name: 'student-plan',
+          value: 'standard',
+          'soft-disabled': true,
+        });
+        const radio = componentsPage.page.locator('mdc-radio');
+
         await componentsPage.actionability.pressTab();
         await expect(radio).toBeFocused();
         await expect(radio).not.toBeChecked();
 
-        await radio.click();
-        await expect(radio).not.toHaveAttribute('checked');
+        await componentsPage.page.keyboard.press(KEYS.SPACE);
+        await expect(radio).not.toBeChecked();
+
+        await radio.click({ force: true });
+        await expect(radio).not.toBeChecked();
       });
 
       await test.step('navigate and select between radio buttons using arrow keys.', async () => {
@@ -203,7 +250,7 @@ test('mdc-radio', async ({ componentsPage }) => {
           secondRadioBtn: true,
         });
 
-        const radios = componentsPage.page.locator('mdc-radio').locator('input[name="student-plan"]');
+        const radios = componentsPage.page.locator('mdc-radio[name="student-plan"]');
         const changeEvents: Array<{ value: string; method: string }> = [];
 
         // Expose function to capture change events
@@ -251,7 +298,7 @@ test('mdc-radio', async ({ componentsPage }) => {
           value: 'standard',
           secondRadioBtn: true,
         });
-        const radios = componentsPage.page.locator('mdc-radio').locator('input[name="student-plan"]');
+        const radios = componentsPage.page.locator('mdc-radio[name="student-plan"]');
         await componentsPage.actionability.pressTab();
         await componentsPage.page.keyboard.press('ArrowDown');
         await expect(radios.nth(1)).toBeChecked();
@@ -263,6 +310,25 @@ test('mdc-radio', async ({ componentsPage }) => {
         });
         expect(submittedValue).toBe('Default plan');
       });
+
+      await test.step('spatial navigation', async () => {
+        const radio = await setup({ componentsPage });
+        await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+        const { keyboard } = componentsPage.page;
+        const form = componentsPage.page.locator('form');
+        const waitForSubmit = await componentsPage.waitForEvent(form, 'submit');
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(radio).toBeFocused();
+
+        await keyboard.press(KEYS.ENTER);
+        await expect(radio).toBeChecked();
+
+        await keyboard.press(KEYS.ENTER);
+        await expect(radio).toBeChecked();
+
+        await expect(waitForSubmit).not.toEventEmitted();
+      });
     });
 
     /**
@@ -273,16 +339,15 @@ test('mdc-radio', async ({ componentsPage }) => {
       // For label
       await test.step('should have label element when the label attribute is passed', async () => {
         await componentsPage.setAttributes(radio, { label: 'Radio label' });
-        const label = componentsPage.page.locator('label');
+        const label = componentsPage.page.locator('mdc-text');
         await expect(label).toHaveText('Radio label');
       });
 
       // For help text
-      await test.step('should have mdc-text element when the help-text attribute is passed', async () => {
+      await test.step('should not have mdc-text element when the help-text attribute is passed', async () => {
         await componentsPage.setAttributes(radio, { 'help-text': 'Help text for additional info' });
-        const mdcText = componentsPage.page.locator('mdc-text');
-        const textContent = await mdcText.textContent();
-        expect(textContent?.trim()).toBe('Help text for additional info');
+        const mdcText = componentsPage.page.locator('mdc-text').getByText('Help text for additional info');
+        await expect(mdcText).not.toBeVisible();
       });
 
       // Disabled
@@ -304,13 +369,46 @@ test('mdc-radio', async ({ componentsPage }) => {
       });
 
       // readonly
-      await test.step('attribute disabled should be present on radio', async () => {
+      await test.step('attribute readonly should be present on radio', async () => {
         await componentsPage.setAttributes(radio, {
           readonly: '',
         });
         await expect(radio).toHaveAttribute('readonly');
         await componentsPage.removeAttribute(radio, 'readonly');
       });
+
+      // soft-disabled
+      await test.step('attribute soft-disabled should be present on radio', async () => {
+        await componentsPage.setAttributes(radio, {
+          'soft-disabled': '',
+        });
+        await expect(radio).toHaveAttribute('soft-disabled');
+        await componentsPage.removeAttribute(radio, 'soft-disabled');
+      });
+    });
+  });
+
+  await test.step('programmatic control', async () => {
+    await test.step('click method works as expected', async () => {
+      const radio = await setup({ componentsPage });
+      const waitForClickAfterChecked = await componentsPage.waitForEvent(radio, 'click');
+      const waitForInputAfterChecked = await componentsPage.waitForEvent(radio, 'input');
+      const waitForChangeAfterChecked = await componentsPage.waitForEvent(radio, 'change');
+      await radio.evaluate((el: HTMLElement) => el.click());
+
+      await expect(radio).toHaveAttribute('checked');
+      await expect(waitForClickAfterChecked).toEventEmitted();
+      await expect(waitForInputAfterChecked).toEventEmitted();
+      await expect(waitForChangeAfterChecked).toEventEmitted();
+    });
+
+    await test.step('click method works as expected when component disabled', async () => {
+      const radio = await setup({ componentsPage, disabled: true });
+      const waitForClickAfterDisabled = await componentsPage.waitForEvent(radio, 'click');
+      await radio.evaluate((el: HTMLElement) => el.click());
+
+      await expect(radio).not.toHaveAttribute('checked');
+      await expect(waitForClickAfterDisabled).not.toEventEmitted();
     });
   });
 });

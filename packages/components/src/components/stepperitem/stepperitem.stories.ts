@@ -1,9 +1,8 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
-import { textControls } from '../../../config/storybook/utils';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
 
 import { STATUS, VARIANT } from './stepperitem.constants';
@@ -28,9 +27,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-stepperitem',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     variant: {
       control: { type: 'select' },
@@ -52,13 +49,6 @@ const meta: Meta = {
     'aria-label': {
       control: { type: 'text' },
     },
-    ...textControls([
-      '--mdc-stepperitem-status-container-background',
-      '--mdc-stepperitem-status-container-border-color',
-      '--mdc-stepperitem-label-color',
-      '--mdc-stepperitem-help-text-color',
-      '--mdc-stepperitem-label-container-background',
-    ]),
     ...classArgType,
     ...styleArgType,
   },

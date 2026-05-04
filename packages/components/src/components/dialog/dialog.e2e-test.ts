@@ -1,6 +1,7 @@
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 
 import { test, ComponentsPage } from '../../../config/playwright/setup';
+import { KEYS } from '../../utils/keys';
 
 import { DEFAULTS } from './dialog.constants';
 import type Dialog from './dialog.component';
@@ -11,7 +12,7 @@ type SetupOptions = {
   triggerId?: string;
   zIndex?: number;
   visible?: boolean;
-  size?: boolean;
+  size?: string;
   variant?: string;
   closeButtonAriaLabel?: string;
   ariaLabel?: string;
@@ -21,6 +22,7 @@ type SetupOptions = {
   descriptionText?: string;
   headerTagName?: string;
   descriptionTagName?: string;
+  hideBackdrop?: boolean;
   children?: any;
 };
 
@@ -42,7 +44,8 @@ const setup = async (args: SetupOptions) => {
         ${restArgs.triggerId ? `triggerId="${restArgs.triggerId}"` : ''}
         ${restArgs.zIndex ? `z-index="${restArgs.zIndex}"` : ''}
         ${restArgs.visible ? `visible="${restArgs.visible}"` : ''}
-        ${restArgs.size ? 'size' : ''}
+        ${restArgs.size ? `size="${restArgs.size}"` : ''}
+        ${restArgs.hideBackdrop ? `hide-backdrop` : ''}
         ${restArgs.variant ? `variant="${restArgs.variant}"` : ''}
         ${restArgs.closeButtonAriaLabel ? `close-button-aria-label="${restArgs.closeButtonAriaLabel}"` : ''}
         ${restArgs.ariaLabel ? `aria-label="${restArgs.ariaLabel}"` : ''}
@@ -74,6 +77,15 @@ const setup = async (args: SetupOptions) => {
         dialogElement.visible = false;
       };
     }
+  }, restArgs.id);
+
+  await triggerButton.evaluate((el, id) => {
+    el.addEventListener('click', () => {
+      const dialogElement = document.querySelector(`#${id}`) as Dialog;
+      if (dialogElement) {
+        dialogElement.visible = true;
+      }
+    });
   }, restArgs.id);
 
   return { dialog, triggerButton };
@@ -138,6 +150,22 @@ const dialogWithIframe = {
   `,
 };
 
+const dialogWithTextarea = {
+  id: 'dialog',
+  triggerId: 'trigger-btn',
+  ariaLabel: 'dialog',
+  visible: true,
+  variant: 'default',
+  closeButtonAriaLabel: 'Close button label',
+  headerText: 'Dialog Header',
+  descriptionText: 'Dialog Description',
+  children: `
+    <div slot="dialog-body">
+      <mdc-textarea label="Type something here..." rows="4" cols="50"></mdc-textarea>
+    </div>
+  `,
+};
+
 test('mdc-dialog', async ({ componentsPage }) => {
   const { dialog, triggerButton } = await setup({ componentsPage, ...dialogWithAllSlots });
 
@@ -159,13 +187,101 @@ test('mdc-dialog', async ({ componentsPage }) => {
    * VISUAL REGRESSION
    */
   await test.step('visual-regression', async () => {
-    await test.step('matches screenshot of element', async () => {
-      await setup({ componentsPage, ...dialogWithAllSlots });
-      await componentsPage.visualRegression.takeScreenshot('mdc-dialog', { element: dialog });
+    // Test all sizes with complete content (header + body + footer)
+    await test.step('size variations', async () => {
+      await test.step('matches screenshot for size: small', async () => {
+        const { dialog } = await setup({ componentsPage, ...dialogWithAllSlots, size: 'small' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-size-small', { element: dialog });
+      });
+
+      await test.step('matches screenshot for size: medium', async () => {
+        const { dialog } = await setup({ componentsPage, ...dialogWithAllSlots, size: 'medium' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-size-medium', { element: dialog });
+      });
+
+      await test.step('matches screenshot for size: large', async () => {
+        const { dialog } = await setup({ componentsPage, ...dialogWithAllSlots, size: 'large' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-size-large', { element: dialog });
+      });
+
+      await test.step('matches screenshot for size: xlarge', async () => {
+        const { dialog } = await setup({ componentsPage, ...dialogWithAllSlots, size: 'xlarge' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-size-xlarge', { element: dialog });
+      });
+
+      await test.step('matches screenshot for size: fullscreen', async () => {
+        const { dialog } = await setup({ componentsPage, ...dialogWithAllSlots, size: 'fullscreen' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-size-fullscreen', { element: dialog });
+      });
     });
-    await test.step('matches screenshot of element with variant', async () => {
-      await setup({ componentsPage, ...dialogWithCustomHeader, variant: 'promotional' });
-      await componentsPage.visualRegression.takeScreenshot('mdc-dialog-variant-promotional', { element: dialog });
+
+    // Test variants (only small size)
+    await test.step('variant variations', async () => {
+      await test.step('matches screenshot for default variant', async () => {
+        const { dialog } = await setup({ componentsPage, ...dialogWithAllSlots, variant: 'default', size: 'small' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-variant-default', { element: dialog });
+      });
+
+      await test.step('matches screenshot for promotional variant', async () => {
+        const { dialog } = await setup({
+          componentsPage,
+          ...dialogWithCustomHeader,
+          variant: 'promotional',
+          size: 'small',
+        });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-variant-promotional', { element: dialog });
+      });
+    });
+
+    // Test content variations (only small size)
+    await test.step('content variations', async () => {
+      await test.step('matches screenshot for dialog without header', async () => {
+        const dialogWithoutHeader = {
+          ...dialogWithAllSlots,
+          headerText: undefined,
+          descriptionText: undefined,
+          ariaLabel: 'dialog without header',
+        };
+        const { dialog } = await setup({ componentsPage, ...dialogWithoutHeader, size: 'small' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-no-header', { element: dialog });
+      });
+
+      await test.step('matches screenshot for dialog without footer', async () => {
+        const dialogWithoutFooter = {
+          ...dialogWithAllSlots,
+          children: `
+            <div slot="dialog-body">
+              <p>This is the body content of the dialog without footer.</p>
+            </div>
+          `,
+        };
+        const { dialog } = await setup({ componentsPage, ...dialogWithoutFooter, size: 'small' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-no-footer', { element: dialog });
+      });
+
+      await test.step('matches screenshot for dialog with body only', async () => {
+        const dialogBodyOnly = {
+          ...dialogWithAllSlots,
+          headerText: undefined,
+          descriptionText: undefined,
+          ariaLabel: 'dialog with body only',
+          children: `
+            <div slot="dialog-body">
+              <p>This is the body content of the dialog with only body content.</p>
+              <p>No header and no footer elements are provided.</p>
+            </div>
+          `,
+        };
+        const { dialog } = await setup({ componentsPage, ...dialogBodyOnly, size: 'small' });
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-body-only', { element: dialog });
+      });
+
+      await test.step('matches screenshot for dialog with a focused textarea in body', async () => {
+        const { dialog } = await setup({ componentsPage, ...dialogWithTextarea, size: 'small' });
+        await componentsPage.actionability.pressTab();
+
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-with-textarea', { element: dialog });
+      });
     });
   });
 
@@ -179,6 +295,7 @@ test('mdc-dialog', async ({ componentsPage }) => {
       triggerId: 'trigger-btn',
       closeButtonAriaLabel: 'Close button label',
       ariaLabel: 'dialog-attribute',
+      zIndex: 1000,
     });
 
     await test.step('default attributes', async () => {
@@ -188,6 +305,7 @@ test('mdc-dialog', async ({ componentsPage }) => {
       await expect(dialog).toHaveAttribute('header-tag-name', 'h2');
       await expect(dialog).toHaveAttribute('description-tag-name', 'p');
       await expect(dialog).toHaveAttribute('role', 'dialog');
+      await expect(dialog).not.toHaveAttribute('hide-backdrop');
     });
 
     await test.step('accessibility attributes', async () => {
@@ -205,6 +323,142 @@ test('mdc-dialog', async ({ componentsPage }) => {
 
       const closeDialogButton = componentsPage.page.locator('mdc-button[part="dialog-close-btn"]');
       await expect(closeDialogButton).toHaveAttribute('aria-label', 'Close button label');
+    });
+  });
+
+  /**
+   * BACKDROP
+   */
+  await test.step('backdrop', async () => {
+    await test.step('backdrop should be present by default', async () => {
+      const { dialog } = await setup({
+        componentsPage,
+        id: 'dialog-with-backdrop',
+        triggerId: 'trigger-btn',
+        visible: true,
+        ariaLabel: 'dialog with backdrop',
+      });
+
+      await expect(dialog).toBeVisible();
+
+      // Check that backdrop element exists
+      const backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).toBeVisible();
+    });
+
+    await test.step('backdrop should not be present when hide-backdrop is set', async () => {
+      const { dialog } = await setup({
+        componentsPage,
+        id: 'dialog-without-backdrop',
+        triggerId: 'trigger-btn',
+        visible: true,
+        hideBackdrop: true,
+        ariaLabel: 'dialog without backdrop',
+      });
+
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveAttribute('hide-backdrop');
+
+      // Check that backdrop element does not exist
+      const backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).not.toBeVisible();
+    });
+
+    await test.step('backdrop should be removed when dialog is hidden', async () => {
+      const { dialog } = await setup({
+        componentsPage,
+        id: 'dialog-backdrop-on-hide',
+        triggerId: 'trigger-btn',
+        visible: true,
+        ariaLabel: 'dialog backdrop on hide',
+      });
+
+      await expect(dialog).toBeVisible();
+
+      // Backdrop should be present
+      let backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).toBeVisible();
+
+      // Hide dialog
+      await dialog.evaluate(dialog => {
+        dialog.removeAttribute('visible');
+      });
+
+      await expect(dialog).not.toBeVisible();
+
+      // Backdrop should be removed
+      backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).not.toBeVisible();
+    });
+
+    await test.step('backdrop attribute can be toggled dynamically', async () => {
+      const { dialog } = await setup({
+        componentsPage,
+        id: 'dialog-backdrop-toggle',
+        triggerId: 'trigger-btn',
+        visible: true,
+        hideBackdrop: false,
+        ariaLabel: 'dialog backdrop toggle',
+      });
+
+      await expect(dialog).toBeVisible();
+
+      // Initially backdrop is present
+      let backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).toBeVisible();
+
+      // Hide the dialog and set hide-backdrop
+      await dialog.evaluate(dialog => {
+        dialog.removeAttribute('visible');
+      });
+      await expect(dialog).not.toBeVisible();
+
+      await componentsPage.setAttributes(dialog, { 'hide-backdrop': '' });
+      await expect(dialog).toHaveAttribute('hide-backdrop');
+
+      // Show dialog again
+      await dialog.evaluate(dialog => {
+        dialog.toggleAttribute('visible');
+      });
+      await expect(dialog).toBeVisible();
+
+      // Backdrop should not be present now
+      backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).not.toBeVisible();
+    });
+
+    await test.step('backdrop should be removed when hide-backdrop is changed while dialog is open', async () => {
+      const { dialog } = await setup({
+        componentsPage,
+        id: 'dialog-backdrop-dynamic-change',
+        triggerId: 'trigger-btn',
+        visible: true,
+        hideBackdrop: false,
+        ariaLabel: 'dialog backdrop dynamic change',
+      });
+
+      await expect(dialog).toBeVisible();
+
+      // Initially backdrop is present
+      let backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).toBeVisible();
+
+      // Change hide-backdrop to true while dialog is open
+      await componentsPage.setAttributes(dialog, { 'hide-backdrop': '' });
+      await expect(dialog).toHaveAttribute('hide-backdrop');
+
+      // Backdrop should still be visible while dialog is open
+      await expect(backdrop).toBeVisible();
+
+      // Close the dialog
+      await dialog.evaluate(dialog => {
+        dialog.removeAttribute('visible');
+      });
+      await expect(dialog).not.toBeVisible();
+
+      // Backdrop should now be removed (this is the bug fix being tested)
+      backdrop = componentsPage.page.locator('.dialog-backdrop');
+      await expect(backdrop).not.toBeVisible();
     });
   });
 
@@ -486,6 +740,491 @@ test('mdc-dialog', async ({ componentsPage }) => {
         /* eslint-enable no-await-in-loop */
       });
       // End AI-Assisted
+
+      // AI-Assisted
+      await test.step('focus trap should include searchfield input when dialog contains a searchfield with delegatesFocus', async () => {
+        /**
+         * mdc-searchfield has a shadow root with delegatesFocus: true. Its internal container
+         * div has tabindex="-1". The findFocusable() function with stopAtNonTabbable: true must
+         * NOT stop traversal at that div because the shadow root uses delegatesFocus. This ensures
+         * the native <input> inside the searchfield is included in the dialog's focus trap cycle.
+         */
+        const dialogWithSearchfield = {
+          id: 'dialog',
+          triggerId: 'trigger-btn',
+          ariaLabel: 'dialog with searchfield',
+          visible: false,
+          variant: 'default',
+          closeButtonAriaLabel: 'Close button label',
+          headerText: 'Dialog with Searchfield',
+          children: `
+            <div slot="dialog-body">
+              <mdc-searchfield
+                id="dialog-searchfield"
+                label="Search"
+                placeholder="Type to search"
+                clear-aria-label="clear"
+              ></mdc-searchfield>
+              <mdc-button id="extra-btn">Extra</mdc-button>
+            </div>
+          `,
+        };
+
+        const { dialog } = await setup({ componentsPage, ...dialogWithSearchfield });
+        await dialog.evaluate(d => d.toggleAttribute('visible'));
+        await expect(dialog).toBeVisible();
+
+        const closeButton = componentsPage.page.locator('mdc-button[part="dialog-close-btn"]');
+        const searchfield = componentsPage.page.locator('mdc-searchfield#dialog-searchfield');
+        const searchInput = searchfield.locator('input');
+        const extraButton = componentsPage.page.locator('mdc-button#extra-btn');
+
+        // After dialog opens, close button has initial focus
+        await expect(closeButton).toBeFocused();
+
+        // Tab → searchfield input (input must be reachable via focus trap despite
+        // the internal div[tabindex="-1"] inside the delegatesFocus shadow root)
+        await componentsPage.actionability.pressTab();
+        await expect(searchInput).toBeFocused();
+
+        // Tab → extra button
+        await componentsPage.actionability.pressTab();
+        await expect(extraButton).toBeFocused();
+
+        // Tab → wraps back to close button (focus trap cycle)
+        await componentsPage.actionability.pressTab();
+        await expect(closeButton).toBeFocused();
+
+        // Shift+Tab backwards through the same cycle
+        await componentsPage.actionability.pressShiftTab();
+        await expect(extraButton).toBeFocused();
+
+        await componentsPage.actionability.pressShiftTab();
+        await expect(searchInput).toBeFocused();
+
+        await componentsPage.actionability.pressShiftTab();
+        await expect(closeButton).toBeFocused();
+      });
+      // End AI-Assisted
+    });
+
+    await test.step('spatial navigation', async () => {
+      const { dialog } = await setup({ componentsPage, ...dialogWithAllSlots, visible: false });
+
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      const opener = componentsPage.page.getByText('Click Me!');
+      await expect(opener).toBeFocused();
+
+      await keyboard.press(KEYS.ENTER);
+
+      await expect(dialog).toBeVisible();
+      const closeButton = componentsPage.page.locator('mdc-button[part="dialog-close-btn"]');
+      await expect(closeButton).toBeFocused();
+      await keyboard.press(KEYS.ARROW_DOWN);
+      const primaryButton = componentsPage.page.locator('[slot="footer-button-primary"]');
+      await expect(primaryButton).toBeFocused();
+      await keyboard.press(KEYS.ARROW_LEFT);
+      const secondaryButton = componentsPage.page.locator('[slot="footer-button-secondary"]');
+      await expect(secondaryButton).toBeFocused();
+      await keyboard.press(KEYS.ARROW_LEFT);
+      const link = componentsPage.page.locator('[slot="footer-link"]');
+      await expect(link).toBeFocused();
+      await keyboard.press(KEYS.ARROW_UP);
+      await expect(closeButton).toBeFocused();
+
+      await keyboard.press(KEYS.ESCAPE);
+      await expect(dialog).not.toBeVisible();
+
+      await keyboard.press(KEYS.ENTER);
+      await expect(dialog).toBeVisible();
+
+      // focus should be on close button after reopening the dialog
+      await expect(closeButton).toBeFocused();
+
+      // close the dialog with the close button
+      await keyboard.press(KEYS.ENTER);
+      await expect(dialog).not.toBeVisible();
+    });
+  });
+
+  /**
+   * RESPONSIVE SETTINGS
+   */
+  await test.step('responsive settings', async () => {
+    const setup = async ({ size, forceFullScreenDialog }: { size?: string; forceFullScreenDialog?: boolean }) => {
+      await componentsPage.mount({
+        html: `
+      <div id="wrapper">
+          <mdc-responsivesettingsprovider id="responsive-settings-provider" ${forceFullScreenDialog ? 'force-fullscreen-dialog' : ''}>
+              <mdc-dialog id="dialog" ${size ? `size="${size}"` : ''}>Hello dialog!</mdc-dialog>
+          </mdc-responsivesettingsprovider>
+      </div>
+      `,
+        clearDocument: true,
+      });
+
+      const dialog = componentsPage.page.locator(`#dialog`);
+      const responsiveSettings = componentsPage.page.locator(`#responsive-settings-provider`);
+      return { dialog, responsiveSettings };
+    };
+
+    await test.step('force-fullscreen-dialog responsive settings changes dialog size settings', async () => {
+      const { dialog } = await setup({ forceFullScreenDialog: true });
+
+      await expect(dialog).toHaveAttribute('size', 'fullscreen');
+    });
+
+    await test.step("responsive settings takes priority over dialog's size attribute", async () => {
+      const { dialog } = await setup({ size: 'medium', forceFullScreenDialog: true });
+
+      await expect(dialog).toHaveAttribute('size', 'fullscreen');
+    });
+
+    await test.step('dialog size reacts on responsive settings changes', async () => {
+      const { dialog, responsiveSettings } = await setup({ size: 'medium', forceFullScreenDialog: false });
+
+      await expect(dialog).toHaveAttribute('size', 'medium');
+
+      await componentsPage.setAttributes(responsiveSettings, { 'force-fullscreen-dialog': 'true' });
+
+      await expect(dialog).toHaveAttribute('size', 'fullscreen');
+
+      await componentsPage.removeAttribute(responsiveSettings, 'force-fullscreen-dialog');
+
+      await expect(dialog).toHaveAttribute('size', 'medium');
+    });
+  });
+
+  await test.step('handle multiple overlays', async () => {
+    const setup = async () => {
+      await componentsPage.mount({
+        html: `
+          <div id="wrapper">
+            <mdc-button id="dialogLvl1Trigger">Open Dialog (lvl 1)</mdc-button>
+            <mdc-dialog triggerid="dialogLvl1Trigger" id="dialogLvl1" close-button-aria-label="Close lvl1 dialog">
+              <div slot="dialog-body">
+                <p>Dialog lvl 1.</p>
+                <mdc-button id="popupLvl2Trigger">Open Popover (lvl 2)</mdc-button>
+                <mdc-tooltip id="tooltipLvl1" triggerid="popupLvl2Trigger" placement="top"
+                  >Open Popover (lvl 2)</mdc-tooltip
+                >
+                <mdc-popover
+                  id="popupLvl2"
+                  triggerid="popupLvl2Trigger"
+                  hide-on-escape
+                  focus-back-to-trigger
+                  interactive
+                  focus-trap
+                  style="top: 30% !important;"
+                >
+                  <p>Popover lvl 2.</p>
+                  <mdc-button id="dialogLvl3Trigger">Open Dialog (lvl 3)</mdc-button>
+                  <mdc-tooltip id="tooltipLvl2" triggerid="dialogLvl3Trigger" placement="top"
+                    >Open Dialog (lvl 3)</mdc-tooltip
+                  >
+                  <mdc-dialog
+                    id="dialogLvl3"
+                    triggerid="dialogLvl3Trigger"
+                    aria-label="dialog-lvl3"
+                    size="small"
+                    close-button-aria-label="Close nested dialog"
+                  >
+                    <div slot="dialog-body">
+                      <p>Dialog lvl 3.</p>
+                      <mdc-button id="menuLvl4Trigger">Open Menu (lvl 4)</mdc-button>
+                      <mdc-tooltip id="tooltipLvl3" triggerid="menuLvl4Trigger" placement="top"
+                        >Open Menu (lvl 4)</mdc-tooltip
+                      >
+                      <mdc-menupopover id="menuLvl4" triggerid="menuLvl4Trigger">
+                        <mdc-menuitem label="Profile"></mdc-menuitem>
+                        <mdc-menuitem id="menuLvl5Trigger" label="Settings" arrow-position="trailing"></mdc-menuitem>
+                        <mdc-menuitem label="Notifications"></mdc-menuitem>
+                        <mdc-menuitem label="Logout" disabled></mdc-menuitem>
+                        <mdc-menupopover id="menuLvl5" triggerID="menuLvl5Trigger" placement="right">
+                          <mdc-menupopover id="menuLvl6" triggerID="menuLvl6Trigger" placement="right-start">
+                            <mdc-menuitem label="Change Password"></mdc-menuitem>
+                            <mdc-menuitem label="Two-Factor Authentication"></mdc-menuitem>
+                            <mdc-menuitem label="Security Questions"></mdc-menuitem>
+                          </mdc-menupopover>
+                          <mdc-menuitem label="Account"></mdc-menuitem>
+                          <mdc-menuitem label="Privacy" disabled></mdc-menuitem>
+                          <mdc-menuitem label="Security" id="menuLvl6Trigger" arrow-position="trailing"></mdc-menuitem>
+                          <mdc-menuitem label="Advanced"></mdc-menuitem>
+                        </mdc-menupopover>
+                      </mdc-menupopover></div
+                  ></mdc-dialog>
+                </mdc-popover>
+              </div>
+            </mdc-dialog>
+          </div>
+        `,
+        clearDocument: true,
+      });
+
+      await componentsPage.page.evaluate(() => {
+        document.addEventListener(
+          'click',
+          e => {
+            const triggerId = (e.target as HTMLElement)?.getAttribute('id');
+            if (triggerId && triggerId.endsWith('Trigger')) {
+              const dialog = document.getElementById(triggerId.replace(/Trigger$/, ''));
+              if (dialog && dialog.tagName === 'MDC-DIALOG') {
+                dialog?.toggleAttribute('visible');
+              }
+            }
+          },
+          { capture: true },
+        );
+        document.addEventListener(
+          'close',
+          e => {
+            const dialog = e.target as HTMLElement;
+            if (dialog && dialog.tagName === 'MDC-DIALOG') {
+              dialog?.toggleAttribute('visible');
+            }
+          },
+          { capture: true },
+        );
+      });
+
+      const ids = [
+        'wrapper',
+        'dialogLvl1Trigger',
+        'dialogLvl1',
+        'popupLvl2Trigger',
+        'tooltipLvl1',
+        'popupLvl2',
+        'dialogLvl3Trigger',
+        'tooltipLvl2',
+        'dialogLvl3',
+        'menuLvl4Trigger',
+        'tooltipLvl3',
+        'menuLvl4',
+        'menuLvl5Trigger',
+        'menuLvl5',
+        'menuLvl6',
+        'menuLvl6Trigger',
+      ] as const;
+
+      return Object.fromEntries(ids.map(id => [id, componentsPage.page.locator(`#${id}`)])) as Record<
+        (typeof ids)[number],
+        Locator
+      >;
+    };
+
+    await test.step('Setup overlay structure', async () => {
+      const {
+        dialogLvl1Trigger,
+        dialogLvl1,
+        tooltipLvl1,
+        popupLvl2Trigger,
+        popupLvl2,
+        tooltipLvl2,
+        dialogLvl3Trigger,
+        dialogLvl3,
+        tooltipLvl3,
+        menuLvl4Trigger,
+        menuLvl4,
+        menuLvl5Trigger,
+        menuLvl5,
+        menuLvl6Trigger,
+        menuLvl6,
+      } = await setup();
+
+      // Intercept onComponentStackChanged on all stacked overlay components to detect
+      // corrupted indices or re-entrancy (e.g. from popItem/popUntil/remove).
+      // Use exposeFunction to capture calls into a Node array.
+      const onComponentStackChangedCalls: { id: string; changed: string; zIndex: number }[] = [];
+      await componentsPage.page.exposeFunction(
+        'recordOnComponentStackChanged',
+        (id: string, changed: string, zIndex: number) => {
+          onComponentStackChangedCalls.push({ id, changed, zIndex });
+        },
+      );
+      await componentsPage.page.evaluate(() => {
+        const record = (window as any).recordOnComponentStackChanged as (
+          id: string,
+          changed: string,
+          zIndex: number,
+        ) => void;
+
+        const overlaySelectors = ['mdc-dialog', 'mdc-popover', 'mdc-menupopover'];
+        overlaySelectors.forEach(selector => {
+          document.querySelectorAll(selector).forEach((el: Element) => {
+            const overlay = el as { id?: string; zIndex?: number; onComponentStackChanged?: (change: string) => void };
+            const original = overlay.onComponentStackChanged;
+            if (typeof original !== 'function') return;
+            overlay.onComponentStackChanged = function interceptOnComponentStackChanged(changed: string) {
+              record(this.id ?? '', changed, typeof this.zIndex === 'number' ? this.zIndex : 0);
+              return original?.apply(this, [changed]);
+            };
+          });
+        });
+      });
+
+      await test.step('Keyboard navigation work as expected', async () => {
+        const stack: Locator[] = [];
+        const stackItemsToBeVisible = () => Promise.all(stack.map(item => expect(item).toBeVisible()));
+
+        await componentsPage.actionability.pressTab();
+        await expect(dialogLvl1Trigger).toBeFocused();
+        await componentsPage.page.keyboard.press('Enter');
+
+        await expect(dialogLvl1).toBeVisible();
+        await expect(dialogLvl1).toHaveAttribute('z-index', '1000');
+        stack.push(dialogLvl1);
+
+        await componentsPage.actionability.pressTab();
+        await expect(popupLvl2Trigger).toBeFocused();
+        await expect(tooltipLvl1).toBeVisible();
+        await expect(tooltipLvl1).toHaveAttribute('z-index', '1003');
+        await componentsPage.page.keyboard.press('Enter');
+        await expect(tooltipLvl1).not.toBeVisible();
+
+        await expect(popupLvl2).toBeVisible();
+        await expect(popupLvl2).toHaveAttribute('z-index', '1003');
+        stack.push(popupLvl2);
+
+        await componentsPage.actionability.pressTab();
+        await expect(dialogLvl3Trigger).toBeFocused();
+        await expect(tooltipLvl2).toBeVisible();
+        await expect(tooltipLvl2).toHaveAttribute('z-index', '1006');
+        await componentsPage.page.keyboard.press('Enter');
+        await expect(tooltipLvl2).not.toBeVisible();
+
+        await expect(dialogLvl3).toBeVisible();
+        await expect(dialogLvl3).toHaveAttribute('z-index', '1006');
+        stack.push(dialogLvl3);
+
+        await componentsPage.actionability.pressTab();
+        await expect(menuLvl4Trigger).toBeFocused();
+        await expect(tooltipLvl3).toBeVisible();
+        await expect(tooltipLvl3).toHaveAttribute('z-index', '1009');
+        await componentsPage.page.keyboard.press('Enter');
+        await expect(tooltipLvl3).not.toBeVisible();
+
+        await expect(menuLvl4).toBeVisible();
+        await expect(menuLvl4).toHaveAttribute('z-index', '1009');
+        stack.push(menuLvl4);
+
+        await componentsPage.page.keyboard.press('ArrowDown');
+        await expect(menuLvl5Trigger).toBeFocused();
+        await componentsPage.page.keyboard.press('Enter');
+
+        await expect(menuLvl5).toBeVisible();
+        await expect(menuLvl5).toHaveAttribute('z-index', '1012');
+        stack.push(menuLvl5);
+
+        await componentsPage.page.keyboard.press('ArrowDown');
+        await expect(menuLvl6Trigger).toBeFocused();
+        await componentsPage.page.keyboard.press('Enter');
+
+        await expect(menuLvl6).toBeVisible();
+        await expect(menuLvl6).toHaveAttribute('z-index', '1015');
+        stack.push(menuLvl6);
+
+        await componentsPage.visualRegression.takeScreenshot('mdc-dialog-multiple-overlays');
+
+        // lvl 6 close
+        await componentsPage.page.keyboard.press('Escape');
+        await expect(stack.pop()!).not.toBeVisible();
+        await stackItemsToBeVisible();
+
+        // lvl 5 close
+        await componentsPage.page.keyboard.press('Escape');
+        await expect(stack.pop()!).not.toBeVisible();
+        await stackItemsToBeVisible();
+
+        // lvl 4 close
+        await componentsPage.page.keyboard.press('Escape');
+        await expect(stack.pop()!).not.toBeVisible();
+
+        // lvl 3 close
+        await componentsPage.page.keyboard.press('Escape');
+        await expect(stack.pop()!).not.toBeVisible();
+        await stackItemsToBeVisible();
+
+        // lvl 2 tooltip close
+        await expect(tooltipLvl2).toBeVisible();
+        await componentsPage.page.keyboard.press('Escape');
+        await expect(tooltipLvl2).not.toBeVisible();
+        await stackItemsToBeVisible();
+
+        // lvl 2  close
+        await componentsPage.page.keyboard.press('Escape');
+        await expect(stack.pop()!).not.toBeVisible();
+        await stackItemsToBeVisible();
+
+        // lvl 1  close
+        await componentsPage.page.keyboard.press('Escape');
+        await expect(stack.pop()!).not.toBeVisible();
+        await stackItemsToBeVisible();
+        await expect(dialogLvl1Trigger).toBeFocused();
+      });
+
+      await test.step('onComponentStackChanged calls are consistent (no corrupted indices)', async () => {
+        const data = onComponentStackChangedCalls;
+
+        const overlayIds = ['dialogLvl1', 'popupLvl2', 'dialogLvl3', 'menuLvl4', 'menuLvl5', 'menuLvl6'];
+
+        // Each overlay must receive exactly one 'added' and exactly one 'removed'
+        for (const id of overlayIds) {
+          const added = data.filter(c => c.id === id && c.changed === 'added');
+          const removed = data.filter(c => c.id === id && c.changed === 'removed');
+          expect(added, `${id} should receive exactly one 'added'`).toHaveLength(1);
+          expect(removed, `${id} should receive exactly one 'removed'`).toHaveLength(1);
+        }
+
+        // 'added' calls for the six overlays must appear in open order
+        const addCallsInOrder = data.filter(c => c.changed === 'added' && overlayIds.includes(c.id));
+        expect(addCallsInOrder.map(c => c.id)).toEqual(overlayIds);
+
+        // 'removed' must come after 'added' for each overlay (no remove-before-add)
+        for (const id of overlayIds) {
+          const addIdx = data.findIndex(c => c.id === id && c.changed === 'added');
+          const removeIdx = data.findIndex(c => c.id === id && c.changed === 'removed');
+          expect(removeIdx, `${id} 'removed' must come after 'added'`).toBeGreaterThan(addIdx);
+        }
+
+        // No re-entrancy: no component must receive 'removed' twice in a row (corrupted stack)
+        for (let i = 1; i < data.length; i += 1) {
+          const prev = data[i - 1];
+          const curr = data[i];
+          const duplicateRemoved = prev.changed === 'removed' && curr.changed === 'removed' && prev.id === curr.id;
+          expect(duplicateRemoved, `re-entrancy: ${curr.id} should not receive 'removed' twice in a row`).toBe(false);
+        }
+      });
+
+      await test.step('Closing intermediate overlay will close all child and grand-child overlays', async () => {
+        await dialogLvl1Trigger.click();
+        await expect(dialogLvl1).toBeVisible();
+
+        await popupLvl2Trigger.click();
+        await expect(popupLvl2).toBeVisible();
+
+        const closeDialogLvl1Button = componentsPage.page.locator(
+          'mdc-button[part="dialog-close-btn"][aria-label="Close lvl1 dialog"]',
+        );
+
+        await expect(dialogLvl1).toBeVisible();
+        await expect(popupLvl2).toBeVisible();
+
+        // Closing the first level dialog closes all child overlays and focuses back to the trigger
+        await closeDialogLvl1Button.click();
+
+        await expect(dialogLvl1).not.toBeVisible();
+        await expect(popupLvl2).not.toBeVisible();
+
+        await expect(dialogLvl1Trigger).toBeFocused();
+
+        // Re-open dialog lvl 1 and confirm other overlays are closed
+        await dialogLvl1Trigger.click();
+        await expect(dialogLvl1).toBeVisible();
+        await expect(popupLvl2).not.toBeVisible();
+      });
     });
   });
 });

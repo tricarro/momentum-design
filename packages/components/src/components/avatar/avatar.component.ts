@@ -13,24 +13,35 @@ import type { AvatarType } from './avatar.types';
 import { getAvatarIconSize, getAvatarTextFontSize, getPresenceSize } from './avatar.utils';
 
 /**
- * The `mdc-avatar` component is used to represent a person or a space.
- * An avatar can be an icon, initials, counter and photo.
+ * The `mdc-avatar` component represents a person or a space. It displays as a photo, initials, icon, or counter.
  *
- * To set the photo of an avatar,
- * you need to set "src" attribute.
+ * ## Display Priority
  *
- * While the avatar image is loading, as a placeholder,
- * we will show the initials text.
- * If the initials are not specified then,
- * we will show `user-regular` icon as a placeholder.
+ * When multiple attributes are provided, the component determines what to display based on this priority:
+ * 1. **Photo** (`src`) - Takes highest priority
+ *    - While loading: Shows `initials` as placeholder if provided (instant), otherwise shows icon (requires loading)
+ *    - After loading: Shows the photo
+ *    - On error: Placeholder remains visible (initials or icon)
+ * 2. **Icon** (`icon-name`) - Takes priority if no `src` is provided
+ *    - Shows custom icon if `icon-name` is set (requires icon library to load)
+ *    - **Note:** If both `icon-name` and `initials` are provided (without `src`), icon takes precedence and initials are ignored.
+ *      This means users may see a delay while the icon loads, even though initials render instantly.
+ *    - Defaults to `user-regular` icon if no other content is available
+ * 3. **Initials** (`initials`) - Displayed only if no `src` or `icon-name` is provided
+ *    - Shows first two characters, converted to uppercase
+ *    - Renders instantly (no loading required)
+ * 4. **Counter** (`counter`) - Displayed only if none of the above are provided
+ *    - Shows numeric value (max 99+)
+ *    - Negative values display as 0
  *
- * By default, if there are no attributes specified,
- * then the default avatar will be an icon with `user-regular` name.
+ * ## Behavior
+ * - Non-interactive and non-focusable component (use `mdc-avatarbutton` for clickable avatars)
+ * - Shows loading indicator overlay when `is-typing` is true (displays on top of existing content)
+ * - Presence indicator hidden when counter is set or when typing
  *
- * The avatar component is non clickable and non interactive/focusable component.
- * If the avatar is typing, then the loading indicator will be displayed.
- * If the counter type avatar is set to a negative number, then we will display 0.
- * The presence indicator will be hidden when the counter property is set.
+ * ## Accessibility
+ * - By default, the component is hidden from assistive technologies (`aria-hidden="true"`).
+ * - Consumers can override this attribute `aria-hidden="false"` if needed.
  *
  * @dependency mdc-icon
  * @dependency mdc-presence
@@ -47,7 +58,6 @@ import { getAvatarIconSize, getAvatarTextFontSize, getPresenceSize } from './ava
  * @cssproperty --mdc-avatar-loading-overlay-background-color -
  *  Allows customization of the loading overlay background color.
  *
- * @csspart content - The main content of the avatar.
  * @csspart photo - The photo of the avatar.
  * @csspart presence - The presence indicator of the avatar.
  * @csspart loading-wrapper - The wrapper for the loading indicator.
@@ -58,6 +68,15 @@ class Avatar extends AvatarComponentMixin(IconNameMixin(Component)) {
    * @internal
    */
   @state() private isPhotoLoaded = false;
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+
+    // If consumer did NOT specify aria-hidden, set default to true.
+    if (!this.hasAttribute('aria-hidden')) {
+      this.setAttribute('aria-hidden', 'true');
+    }
+  }
 
   /**
    * @internal
@@ -301,10 +320,8 @@ class Avatar extends AvatarComponentMixin(IconNameMixin(Component)) {
   public override render(): TemplateResult {
     const type = this.getTypeBasedOnInputs();
     return html`
-      <div part="content" aria-hidden="true">
-        ${this.getPhotoPlaceHolderContent(type)} ${this.getTemplateBasedOnType(type)} ${this.getLoadingContent()}
-        ${this.getPresenceTemplateBasedOnType(type)}
-      </div>
+      ${this.getPhotoPlaceHolderContent(type)} ${this.getTemplateBasedOnType(type)} ${this.getLoadingContent()}
+      ${this.getPresenceTemplateBasedOnType(type)}
     `;
   }
 

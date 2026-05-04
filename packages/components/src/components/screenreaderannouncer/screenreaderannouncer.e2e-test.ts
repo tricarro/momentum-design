@@ -42,7 +42,7 @@ const setup = async (args: SetupOptions) => {
   const wrapper = componentsPage.page.locator('div#wrapper');
   await wrapper.waitFor();
 
-  const screenReaderAnnouncer = await componentsPage.page.locator('mdc-screenreaderannouncer').first();
+  const screenReaderAnnouncer = componentsPage.page.locator('mdc-screenreaderannouncer').first();
   return { screenReaderAnnouncer };
 };
 
@@ -72,7 +72,7 @@ test('mdc-screenreaderannouncer', async ({ componentsPage }) => {
 
         await expect(screenReaderAnnouncer).toHaveAttribute('announcement', '');
 
-        const ariaLiveRegion = await componentsPage.page
+        const ariaLiveRegion = componentsPage.page
           .locator('[id="mdc-screenreaderannouncer-identity"]')
           .first()
           .locator('div');
@@ -91,7 +91,7 @@ test('mdc-screenreaderannouncer', async ({ componentsPage }) => {
         });
         await expect(screenReaderAnnouncer).toHaveAttribute('announcement', '');
 
-        const ariaLiveRegion = await componentsPage.page
+        const ariaLiveRegion = componentsPage.page
           .locator('[id="mdc-screenreaderannouncer-identity"]')
           .first()
           .locator('div');
@@ -110,7 +110,7 @@ test('mdc-screenreaderannouncer', async ({ componentsPage }) => {
         });
 
         await expect(screenReaderAnnouncer).toHaveAttribute('identity', 'test-identity');
-        const identityAriaLiveRegion = await componentsPage.page.locator('[id="test-identity"]').first().locator('div');
+        const identityAriaLiveRegion = componentsPage.page.locator('[id="test-identity"]').first().locator('div');
         await expect(screenReaderAnnouncer).toHaveAttribute('announcement', '');
         await expect(identityAriaLiveRegion.first().locator('p').first()).toHaveText('Test Announcement 3');
         await expect(identityAriaLiveRegion.first()).toHaveAttribute('aria-live', 'polite');
@@ -126,7 +126,7 @@ test('mdc-screenreaderannouncer', async ({ componentsPage }) => {
         await expect(screenReaderAnnouncer).toHaveCSS('visibility', 'hidden');
       });
       await test.step('screen reader announcer aria live region is visually hidden', async () => {
-        const ariaLiveRegion = await componentsPage.page.locator('[id="mdc-screenreaderannouncer-identity"]').first();
+        const ariaLiveRegion = componentsPage.page.locator('[id="mdc-screenreaderannouncer-identity"]').first();
 
         await expect(ariaLiveRegion).toHaveCSS('clip', 'rect(0px, 0px, 0px, 0px)');
         await expect(ariaLiveRegion).toHaveCSS('clip-path', 'inset(50%)');
@@ -135,6 +135,50 @@ test('mdc-screenreaderannouncer', async ({ componentsPage }) => {
         await expect(ariaLiveRegion).toHaveCSS('position', 'absolute');
         await expect(ariaLiveRegion).toHaveCSS('white-space', 'nowrap');
         await expect(ariaLiveRegion).toHaveCSS('width', '1px');
+      });
+
+      await test.step('aria live region is created in dialog shadow root with textarea', async () => {
+        await componentsPage.mount({
+          html: `
+            <mdc-dialog visible aria-label="Test Dialog">
+              <div slot="dialog-body">
+                <mdc-textarea
+                  id="test-textarea"
+                  label="Test Input"
+                  max-character-limit="50"
+                  character-limit-announcement="%{number-of-characters} of %{max-character-limit} characters used"
+                  value="Test">
+                </mdc-textarea>
+              </div>
+            </mdc-dialog>
+          `,
+          clearDocument: true,
+        });
+
+        const dialog = componentsPage.page.locator('mdc-dialog').first();
+        await dialog.waitFor();
+
+        const textarea = dialog.locator('mdc-textarea#test-textarea').first();
+        await textarea.waitFor();
+
+        // Check that aria-live region was created in dialog's shadow root (not document.body)
+        // The region is created on mount by the textarea's internal screenreaderannouncer
+        const { regionInShadowRoot, regionInBody } = await componentsPage.page.evaluate(() => {
+          const dialog = document.querySelector('mdc-dialog');
+          const textarea = document.querySelector('mdc-textarea');
+
+          // Get textarea's inputId to find the correct region
+          const textareaEl = textarea?.shadowRoot?.querySelector('textarea');
+          const inputId = textareaEl?.id;
+
+          const inShadow = dialog?.shadowRoot?.getElementById(inputId || '') !== null;
+          const inBody = document.getElementById(inputId || '') !== null;
+
+          return { regionInShadowRoot: inShadow, regionInBody: inBody };
+        });
+
+        await expect(regionInShadowRoot).toBe(true);
+        await expect(regionInBody).toBe(false);
       });
     });
     /**
@@ -150,24 +194,114 @@ test('mdc-screenreaderannouncer', async ({ componentsPage }) => {
           timeout: '1000',
         });
 
-        const ariaLiveRegion = await componentsPage.page.locator('[id="mdc-screenreaderannouncer-identity"]').first();
+        const ariaLiveRegion = componentsPage.page.locator('[id="mdc-screenreaderannouncer-identity"]').first();
         const announcement = ariaLiveRegion.locator('div').first().locator('p').first();
         await expect(announcement).toHaveText('Test Announcement 4');
         await expect(componentsPage.page.getByText('Test Announcement 4')).not.toBeVisible();
       });
 
+      // AI-Assisted: add direct coverage for public announce(options) API
+      await test.step('make an announcement using public announce function', async () => {
+        const { screenReaderAnnouncer } = await setup({ componentsPage });
+
+        await componentsPage.page.evaluate(() => {
+          const announcer = document.querySelector('mdc-screenreaderannouncer') as {
+            announce: (options: {
+              announcement: string;
+              delay?: number;
+              timeout?: number;
+              ariaLive?: 'polite' | 'assertive';
+            }) => void;
+          } | null;
+
+          announcer?.announce({
+            announcement: 'Test Announcement via public announce',
+            ariaLive: 'assertive',
+          });
+        });
+
+        const ariaLiveRegion = componentsPage.page.locator('[id="mdc-screenreaderannouncer-identity"]').first();
+        const announcement = ariaLiveRegion.locator('div').first().locator('p').first();
+
+        await expect(announcement).toHaveText('Test Announcement via public announce');
+        await expect(ariaLiveRegion.locator('div').first()).toHaveAttribute('aria-live', 'assertive');
+        await expect(screenReaderAnnouncer).toHaveAttribute('announcement', '');
+      });
+      // End AI-Assisted
+
       await test.step('make multiple announcements', async () => {
         const { screenReaderAnnouncer } = await setup({ componentsPage });
-        const announcements = ['Test Announcement 5', 'Test Announcement 6'];
+        const announcements = [
+          'Test Announcement 5',
+          'Test Announcement 6',
+          'Test Announcement 7',
+          'Test Announcement 8',
+        ];
 
         await componentsPage.setAttributes(screenReaderAnnouncer, { announcement: announcements[0], delay: '10' });
-        await componentsPage.setAttributes(screenReaderAnnouncer, { announcement: announcements[1], delay: '1000' });
+        // add debounce time off 500ms + 10ms (for delay)
+        await componentsPage.page.waitForTimeout(510);
+        await componentsPage.setAttributes(screenReaderAnnouncer, { announcement: announcements[1], delay: '0' });
+        await componentsPage.setAttributes(screenReaderAnnouncer, { announcement: announcements[2], delay: '0' });
+        await componentsPage.setAttributes(screenReaderAnnouncer, { announcement: announcements[3], delay: '1000' });
 
-        const ariaLiveRegion = await componentsPage.page.locator('[id="mdc-screenreaderannouncer-identity"]').first();
+        const ariaLiveRegion = componentsPage.page.locator('[id="mdc-screenreaderannouncer-identity"]').first();
 
         const announcementElements = ariaLiveRegion.locator('div').locator('p');
-        await expect(announcementElements.nth(0)).toHaveText('Test Announcement 5');
-        await expect(announcementElements.nth(1)).toHaveText('Test Announcement 6');
+        await expect(announcementElements.nth(0)).toHaveText(announcements[0]);
+        // announce 1st and 2nd get cancelled as there are announced immediately.
+        await expect(announcementElements.nth(1)).toHaveText(announcements[3]);
+      });
+
+      await test.step('make announcement with textarea inside dialog', async () => {
+        await componentsPage.mount({
+          html: `
+            <mdc-dialog visible aria-label="Test Dialog">
+              <div slot="dialog-body">
+                <mdc-textarea
+                  id="test-textarea"
+                  label="Test Input"
+                  max-character-limit="50"
+                  character-limit-announcement="%{number-of-characters} of %{max-character-limit} characters used"
+                  value="Test">
+                </mdc-textarea>
+              </div>
+            </mdc-dialog>
+          `,
+          clearDocument: true,
+        });
+
+        const dialog = componentsPage.page.locator('mdc-dialog').first();
+        await dialog.waitFor();
+
+        const textarea = dialog.locator('mdc-textarea#test-textarea').first();
+        const textareaInput = textarea.locator('textarea').first();
+
+        // Type to trigger announcement
+        await textareaInput.focus();
+        await textareaInput.fill('Test input');
+
+        // Wait for announcement (debounce: 500ms + delay override by textarea: 500ms + buffer: 200ms)
+        await componentsPage.page.waitForTimeout(1200);
+
+        // Verify the announcement content is present in the dialog's shadow root
+        const announcementContent = await componentsPage.page.evaluate(() => {
+          const dialog = document.querySelector('mdc-dialog');
+          const textarea = document.querySelector('mdc-textarea');
+          const textareaEl = textarea?.shadowRoot?.querySelector('textarea');
+          const inputId = textareaEl?.id;
+
+          const region = dialog?.shadowRoot?.getElementById(inputId || '');
+          const announcementDiv = region?.querySelector('div[aria-live]');
+          const announcementText = announcementDiv?.querySelector('p')?.textContent;
+
+          return announcementText;
+        });
+
+        // Should contain character count information (10 characters of 50 max)
+        expect(announcementContent).toBeTruthy();
+        expect(announcementContent).toContain('10');
+        expect(announcementContent).toContain('50');
       });
     });
   });

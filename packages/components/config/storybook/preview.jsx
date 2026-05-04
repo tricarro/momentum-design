@@ -1,7 +1,7 @@
 import React from 'react';
 import '@momentum-design/fonts/dist/css/fonts.css';
 import '@momentum-design/tokens/dist/css/components/complete.css';
-import { Title, Subtitle, Description } from '@storybook/blocks';
+import { Title, Subtitle, Description } from '@storybook/addon-docs/blocks';
 import { setCustomElementsManifest } from '@storybook/web-components';
 
 import customElements from '../../dist/custom-elements.json';
@@ -9,7 +9,15 @@ import customElements from '../../dist/custom-elements.json';
 import { themes } from './themes';
 import { withThemeProvider } from './provider/themeProvider';
 import { withIconProvider } from './provider/iconProvider';
+import { withIllustrationProvider } from './provider/illustrationProvider';
 import { withCssPropertyProvider } from './provider/cssPropertyProvider';
+import { storyDescription } from './provider/storyDescription';
+import { cssPartEnhancer } from './enhancers/cssPartEnhancer';
+import { cssPropertyEnhancer } from './enhancers/cssPropertyEnchancer';
+import { eventsEnhancer } from './enhancers/eventsEnhancer';
+import { disableSlotControls } from './enhancers/disableSlotControls';
+import { sortArgTypes } from './enhancers/sortArgTypes';
+import { withSpatialNavigationProviderDecorator } from './provider/spatialNavigationProviderDecorator';
 
 const cssProperties = [];
 
@@ -37,15 +45,25 @@ function refactorCustomElements(customElements) {
         name: `Shadow Part Name: "${part.name}"`,
       }));
 
-      const mappedEvents = declaration.events?.map(event => ({
-        ...event,
-        name: `Event Name: "${event.name}"`,
-      }));
+      const mappedEvents = declaration.events
+        ?.filter(event => !!event.name)
+        .map(event => ({
+          ...event,
+          name: `Event Name: "${event.name}"`,
+        }));
 
+      const mappedSlots = declaration.slots?.map(slot =>
+        slot.name === 'default' ? slot : { ...slot, name: `Slot Name: "${slot.name}"` },
+      );
       const attributesMap = new Set(declaration?.attributes?.map(attr => toCamelCase(attr.name)));
       // Filter members based on attributesMap
       const filteredMembers = declaration.members?.filter?.(member => !attributesMap.has(member.name)) ?? [];
-      Object.assign(declaration, { members: filteredMembers, cssParts: mappedParts, events: mappedEvents });
+      Object.assign(declaration, {
+        members: filteredMembers,
+        cssParts: mappedParts,
+        events: mappedEvents,
+        slots: mappedSlots,
+      });
     });
   });
 
@@ -67,9 +85,6 @@ const preview = {
       },
     },
     docs: {
-      source: {
-        excludeDecorators: true,
-      },
       page: () => (
         <>
           <Title />
@@ -77,62 +92,15 @@ const preview = {
           <Description />
         </>
       ),
+      source: {
+        excludeDecorators: true,
+      },
     },
     actions: { argTypesRegex: '^on[A-Z].*' },
     backgrounds: {
       disable: true,
       grid: {
         disable: true,
-      },
-    },
-    badgesConfig: {
-      wip: {
-        styles: {
-          backgroundColor: '#30240D',
-          borderColor: '#D6B220',
-          color: '#FFFFFFF2',
-        },
-        title: 'Work In Progress',
-        tooltip: {
-          title: 'This Component is Work In Progress',
-          desc: 'Keep an eye on the Release history for updates or provide feedback.',
-        },
-      },
-      stable: {
-        styles: {
-          backgroundColor: '#416116',
-          borderColor: '#93C437',
-          color: '#FFFFFFF2',
-        },
-        title: 'Stable',
-        tooltip: {
-          title: 'This Component is Stable',
-          desc: 'Ready for use.',
-        },
-      },
-      internal: {
-        styles: {
-          backgroundColor: '#0D2C3D',
-          borderColor: '#1D9BF0',
-          color: '#FFFFFFF2',
-        },
-        title: 'Internal',
-        tooltip: {
-          title: 'This Component is Internal',
-          desc: 'This component is not intended for direct consumption.',
-        },
-      },
-      deprecated: {
-        styles: {
-          backgroundColor: '#4F0E10',
-          borderColor: '#FC8B98',
-          color: '#FFFFFFF2',
-        },
-        title: 'Deprecated',
-        tooltip: {
-          title: 'This Component is Deprecated',
-          desc: 'Check the Release history for more information about deprecation or provide feedback.',
-        },
       },
     },
     controls: {
@@ -143,12 +111,57 @@ const preview = {
         date: /Date$/,
       },
     },
+    codePreview: {
+      customElements,
+      languages: [
+        {
+          id: 'lit',
+          label: 'Lit',
+          format: 'html',
+          type: 'base',
+          status: 'active',
+        },
+        {
+          id: 'react',
+          label: 'React',
+          format: 'jsx',
+          type: 'inherit',
+          status: 'active',
+        },
+      ],
+      initialLanguageId: 'lit',
+    },
     options: {
-      storySort: (story1, story2) => globalThis['storybook-multilevel-sort:storySort'](story1, story2),
+      storySort: {
+        method: 'alphabetical',
+        order: [
+          'Introduction',
+          'Setup',
+          'Styling',
+          'Attributes',
+          'Providers',
+          'Components',
+          ['Docs', 'Accessibility', 'Example'],
+          'Widgets',
+          ['Docs', 'Accessibility', 'Example'],
+          'Work In Progress',
+          ['Docs', 'Accessibility', 'Example'],
+          'Internal',
+          ['Docs', 'Accessibility', 'Example'],
+        ],
+        locales: 'en-US',
+      },
     },
     direction: 'ltr',
   },
-  decorators: [withCssPropertyProvider(cssProperties), withThemeProvider, withIconProvider],
+  decorators: [
+    withSpatialNavigationProviderDecorator,
+    storyDescription,
+    withCssPropertyProvider(cssProperties),
+    withThemeProvider,
+    withIconProvider,
+    withIllustrationProvider,
+  ],
   globalTypes: {
     theme: {
       description: 'Global theme for components',
@@ -163,7 +176,31 @@ const preview = {
         dynamicTitle: true,
       },
     },
+    spatialNavigation: {
+      description: 'Enable or disable spatial navigation. More details in the "Spatial Navigation Provider" docs',
+      defaultValue: 'disabled',
+      toolbar: {
+        title: 'Spatial Navigation',
+        icon: 'compass',
+        items: [
+          { value: 'arrows', title: 'Spatial Nav On - Arrow keys + Enter + Esc' },
+          { value: 'awsd', title: 'Spatial Nav On - AWSD + E + Q' },
+          { value: 'arrowsWithWrapper', title: 'Spatial Nav On with Wrapper - Arrow keys + Enter + Esc' },
+          { value: 'awsdWithWrapper', title: 'Spatial Nav On with Wrapper - AWSD + E + Q' },
+          { value: 'disabled', title: 'Spatial Nav Off' },
+        ],
+        dynamicTitle: true,
+      },
+    },
   },
 };
+
+export const argTypesEnhancers = [
+  cssPartEnhancer,
+  cssPropertyEnhancer,
+  disableSlotControls,
+  eventsEnhancer,
+  sortArgTypes,
+];
 
 export default preview;

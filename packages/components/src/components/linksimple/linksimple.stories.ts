@@ -1,9 +1,9 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
-import { hideControls, readOnlyControls, textControls } from '../../../config/storybook/utils';
+import { hideControls, readOnlyControls } from '../../../config/storybook/utils';
 
 const render = (args: Args) =>
   html`<mdc-linksimple
@@ -17,7 +17,12 @@ const render = (args: Args) =>
     href="${args.href}"
     target="${args.target}"
     rel="${args.rel}"
-    tabindex="${args.tabIndex}"
+    download="${args.download}"
+    ping="${args.ping}"
+    hreflang="${args.hreflang}"
+    type="${args.type}"
+    referrerpolicy="${args.referrerpolicy}"
+    data-aria-label="${args['data-aria-label']}"
     >${args.children}</mdc-linksimple
   >`;
 
@@ -31,9 +36,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-linksimple',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     children: {
       description: 'Text content to be displayed.',
@@ -57,21 +60,25 @@ const meta: Meta = {
     rel: {
       control: 'text',
     },
-    tabIndex: {
-      control: 'number',
+    download: {
+      control: 'text',
+    },
+    ping: {
+      control: 'text',
+    },
+    hreflang: {
+      control: 'text',
+    },
+    type: {
+      control: 'text',
+    },
+    referrerpolicy: {
+      control: 'text',
+    },
+    'data-aria-label': {
+      control: 'text',
     },
     ...hideControls(['handleNavigation']),
-    ...textControls([
-      '--mdc-link-border-radius',
-      '--mdc-link-color-active',
-      '--mdc-link-color-disabled',
-      '--mdc-link-color-hover',
-      '--mdc-link-color-normal',
-      '--mdc-link-inverted-color-active',
-      '--mdc-link-inverted-color-disabled',
-      '--mdc-link-inverted-color-hover',
-      '--mdc-link-inverted-color-normal',
-    ]),
   },
 };
 
@@ -85,7 +92,6 @@ const defaultArgs = {
   href: 'https://www.webex.com',
   target: '_blank',
   rel: 'noopener noreferrer',
-  tabIndex: 0,
 };
 
 export const Example: StoryObj = {

@@ -1,11 +1,35 @@
 const config = require('../../.eslintrc.js');
 
+const noRestrictedSyntaxRules = [
+  {
+    selector:
+      "Identifier[name='ariaLabelledBy'], Literal[value='ariaLabelledBy'], MemberExpression[property.name='ariaLabelledBy'], TemplateElement[value.raw=/\\ariaLabelledBy/]",
+    message: 'Use "ariaLabelledby" (lowercase b) instead of "ariaLabelledBy".',
+  },
+  {
+    selector:
+      "Identifier[name='arialabelledby'], Literal[value='arialabelledby'], MemberExpression[property.name='arialabelledby'], TemplateElement[value.raw=/\\arialabelledby/]",
+    message: 'Use "ariaLabelledby" (lowercase l and b) instead of "arialabelledby".',
+  },
+  {
+    selector:
+      "Identifier[name='ariaDescribedBy'], Literal[value='ariaDescribedBy'], MemberExpression[property.name='ariaDescribedBy'], TemplateElement[value.raw=/\\ariaDescribedBy/]",
+    message: 'Use "ariaDescribedby" (lowercase b) instead of "ariaDescribedBy".',
+  },
+  {
+    selector:
+      "Identifier[name='ariadescribedby'], Literal[value='ariadescribedby'], MemberExpression[property.name='ariadescribedby'], TemplateElement[value.raw=/\\ariadescribedby/]",
+    message: 'Use "ariaDescribedby" (lowercase d and b) instead of "ariadescribedby".',
+  },
+];
+
 module.exports = {
   ...config,
   extends: [...config.extends, 'plugin:lit/recommended', 'prettier'],
   parserOptions: { ...config.parserOptions, project: ['./tsconfig.json', './src/tsconfig.json'], projectService: true },
   rules: {
     ...config.rules,
+    'no-restricted-syntax': ['error', ...noRestrictedSyntaxRules],
     '@typescript-eslint/no-floating-promises': 'error',
     'no-redeclare': 'off',
     'implicit-arrow-linebreak': 'off',
@@ -46,4 +70,15 @@ module.exports = {
     '*.figma*',
     'jest.config.js',
   ],
+  settings: {
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.tsx'],
+    },
+    'import/resolver': {
+      typescript: {
+        alwaysTryTypes: true, // Always try to resolve types under `<root>@types` directory even if it doesn't contain any source code, like `@types/unist`
+        project: './tsconfig.json',
+      },
+    },
+  },
 };

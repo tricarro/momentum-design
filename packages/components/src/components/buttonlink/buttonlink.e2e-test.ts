@@ -1,8 +1,6 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-restricted-syntax */
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
 import {
   BUTTON_COLORS,
@@ -11,6 +9,7 @@ import {
   ICON_BUTTON_SIZES,
   PILL_BUTTON_SIZES,
 } from '../button/button.constants';
+import { KEYS } from '../../utils/keys';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
@@ -25,7 +24,7 @@ type SetupOptions = {
   target?: string;
   rel?: string;
   children?: any;
-  ariaLabel?: string;
+  dataAriaLabel?: string;
   addPageFooter?: boolean;
 };
 
@@ -69,7 +68,7 @@ const setup = async (args: SetupOptions) => {
           ${restArgs.href ? `href="${restArgs.href}"` : ''}
           ${restArgs.target ? `target="${restArgs.target}"` : ''}
           ${restArgs.rel ? `rel="${restArgs.rel}"` : ''}
-          ${restArgs.ariaLabel ? `aria-label="${restArgs.ariaLabel}"` : ''}
+          ${restArgs.dataAriaLabel ? `data-data-aria-label="${restArgs.dataAriaLabel}"` : ''}
         ></mdc-buttonlink>
         ${restArgs.addPageFooter ? '<div id="content"><p>Test content</p></div></div>' : ''}
         `,
@@ -103,7 +102,7 @@ const attributeTestCases = async (args: SetupOptions, buttonlinkType: string) =>
       await expect(buttonlink).toHaveAttribute('size', DEFAULTS.SIZE.toString());
       await expect(buttonlink).toHaveAttribute('color', DEFAULTS.COLOR);
       await expect(buttonlink).toHaveAttribute('variant', DEFAULTS.VARIANT);
-      await expect(buttonlink).toHaveAttribute('href', '#');
+      await expect(buttonlink).not.toHaveAttribute('href');
       await expect(buttonlink).toHaveAttribute('target', '_self');
     });
   });
@@ -140,7 +139,7 @@ const testForButtonLinkSizes = async (args: SetupOptions, buttonlinkType: string
       const iconSizesToTest = Object.values(ICON_BUTTON_SIZES).filter(size => size !== ICON_BUTTON_SIZES[20]);
       for (const size of iconSizesToTest) {
         await test.step(`attribute size="${size}" should be present on ${buttonlinkType} buttonlink`, async () => {
-          await componentsPage.setAttributes(buttonlink, { size: `${size}`, 'aria-label': 'icon-button-20' });
+          await componentsPage.setAttributes(buttonlink, { size: `${size}`, 'data-aria-label': 'icon-button-20' });
           await expect(buttonlink).toHaveAttribute('size', `${size}`);
         });
       }
@@ -150,7 +149,7 @@ const testForButtonLinkSizes = async (args: SetupOptions, buttonlinkType: string
         await componentsPage.setAttributes(buttonlink, {
           size: `${ICON_BUTTON_SIZES[20]}`,
           variant: BUTTON_VARIANTS.TERTIARY,
-          'aria-label': 'icon-button-20',
+          'data-aria-label': 'icon-button-20',
         });
         await expect(buttonlink).toHaveAttribute('size', `${ICON_BUTTON_SIZES[20]}`);
       });
@@ -218,12 +217,13 @@ test.describe.parallel('mdc-buttonlink', () => {
       const { buttonlinkSheet, commonMount } = await getStickerSheetDetails(componentsPage);
 
       buttonlinkSheet.setChildren('Pill Buttonlink');
+      buttonlinkSheet.setAttributes({ href: '#' });
       await commonMount();
 
-      buttonlinkSheet.setAttributes({ variant: BUTTON_VARIANTS.TERTIARY });
+      buttonlinkSheet.setAttributes({ href: '#', variant: BUTTON_VARIANTS.TERTIARY });
       await buttonlinkSheet.createMarkupWithCombination({ size: PILL_BUTTON_SIZES });
 
-      buttonlinkSheet.setAttributes({ disabled: '' });
+      buttonlinkSheet.setAttributes({ href: '#', disabled: '' });
       await buttonlinkSheet.createMarkupWithCombination({
         size: PILL_BUTTON_SIZES,
         variant: BUTTON_VARIANTS,
@@ -252,13 +252,17 @@ test.describe.parallel('mdc-buttonlink', () => {
       const { buttonlinkSheet, commonMount } = await getStickerSheetDetails(componentsPage);
 
       buttonlinkSheet.setChildren('Pill buttonlink with prefix icon');
-      buttonlinkSheet.setAttributes({ 'prefix-icon': 'placeholder-light' });
+      buttonlinkSheet.setAttributes({ href: '#', 'prefix-icon': 'placeholder-light' });
       await commonMount();
 
-      buttonlinkSheet.setAttributes({ variant: BUTTON_VARIANTS.TERTIARY, 'prefix-icon': 'placeholder-light' });
+      buttonlinkSheet.setAttributes({
+        href: '#',
+        variant: BUTTON_VARIANTS.TERTIARY,
+        'prefix-icon': 'placeholder-light',
+      });
       await buttonlinkSheet.createMarkupWithCombination({ size: PILL_BUTTON_SIZES });
 
-      buttonlinkSheet.setAttributes({ disabled: '', 'prefix-icon': 'placeholder-light' });
+      buttonlinkSheet.setAttributes({ href: '#', disabled: '', 'prefix-icon': 'placeholder-light' });
       await buttonlinkSheet.createMarkupWithCombination({
         size: PILL_BUTTON_SIZES,
         variant: BUTTON_VARIANTS,
@@ -287,14 +291,18 @@ test.describe.parallel('mdc-buttonlink', () => {
       const { buttonlinkSheet, commonMount } = await getStickerSheetDetails(componentsPage);
 
       buttonlinkSheet.setChildren('Pill buttonlink with postfix');
-      buttonlinkSheet.setAttributes({ 'postfix-icon': 'placeholder-light' });
+      buttonlinkSheet.setAttributes({ href: '#', 'postfix-icon': 'placeholder-light' });
 
       await commonMount();
 
-      buttonlinkSheet.setAttributes({ variant: BUTTON_VARIANTS.TERTIARY, 'postfix-icon': 'placeholder-light' });
+      buttonlinkSheet.setAttributes({
+        href: '#',
+        variant: BUTTON_VARIANTS.TERTIARY,
+        'postfix-icon': 'placeholder-light',
+      });
       await buttonlinkSheet.createMarkupWithCombination({ size: PILL_BUTTON_SIZES });
 
-      buttonlinkSheet.setAttributes({ disabled: '', 'postfix-icon': 'placeholder-light' });
+      buttonlinkSheet.setAttributes({ href: '#', disabled: '', 'postfix-icon': 'placeholder-light' });
       await buttonlinkSheet.createMarkupWithCombination({
         size: PILL_BUTTON_SIZES,
         variant: BUTTON_VARIANTS,
@@ -321,17 +329,27 @@ test.describe.parallel('mdc-buttonlink', () => {
       const { buttonlinkSheet, commonMount } = await getStickerSheetDetails(componentsPage);
       const BUTTON_SIZES = { ...PILL_BUTTON_SIZES, 52: 52, 64: 64 };
 
-      buttonlinkSheet.setAttributes({ 'prefix-icon': 'placeholder-light', 'aria-label': 'icon-button' });
+      buttonlinkSheet.setAttributes({
+        href: '#',
+        'prefix-icon': 'placeholder-light',
+        'data-aria-label': 'icon-button',
+      });
       await commonMount(true);
 
       buttonlinkSheet.setAttributes({
+        href: '#',
         'prefix-icon': 'placeholder-light',
         variant: BUTTON_VARIANTS.TERTIARY,
-        'aria-label': 'icon-button',
+        'data-aria-label': 'icon-button',
       });
       await buttonlinkSheet.createMarkupWithCombination({ size: ICON_BUTTON_SIZES });
 
-      buttonlinkSheet.setAttributes({ 'prefix-icon': 'placeholder-light', disabled: '', 'aria-label': 'icon-button' });
+      buttonlinkSheet.setAttributes({
+        href: '#',
+        'prefix-icon': 'placeholder-light',
+        disabled: '',
+        'data-aria-label': 'icon-button',
+      });
       await buttonlinkSheet.createMarkupWithCombination({
         size: BUTTON_SIZES,
         variant: BUTTON_VARIANTS,
@@ -381,6 +399,39 @@ test.describe.parallel('mdc-buttonlink', () => {
 
       await buttonlink.click();
       await expect(componentsPage.page).toHaveURL('https://www.webex.com');
+    });
+
+    await test.step('focus using JavaScript focus() method', async () => {
+      await componentsPage.page.goto(originalURL);
+      const focusableButtonLink = await setup({ componentsPage, addPageFooter: true, href: '#content' });
+
+      // Use JavaScript to focus the element
+      await focusableButtonLink.evaluate((el: HTMLElement) => el.focus());
+
+      // Verify the internal anchor element is focused (delegatesFocus delegates to shadow DOM)
+      const isFocused = await focusableButtonLink.evaluate(el => {
+        const { shadowRoot } = el;
+        if (!shadowRoot) return false;
+        const anchor = shadowRoot.querySelector('a');
+        return document.activeElement === el && anchor === shadowRoot.activeElement;
+      });
+
+      expect(isFocused).toBe(true);
+    });
+  });
+
+  test('interactions', async ({ componentsPage }) => {
+    await test.step('spatial navigation', async () => {
+      const button = await setup({ componentsPage });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(button).toBeFocused();
+
+      const waitForClick = await componentsPage.waitForEvent(button, 'click');
+      await keyboard.press(KEYS.ENTER);
+      await expect(waitForClick).toEventEmitted();
     });
   });
 });

@@ -3,6 +3,7 @@ import { expect } from '@playwright/test';
 import { KEYS } from '../../utils/keys';
 import { ComponentsPage, test } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { htmlRootElementSelector } from '../../../config/playwright/setup/Components.page';
 
 type SetUpOptions = {
   componentsPage: ComponentsPage;
@@ -11,6 +12,7 @@ type SetUpOptions = {
   'header-text'?: string;
   loop?: string;
   'initial-focus'?: number;
+  orientation?: 'vertical' | 'horizontal';
 };
 
 const generateBasicChildren = (count: number) =>
@@ -18,7 +20,7 @@ const generateBasicChildren = (count: number) =>
     .fill(1)
     .map(
       (_, index) => `
-  <mdc-listitem label="List Item ${index + 1}"><mdc-listitem>
+  <mdc-listitem label="List Item ${index + 1}"></mdc-listitem>
 `,
     )
     .join('');
@@ -52,7 +54,7 @@ const setup = async (args: SetUpOptions) => {
   await componentsPage.mount({
     html: `
       <div>
-        <mdc-list loop='${restArgs.loop ?? ''}' initial-focus="${restArgs['initial-focus'] ?? ''}">
+        <mdc-list loop='${restArgs.loop ?? ''}' initial-focus="${restArgs['initial-focus'] ?? ''}" orientation="${restArgs.orientation ?? 'vertical'}">
           ${restArgs['header-text'] ? `<mdc-listheader header-text="${restArgs['header-text']}"></mdc-listheader>` : ''}
           ${restArgs.children ? restArgs.children : ''}
         </mdc-list>
@@ -270,11 +272,112 @@ test('mdc-list', async ({ componentsPage }) => {
         await componentsPage.actionability.pressTab();
         await expect(componentsPage.page.locator('#add-item-button')).toBeFocused();
 
-        await componentsPage.page.keyboard.press('Enter');
+        await componentsPage.page.keyboard.press(KEYS.ENTER);
         await list.locator('mdc-listitem[label="Button List Item"]').waitFor();
 
         await componentsPage.actionability.pressShiftTab();
         await expect(list.locator('mdc-listitem[label="List Item 2"] mdc-button[variant="tertiary"]')).toBeFocused();
+      });
+
+      // AI-Assisted
+      await test.step('should be able to focus a dynamically added item in an initially empty list', async () => {
+        const list = await setup({
+          componentsPage,
+          children: '<mdc-listheader header-text="List Header"></mdc-listheader>',
+        });
+
+        // Verify the list starts with no list items
+        await expect(list.locator('mdc-listitem')).toHaveCount(0);
+
+        // Dynamically add a list item after a delay (mirroring the DelayedChildInsertion story)
+        await list.evaluate(node => {
+          setTimeout(() => {
+            const newItem = document.createElement('mdc-listitem');
+            newItem.setAttribute('label', 'Dynamically Added Item');
+            node.appendChild(newItem);
+          }, 1000);
+        });
+
+        // Wait for the item to appear
+        await list.locator('mdc-listitem[label="Dynamically Added Item"]').waitFor();
+        await expect(list.locator('mdc-listitem')).toHaveCount(1);
+
+        // Tab into the list and verify the dynamically added item is focusable
+        await componentsPage.actionability.pressTab();
+        await expect(list.locator('mdc-listitem[label="Dynamically Added Item"]')).toBeFocused();
+      });
+      // End AI-Assisted
+    });
+
+    await test.step('spatial navigation', async () => {
+      await test.step('generic navigation', async () => {
+        const list = await setup({ componentsPage, children: generateChildren(6), 'header-text': 'List header' });
+        await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+        const { keyboard } = componentsPage.page;
+
+        const listItems = list.locator('mdc-listitem');
+
+        await componentsPage.setAttributes(listItems.nth(1), { disabled: '' });
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(listItems.nth(0)).toBeFocused();
+
+        // Skip disabled list item
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(listItems.nth(2)).toBeFocused();
+
+        await keyboard.press(KEYS.ARROW_LEFT);
+        await expect(listItems.nth(2).locator('mdc-checkbox')).toBeFocused();
+        await keyboard.press(KEYS.ARROW_RIGHT);
+        await expect(listItems.nth(2).locator('mdc-button').nth(0)).toBeFocused();
+        await keyboard.press(KEYS.ARROW_RIGHT);
+        await expect(listItems.nth(2).locator('mdc-button').nth(1)).toBeFocused();
+        await keyboard.press(KEYS.ARROW_LEFT);
+        await expect(listItems.nth(2).locator('mdc-button').nth(0)).toBeFocused();
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(listItems.nth(3)).toBeFocused();
+        await keyboard.press(KEYS.ARROW_RIGHT);
+        await expect(listItems.nth(3).locator('mdc-button').nth(0)).toBeFocused();
+        await keyboard.press(KEYS.ARROW_UP);
+        await expect(listItems.nth(2)).toBeFocused();
+      });
+      await test.step('single list item', async () => {
+        const list = await setup({ componentsPage, children: generateChildren(1), 'header-text': 'List header' });
+        // Add before and after buttons
+        await componentsPage.page.evaluate(
+          ({ htmlRootElementSelector }) => {
+            const snp = document.querySelector(htmlRootElementSelector)!;
+            const btn1 = document.createElement('mdc-button');
+            btn1.textContent = 'before button';
+            btn1.style.margin = 'auto';
+            snp.prepend(btn1);
+            const btn2 = document.createElement('mdc-button');
+            btn2.textContent = 'after button';
+            btn2.style.margin = 'auto';
+            snp.append(btn2);
+          },
+          { htmlRootElementSelector },
+        );
+
+        const { keyboard } = componentsPage.page;
+
+        const listItems = list.locator('mdc-listitem');
+        await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+
+        const beforeBtn = componentsPage.page.getByText('before button');
+        const afterBtn = componentsPage.page.getByText('after button');
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(beforeBtn).toBeFocused();
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(listItems.nth(0)).toBeFocused();
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(afterBtn).toBeFocused();
+
+        await keyboard.press(KEYS.ARROW_UP);
+        await expect(listItems.nth(0)).toBeFocused();
+        await keyboard.press(KEYS.ARROW_UP);
+        await expect(beforeBtn).toBeFocused();
       });
     });
   });
@@ -395,6 +498,247 @@ test('mdc-list', async ({ componentsPage }) => {
       await expect(componentsPage.page.locator('mdc-button')).toBeFocused();
       await componentsPage.actionability.pressShiftTab();
       await expect(listitems.nth(2)).toBeFocused();
+    });
+
+    // AI-Assisted
+    await test.step('should not scroll the list when Space is pressed on a focused listitem', async () => {
+      // tabindex=-1 is needed here to stop Firefox from giving the scrollable region focus instead of the list items
+      await componentsPage.mount({
+        html: `
+          <div style="height: 150px; overflow-y: auto;" tabindex="-1">
+            <mdc-list>
+              ${generateBasicChildren(20)}
+            </mdc-list>
+          </div>
+        `,
+        clearDocument: true,
+      });
+
+      const container = componentsPage.page.locator('mdc-list').first();
+      await container.waitFor();
+
+      await componentsPage.actionability.pressTab();
+      await expect(componentsPage.page.locator('mdc-listitem').first()).toBeFocused();
+
+      const scrollTopBefore = await container.evaluate(el => el.scrollTop);
+
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
+
+      const scrollTopAfter = await container.evaluate(el => el.scrollTop);
+      expect(scrollTopAfter).toBe(scrollTopBefore);
+    });
+    // End AI-Assisted
+  });
+
+  await test.step('should keep the focus on interactive elements inside list items', async () => {
+    const testSteps = async (html: string) => {
+      await componentsPage.mount({
+        html,
+        clearDocument: true,
+      });
+
+      const list = componentsPage.page.locator('mdc-list');
+      await list.waitFor();
+      const listItems = list.locator('mdc-listitem');
+
+      await componentsPage.actionability.pressTab();
+      await expect(listItems.first()).toBeFocused();
+
+      await componentsPage.actionability.pressTab();
+
+      const firstInteractive = listItems.first().locator('mdc-button');
+      await expect(firstInteractive).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(firstInteractive).toBeFocused();
+
+      await componentsPage.actionability.pressAndCheckFocus(KEYS.ARROW_DOWN, [listItems.nth(1)]);
+      await componentsPage.actionability.pressTab();
+
+      const secondInteractive = listItems.nth(1).locator('mdc-toggle');
+      await expect(secondInteractive).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.SPACE);
+      await expect(secondInteractive).toBeFocused();
+      await expect(secondInteractive).toHaveAttribute('checked');
+
+      await componentsPage.actionability.pressAndCheckFocus(KEYS.ARROW_DOWN, [listItems.nth(2)]);
+      await componentsPage.actionability.pressTab();
+
+      const thirdInteractive = listItems.nth(2).locator('mdc-button');
+      await expect(thirdInteractive).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      const menuItem = listItems.nth(2).locator('mdc-menuitem');
+      await expect(menuItem).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+
+      await expect(thirdInteractive).toBeFocused();
+    };
+
+    await test.step('when stock list item used', async () => {
+      await testSteps(`<mdc-list>
+        <mdc-listitem label="List item with button">
+          List item with button
+          <mdc-button slot="trailing-controls" variant="secondary">Action</mdc-button>
+        </mdc-listitem>
+        <mdc-listitem label="List item with toggle">
+          List item with toggle
+          <mdc-toggle slot="trailing-controls" data-aria-label="mock label" size="compact"></mdc-toggle>
+        </mdc-listitem>
+        <mdc-listitem label="List item with badge">
+          List item with menu
+          <div slot="trailing-controls">
+            <mdc-button id="copy-menu-trigger-1" variant="secondary" prefix-icon="more-bold"></mdc-button>
+            <mdc-menupopover triggerID="copy-menu-trigger-1" placement="bottom" show-arrow>
+              <mdc-menuitem label="Copy"></mdc-menuitem>
+            </mdc-menupopover>
+          </div>
+        </mdc-listitem>
+      </mdc-list>
+      `);
+    });
+
+    await test.step('when list item with custom content used', async () => {
+      await testSteps(`
+        <mdc-list>
+          <mdc-listitem label="List item with button">
+            <div slot="content">
+              List item with button
+              <mdc-button slot="trailing-controls" variant="secondary">Action</mdc-button>
+            </div>
+          </mdc-listitem>
+          <mdc-listitem label="List item with toggle">
+            <div slot="content">
+              List item with toggle
+              <mdc-toggle slot="trailing-controls" data-aria-label="mock label" size="compact"></mdc-toggle>
+            </div>
+          </mdc-listitem>
+          <mdc-listitem label="List item with badge">
+            <div slot="content">
+              List item with menu
+              <div slot="trailing-controls">
+                <mdc-button id="copy-menu-trigger-2" variant="secondary" prefix-icon="more-bold"></mdc-button>
+                <mdc-menupopover triggerID="copy-menu-trigger-2" placement="bottom" show-arrow>
+                  <mdc-menuitem label="Copy"></mdc-menuitem>
+                </mdc-menupopover>
+              </div>
+            </div>
+          </mdc-listitem>
+        </mdc-list>
+       `);
+    });
+
+    await test.step('when clicking on a element inside of a focusable element, the focus should remain on the clicked element', async () => {
+      await componentsPage.mount({
+        html: `
+          <mdc-list>
+            <mdc-listitem>
+              <div slot="content">
+                <div tabindex="0" contenteditable="true" data-test="">
+                  <p>This is test text</p>
+                </div>
+              </div>
+            </mdc-listitem>
+          </mdc-list>
+        `,
+        clearDocument: true,
+      });
+
+      await componentsPage.page.locator('div[contenteditable]').locator('p').click();
+      await expect(componentsPage.page.locator('div[contenteditable]')).toBeFocused();
+    });
+  });
+
+  await test.step('horizontal orientation', async () => {
+    await test.step('should navigate with left/right arrow keys in horizontal orientation', async () => {
+      await componentsPage.mount({
+        html: `
+            <mdc-list orientation="horizontal">
+              ${generateChildren(4)}
+            </mdc-list>
+          `,
+        clearDocument: true,
+      });
+
+      const list = componentsPage.page.locator('mdc-list');
+      await list.waitFor();
+      const listItems = list.locator('mdc-listitem');
+
+      // Focus first item
+      await componentsPage.actionability.pressTab();
+      await expect(listItems.nth(0)).toBeFocused();
+
+      // Navigate right to next item
+      await componentsPage.page.keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(listItems.nth(1)).toBeFocused();
+
+      // Navigate right again
+      await componentsPage.page.keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(listItems.nth(2)).toBeFocused();
+
+      // Navigate left to previous item
+      await componentsPage.page.keyboard.press(KEYS.ARROW_LEFT);
+      await expect(listItems.nth(1)).toBeFocused();
+
+      // Home key should move to first item
+      await componentsPage.page.keyboard.press(KEYS.HOME);
+      await expect(listItems.nth(0)).toBeFocused();
+
+      // End key should move to last item
+      await componentsPage.page.keyboard.press(KEYS.END);
+      await expect(listItems.nth(3)).toBeFocused();
+    });
+
+    await test.step('should not navigate with up/down arrow keys in horizontal orientation', async () => {
+      await componentsPage.mount({
+        html: `
+            <mdc-list orientation="horizontal">
+              ${generateChildren(3)}
+            </mdc-list>
+          `,
+        clearDocument: true,
+      });
+
+      const list = componentsPage.page.locator('mdc-list');
+      await list.waitFor();
+      const listItems = list.locator('mdc-listitem');
+
+      // Focus first item
+      await componentsPage.actionability.pressTab();
+      await expect(listItems.nth(0)).toBeFocused();
+
+      // Up/Down arrows should not navigate (focus should remain on first item)
+      await componentsPage.page.keyboard.press(KEYS.ARROW_DOWN);
+      await expect(listItems.nth(0)).toBeFocused();
+
+      await componentsPage.page.keyboard.press(KEYS.ARROW_UP);
+      await expect(listItems.nth(0)).toBeFocused();
+    });
+  });
+
+  await test.step('vertical orientation', async () => {
+    await test.step('should not navigate with left/right arrow keys in vertical orientation', async () => {
+      await componentsPage.mount({
+        html: `
+            <mdc-list orientation="vertical">
+              ${generateChildren(3)}
+            </mdc-list>
+          `,
+        clearDocument: true,
+      });
+
+      const list = componentsPage.page.locator('mdc-list');
+      await list.waitFor();
+      const listItems = list.locator('mdc-listitem');
+
+      // Focus first item
+      await componentsPage.actionability.pressTab();
+      await expect(listItems.nth(0)).toBeFocused();
+
+      // Left/Right arrows should not navigate (focus should remain on first item)
+      await componentsPage.page.keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(listItems.nth(0)).toBeFocused();
+
+      await componentsPage.page.keyboard.press(KEYS.ARROW_LEFT);
+      await expect(listItems.nth(0)).toBeFocused();
     });
   });
 });

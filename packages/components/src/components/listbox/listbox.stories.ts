@@ -3,14 +3,16 @@ import '.';
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
-import { disableControls, hideAllControls, textControls } from '../../../config/storybook/utils';
+import { disableControls, hideAllControls } from '../../../config/storybook/utils';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
 
 import '../option';
 import '../optgroup';
 import '../divider';
+import '../virtualizedlist';
+import './helpers/listboxVirtualizedList.stories.utils';
 import ListBox from './listbox.component';
 
 const wrapWithDiv = (htmlString: TemplateResult) => html`
@@ -21,7 +23,7 @@ const wrapWithDiv = (htmlString: TemplateResult) => html`
 
 const render = (args: Args) =>
   wrapWithDiv(html`
-    <mdc-listbox @change="${action('onchange')}" name="${args.name}" value="${args.value}">
+    <mdc-listbox @change="${action('onchange')}" name="${args.name}" value="${args.value}" ?multiple="${args.multiple}">
       <mdc-option value="london" label="London, UK"></mdc-option>
       <mdc-option selected value="losangeles" label="Los Angeles, CA"></mdc-option>
       <mdc-option value="newyork" label="New York, NY"></mdc-option>
@@ -35,9 +37,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-listbox',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     name: {
       control: 'text',
@@ -45,7 +45,9 @@ const meta: Meta = {
     value: {
       control: 'text',
     },
-    ...textControls(['--mdc-listbox-max-height']),
+    multiple: {
+      control: 'boolean',
+    },
     ...disableControls(['default']),
     ...classArgType,
     ...styleArgType,
@@ -56,7 +58,7 @@ export default meta;
 
 export const Example: StoryObj = {
   args: {
-    value: 'london',
+    value: 'losangeles',
   },
 };
 
@@ -64,10 +66,10 @@ export const ListboxWithSecondaryLabel: StoryObj = {
   render: () =>
     wrapWithDiv(html`
       <mdc-listbox label="Select an option" placeholder="Select an option">
-        <mdc-option label="Option 1" secondary-label="Secondary Label 1"></mdc-option>
-        <mdc-option label="Option 2" secondary-label="Secondary Label 2"></mdc-option>
-        <mdc-option label="Option 3" secondary-label="Secondary Label 3"></mdc-option>
-        <mdc-option label="Option 4" secondary-label="Secondary Label 4"></mdc-option>
+        <mdc-option label="Option 1" secondary-label="Secondary Label 1" value="Option1"></mdc-option>
+        <mdc-option label="Option 2" secondary-label="Secondary Label 2" value="Option2"></mdc-option>
+        <mdc-option label="Option 3" secondary-label="Secondary Label 3" value="Option3"></mdc-option>
+        <mdc-option label="Option 4" secondary-label="Secondary Label 4" value="Option4"></mdc-option>
       </mdc-listbox>
     `),
   ...hideAllControls(),
@@ -104,14 +106,15 @@ export const ListboxWithLongOptionText: StoryObj = {
   render: () =>
     wrapWithDiv(html`
       <mdc-listbox placeholder="Select a color" label="Select one color">
-        <mdc-option label="Red"></mdc-option>
-        <mdc-option label="Yellow"></mdc-option>
+        <mdc-option label="Red" value="red"></mdc-option>
+        <mdc-option label="Yellow" value="yellow"></mdc-option>
         <mdc-option
           label="White and Black are the biggest colors on the spectrum"
           tooltip-text="White and Black are the biggest colors on the spectrum"
           tooltip-placement="bottom"
+          value="whiteblack"
         ></mdc-option>
-        <mdc-option label="Green"></mdc-option>
+        <mdc-option label="Green" value="green"></mdc-option>
       </mdc-listbox>
     `),
   ...hideAllControls(),
@@ -121,40 +124,53 @@ export const ListboxWithIconOptions: StoryObj = {
   render: () =>
     wrapWithDiv(html`
       <mdc-listbox placeholder="Select an option" label="You are in a meeting">
-        <mdc-option prefix-icon="alert-bold" label="Mute notifications"></mdc-option>
-        <mdc-option prefix-icon="apps-bold" label="Add apps"></mdc-option>
-        <mdc-option prefix-icon="stored-info-bold" label="View direct message policy"></mdc-option>
-        <mdc-option prefix-icon="calendar-day-bold" label="Meeting capabilities"></mdc-option>
-        <mdc-option prefix-icon="exit-room-bold" label="Leave"></mdc-option>
+        <mdc-option prefix-icon="alert-bold" label="Mute notifications" value="mute"></mdc-option>
+        <mdc-option prefix-icon="apps-bold" label="Add apps" value="apps"></mdc-option>
+        <mdc-option prefix-icon="stored-info-bold" label="View direct message policy" value="message"></mdc-option>
+        <mdc-option prefix-icon="calendar-day-bold" label="Meeting capabilities" value="meeting"></mdc-option>
+        <mdc-option prefix-icon="exit-room-bold" label="Leave" value="leave"></mdc-option>
       </mdc-listbox>
     `),
   ...hideAllControls(),
 };
 
-export const ListboxWithFixedHeight = {
+export const ListboxWithVirtualizedList: StoryObj = {
   args: {
-    height: '18rem',
     placeholder: 'Select an option',
     label: 'Select option',
   },
   render: (args: Args) =>
     wrapWithDiv(html`
-      <mdc-listbox placeholder="${args.placeholder}" label="${args.label}" style="--mdc-listbox-max-height: 30rem">
-        ${Array.from({ length: 1000 }, (_, i) => html`<mdc-option label="Option Label ${i + 1}"></mdc-option>`)}
+      <mdc-listbox placeholder="${args.placeholder}" label="${args.label}" style="overflow: hidden">
+        <mdc-listboxvirtualizedlist></mdc-listboxvirtualizedlist>
       </mdc-listbox>
     `),
-  argTypes: {
-    ...disableControls(['name', 'data-aria-label', 'disabled', 'required', 'help-text-type', 'help-text']),
+};
+
+export const ListboxWithFixedHeight: StoryObj = {
+  args: {
+    '--mdc-listbox-max-height': '18rem',
+    placeholder: 'Select an option',
+    label: 'Select option',
   },
+  render: (args: Args) =>
+    wrapWithDiv(html`
+      <mdc-listbox placeholder="${args.placeholder}" label="${args.label}">
+        ${Array.from({ length: 1000 }).map((_, i) => html`<mdc-option label="Option Label ${i + 1}"></mdc-option>`)}
+      </mdc-listbox>
+    `),
 };
 
 export const ListboxWithDynamicOptions: StoryObj = {
   render: () => {
-    const options = Array.from({ length: 10 }, (_, i) => html`<mdc-option label="Option ${i + 1}"></mdc-option>`);
+    const options = Array.from(
+      { length: 10 },
+      (_, i) => html`<mdc-option label="Option ${i + 1}" value="option${i + 1}"></mdc-option>`,
+    );
     let extraOption: TemplateResult | null = null;
 
     setTimeout(() => {
-      extraOption = html`<mdc-option label="Delayed Option"></mdc-option>`;
+      extraOption = html`<mdc-option label="Delayed Option" value="optionDelayed"></mdc-option>`;
       const listbox = document.querySelector('mdc-listbox[label="Select option"]');
       if (listbox) {
         const option = document.createElement('mdc-option');
@@ -218,5 +234,39 @@ export const ListboxWithChangingSelectedAfterMount: StoryObj = {
       </mdc-listbox>
     `);
   },
+  ...hideAllControls(),
+};
+
+export const Multiselect: StoryObj = {
+  render: () =>
+    wrapWithDiv(html`
+      <mdc-listbox multiple @change="${action('onchange')}">
+        <mdc-option value="apple" label="Apple"></mdc-option>
+        <mdc-option value="banana" label="Banana" selected></mdc-option>
+        <mdc-option value="cherry" label="Cherry"></mdc-option>
+        <mdc-option value="date" label="Date" selected></mdc-option>
+      </mdc-listbox>
+    `),
+  ...hideAllControls(),
+};
+
+export const ListboxWithAvatarInOptions: StoryObj = {
+  render: () =>
+    wrapWithDiv(html`
+      <mdc-listbox @change="${action('onchange')}">
+        <mdc-option value="user1" label="John Doe" secondary-label="john.doe@example.com">
+          <mdc-avatar slot="leading-controls" src="https://picsum.photos/id/63/256" size="32"></mdc-avatar>
+        </mdc-option>
+        <mdc-option value="user2" label="Jane Smith" secondary-label="jane.smith@example.com">
+          <mdc-avatar slot="leading-controls" src="https://picsum.photos/id/64/256" size="32"></mdc-avatar>
+        </mdc-option>
+        <mdc-option value="user3" label="Bob Wilson" secondary-label="bob.wilson@example.com">
+          <mdc-avatar slot="leading-controls" src="https://picsum.photos/id/65/256" size="32"></mdc-avatar>
+        </mdc-option>
+        <mdc-option value="user4" label="Alice Brown" secondary-label="alice.brown@example.com">
+          <mdc-avatar slot="leading-controls" initials="AB" size="32"></mdc-avatar>
+        </mdc-option>
+      </mdc-listbox>
+    `),
   ...hideAllControls(),
 };

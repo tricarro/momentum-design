@@ -3,12 +3,18 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { property } from 'lit/decorators.js';
 
 import { Component } from '../../models';
-import { FocusTrapMixin } from '../../utils/mixins/FocusTrapMixin';
+import { FocusTrapMixin } from '../../utils/mixins/focus/FocusTrapMixin';
 import { PreventScrollMixin } from '../../utils/mixins/PreventScrollMixin';
 import { TYPE, VALID_TEXT_TAGS } from '../text/text.constants';
 import { BUTTON_VARIANTS, ICON_BUTTON_SIZES } from '../button/button.constants';
 import { FooterMixin } from '../../utils/mixins/FooterMixin';
 import { BackdropMixin } from '../../utils/mixins/BackdropMixin';
+import providerUtils from '../../utils/provider';
+import ResponsiveSettingsContext from '../responsivesettingsprovider/responsiveSettingsContext';
+import ResponsiveSettingsProvider from '../responsivesettingsprovider';
+import { DepthManager, StackChange, type StackedOverlayComponent } from '../../utils/controllers/DepthManager';
+import { KeyDownHandledMixin } from '../../utils/mixins/KeyDownHandledMixin';
+import { ACTIONS, KeyToActionMixin } from '../../utils/mixins/KeyToActionMixin';
 
 import { DEFAULTS } from './dialog.constants';
 import type { DialogRole, DialogSize, DialogVariant } from './dialog.types';
@@ -21,8 +27,12 @@ import styles from './dialog.styles';
  * The dialog is available in 5 sizes: small, medium, large, xlarge and fullscreen. It may also receive custom styling/sizing.
  * The dialog interrupts the user and will block interaction with the rest of the application until it is closed.
  *
+ * Dialog component have 2 variants: default and promotional.
+ *
+ * ## Visibility
+ *
  * The dialog can be controlled solely through the `visible` property, no trigger element is required.
- * If a `triggerId` is provided, the dialog will manage focus with that element, otherwise it will
+ * If a `triggerID` is provided, the dialog will manage focus with that element, otherwise it will
  * remember the previously focused element before the dialog was opened.
  *
  * The dialog is a controlled component, meaning it does not have its own state management for visibility.
@@ -30,16 +40,21 @@ import styles from './dialog.styles';
  * Use the `onClose` event to handle the close action of the dialog (fired when Close button is clicked
  * or Escape is pressed).
  *
- * Dialog component have 2 variants: default and promotional.
+ * ## Accessibility
  *
- * **Accessibility notes for consuming (have to be explicitly set when you consume the component)**
+ * Some attributes have to be explicitly set by the consumer of the component:
  *
  * - The dialog should have an aria-label or aria-labelledby attribute to provide a label for screen readers.
  * - Use aria-labelledby to reference the ID of the element that labels the dialog when there is no visible title.
  *
- * **Note: Programmatic show/hide requires the ? prefix on the visible attribute**
- * - Use `?visible=true/false` as an attribute instead of `visible=true/false`
- * - Reference docs for more info: https://lit.dev/docs/templates/expressions/#boolean-attribute-expressions
+ * ## Responsive design
+ *
+ * Dialog has few built in logic to prevent content clipping on small screens
+ *
+ * - maximum height limited to the viewport height
+ * - dialog body has `overflow: auto` by default
+ * - dialog itself also has `overflow: auto`, it activates only when the body can not shrink more
+ *
  *
  * @dependency mdc-button
  * @dependency mdc-text
@@ -59,6 +74,15 @@ import styles from './dialog.styles';
  * @cssproperty --mdc-dialog-description-text-color - text color of the below header description of the dialog
  * @cssproperty --mdc-dialog-elevation-3 - elevation of the dialog
  * @cssproperty --mdc-dialog-width - width of the dialog
+ * @cssproperty --mdc-dialog-height - height of the dialog
+ * @cssproperty --mdc-dialog-backdrop-color - background color of the backdrop (if backdrop is enabled)
+ *
+ * @csspart body - The body section of the dialog.
+ * @csspart description-text - The description text of the dialog.
+ * @csspart dialog-close-btn - The close button of the dialog.
+ * @csspart header - The header of the dialog.
+ * @csspart header-section - The header section of the dialog.
+ * @csspart header-text - The header text of the dialog.
  *
  * @slot header-prefix - Slot for the dialog header content. This can be used to pass custom header content.
  * @slot dialog-body - Slot for the dialog body content
@@ -70,7 +94,25 @@ import styles from './dialog.styles';
  * @slot footer -  This slot is for passing custom footer content. Only use this if really needed,
  * using the footer-link and footer-button slots is preferred
  */
-class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin(Component)))) {
+class Dialog
+  extends KeyDownHandledMixin(
+    KeyToActionMixin(BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin(Component))))),
+  )
+  implements StackedOverlayComponent
+{
+  /** @internal */
+  protected readonly responsiveSettingsContext = providerUtils.consume<typeof ResponsiveSettingsContext.context>({
+    host: this,
+    context: ResponsiveSettingsProvider.Context,
+    subscribe: true,
+    syncProperties: ['size'],
+  });
+
+  /** track the depth of the popover for z-index calculation
+   * @internal
+   */
+  private depthManager = new DepthManager(this);
+
   /**
    * The unique ID of the dialog
    */
@@ -83,7 +125,7 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
    * @default undefined
    */
   @property({ type: String, reflect: true })
-  triggerId?: string;
+  triggerID?: string;
 
   /**
    * The visibility of the dialog
@@ -95,20 +137,48 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
   visible: boolean = DEFAULTS.VISIBLE;
 
   /**
-   * The z-index of the dialog
+   * The internal z-index of the dialog.
+   * @internal
+   */
+  private internalZIndex?: number;
+
+  /**
+   * The effective z-index of the dialog.
    *
-   * The backdrop will have z-index of `zIndex - 1`
-   * @default 1000
+   * If no explicit `z-index` value is provided, then it automatically calculated
+   * to ensure proper stacking order among multiple overlays.
    */
   @property({ type: Number, reflect: true, attribute: 'z-index' })
-  zIndex: number = DEFAULTS.Z_INDEX;
+  get zIndex() {
+    if (!Number.isInteger(this.internalZIndex)) {
+      return this.depthManager.getHostZIndex();
+    }
+    return this.internalZIndex!;
+  }
+
+  set zIndex(value: number) {
+    this.internalZIndex = value;
+  }
+
+  /**
+   * The internal value helps to restore original size when responsive settings disabled.
+   *
+   * @internal
+   */
+  protected internalSize: DialogSize = DEFAULTS.SIZE;
 
   /**
    * The size of the dialog, can be 'small' (432px width), 'medium' (656px width), 'large' (992px width), 'xlarge' (90% width) or 'fullscreen' (100% width).
    * @default small
    */
   @property({ type: String, reflect: true })
-  size: DialogSize = DEFAULTS.SIZE;
+  get size(): DialogSize {
+    return this.responsiveSettingsContext?.value?.forceFullscreenDialog ? 'fullscreen' : this.internalSize;
+  }
+
+  set size(value: DialogSize) {
+    this.internalSize = value;
+  }
 
   /**
    * The variant of the dialog, can be 'default' or 'promotional'
@@ -141,14 +211,14 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
    * describing the dialog for accessibility
    */
   @property({ type: String, reflect: true, attribute: 'aria-describedby' })
-  ariaDescribedBy: string | null = null;
+  ariaDescribedby: string | null = null;
 
   /**
    * Defines a string value for the aria-description attribute that refers to the element
    * describing the dialog for accessibility
    */
   @property({ type: String, reflect: true, attribute: 'aria-description' })
-  ariaDescription: string | null = null;
+  override ariaDescription: string | null = null;
 
   /**
    * Defines a string value to display as the title of the dialog
@@ -203,6 +273,24 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
   focusTrap: boolean = DEFAULTS.FOCUS_TRAP;
 
   /**
+   * Determines whether a backdrop should be displayed behind the dialog.
+   * By default, a backdrop is present and it will cover the rest of the page and prevent interaction
+   * with other elements while the dialog is open.
+   * When this attribute is set to true, no backdrop will be created.
+   *
+   * @default false
+   */
+  @property({ type: Boolean, reflect: true, attribute: 'hide-backdrop' })
+  hideBackdrop: boolean = DEFAULTS.HIDE_BACKDROP;
+
+  /**
+   * The name of the stack group this dialog belongs to.
+   * Dialogs with the same stack group name will be grouped together.
+   */
+  @property({ type: String, attribute: 'stack-group-name', reflect: true })
+  stackGroupName: string = '';
+
+  /**
    * For now preventScroll is always true as the dialog is a modal component only.
    * This means scroll will be prevented when the dialog is open.
    */
@@ -242,14 +330,12 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
   }
 
   /**
-   * Applies the z-index to the dialog and backdrop elements.
-   * The dialog will have a z-index of `zIndex` and the backdrop will have a z-index of `zIndex - 1`.
+   * Applies the z-index to the dialog element.
    *
    * @internal
    */
   private applyZIndex() {
     this.style.setProperty('z-index', `${this.zIndex}`);
-    this.backdropElement?.style.setProperty('z-index', `${this.zIndex - 1}`);
   }
 
   protected override async firstUpdated(changedProperties: PropertyValues) {
@@ -267,8 +353,8 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
   protected override async updated(changedProperties: PropertyValues) {
     super.updated(changedProperties);
 
-    if (changedProperties.has('triggerId')) {
-      this.triggerElement = (this.getRootNode() as Document | ShadowRoot).querySelector(`[id="${this.triggerId}"]`);
+    if (changedProperties.has('triggerID')) {
+      this.triggerElement = (this.getRootNode() as Document | ShadowRoot).querySelector(`[id="${this.triggerID}"]`);
       this.setupAriaHasPopup();
     }
 
@@ -292,8 +378,8 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
 
     if (
       changedProperties.has('ariaLabel') ||
-      changedProperties.has('ariaLabelledBy') ||
-      changedProperties.has('ariaDescribedBy') ||
+      changedProperties.has('ariaLabelledby') ||
+      changedProperties.has('ariaDescribedby') ||
       changedProperties.has('ariaDescription') ||
       changedProperties.has('headerText') ||
       changedProperties.has('descriptionText')
@@ -327,7 +413,7 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
 
   /**
    * Sets up the aria-labelledby and aria-describedby attributes for the dialog.
-   * If no header text or description text is provided, it will point to the the triggerId if available.
+   * If no header text or description text is provided, it will point to the the triggerID if available.
    * If neither is provided, it will not set the attributes.
    *
    * @internal
@@ -337,17 +423,17 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
     if (!this.ariaLabelledby && !this.ariaLabel) {
       if (this.headerText) {
         this.setAttribute('aria-label', this.headerText);
-      } else if (this.triggerId) {
-        this.setAttribute('aria-labelledby', this.triggerId);
+      } else if (this.triggerID) {
+        this.setAttribute('aria-labelledby', this.triggerID);
       }
     }
 
     // If aria-describedby or aria-description is already set, do not override it
-    if (!this.ariaDescribedBy && !this.ariaDescription) {
+    if (!this.ariaDescribedby && !this.ariaDescription) {
       if (this.descriptionText) {
         this.setAttribute('aria-description', this.descriptionText);
-      } else if (this.triggerId) {
-        this.setAttribute('aria-describedby', this.triggerId);
+      } else if (this.triggerID) {
+        this.setAttribute('aria-describedby', this.triggerID);
       }
     }
   }
@@ -358,6 +444,8 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
    * has to be done by the consumer of the component.
    */
   private closeDialog() {
+    this.depthManager.popHost();
+
     DialogEventManager.onCloseDialog(this, false);
   }
 
@@ -367,7 +455,7 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
    * @param event - The keyboard event.
    */
   private onEscapeKeydown = (event: KeyboardEvent) => {
-    if (!this.visible || event.code !== 'Escape') {
+    if (!this.visible || this.getActionForKeyEvent(event) !== ACTIONS.ESCAPE || !this.depthManager.isHostOnTop()) {
       return;
     }
 
@@ -375,9 +463,18 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
     // Prevent the event from propagating to the document level
     // pressing escape on a dialog should only close the dialog, nothing else
     event.stopPropagation();
-
+    this.keyDownEventHandled();
     this.closeDialog();
   };
+
+  /** @internal */
+  onComponentStackChanged(changed: StackChange): void {
+    if (changed === 'removed') {
+      this.visible = false;
+    } else if (changed === 'moved') {
+      this.requestUpdate('zIndex');
+    }
+  }
 
   /**
    * Handles the dialog visibility change.
@@ -392,12 +489,19 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
     }
 
     if (newValue && !oldValue) {
+      if (this.depthManager.pushHost()) {
+        // request update to trigger zIndex recalculation
+        this.requestUpdate('zIndex');
+      }
       // Store the currently focused element before opening the dialog
       this.lastActiveElement = document.activeElement as HTMLElement;
 
-      // remove any existing backdrop and create a new one
-      this.removeBackdrop();
-      this.createBackdrop('dialog');
+      // create backdrop if enabled
+      if (!this.hideBackdrop) {
+        // remove any existing backdrop and create a new one
+        this.removeBackdrop();
+        this.createBackdrop('dialog');
+      }
 
       this.activatePreventScroll();
 
@@ -412,6 +516,10 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
 
       DialogEventManager.onShowDialog(this);
     } else if (!newValue && oldValue) {
+      this.depthManager.popHost();
+
+      // Always remove backdrop if it exists, regardless of current hideBackdrop value
+      // This handles the case where hideBackdrop was changed while dialog was open
       this.removeBackdrop();
 
       // Set aria-expanded attribute on the trigger element to false if it exists
@@ -442,31 +550,51 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
     }
   }
 
+  /**
+   * Abstracting the renderHeader to allow for overrides of
+   * extending components
+   * @internal
+   */
+  protected renderHeader() {
+    return this.headerText
+      ? html` <div part="header-section">
+          <div part="header">
+            <slot name="header-prefix"></slot>
+            <mdc-text
+              part="header-text"
+              tagname="${VALID_TEXT_TAGS[this.headerTagName.toUpperCase() as keyof typeof VALID_TEXT_TAGS]}"
+              type="${TYPE.BODY_LARGE_BOLD}"
+            >
+              ${this.headerText}
+            </mdc-text>
+          </div>
+          ${this.descriptionText
+            ? html`<mdc-text
+                part="description-text"
+                tagname="${VALID_TEXT_TAGS[this.descriptionTagName.toUpperCase() as keyof typeof VALID_TEXT_TAGS]}"
+                type="${TYPE.BODY_MIDSIZE_REGULAR}"
+              >
+                ${this.descriptionText}
+              </mdc-text>`
+            : nothing}
+        </div>`
+      : nothing;
+  }
+
+  /**
+   * Abstracting the renderBody to allow for overrides of
+   * extending components
+   * @internal
+   */
+  protected renderBody() {
+    return html` <div part="body">
+      <slot name="dialog-body"></slot>
+    </div>`;
+  }
+
   public override render() {
     return html`
-      ${this.headerText
-        ? html` <div part="header-section">
-            <div part="header">
-              <slot name="header-prefix"></slot>
-              <mdc-text
-                part="header-text"
-                tagname="${VALID_TEXT_TAGS[this.headerTagName.toUpperCase() as keyof typeof VALID_TEXT_TAGS]}"
-                type="${TYPE.BODY_LARGE_BOLD}"
-              >
-                ${this.headerText}
-              </mdc-text>
-            </div>
-            ${this.descriptionText
-              ? html`<mdc-text
-                  part="description-text"
-                  tagname="${VALID_TEXT_TAGS[this.descriptionTagName.toUpperCase() as keyof typeof VALID_TEXT_TAGS]}"
-                  type="${TYPE.BODY_MIDSIZE_REGULAR}"
-                >
-                  ${this.descriptionText}
-                </mdc-text>`
-              : nothing}
-          </div>`
-        : nothing}
+      ${this.renderHeader()}
       <mdc-button
         part="dialog-close-btn"
         prefix-icon="${DEFAULTS.CANCEL_ICON}"
@@ -475,10 +603,7 @@ class Dialog extends BackdropMixin(PreventScrollMixin(FocusTrapMixin(FooterMixin
         aria-label="${ifDefined(this.closeButtonAriaLabel) || ''}"
         @click="${this.closeDialog}"
       ></mdc-button>
-      <div part="body">
-        <slot name="dialog-body"></slot>
-      </div>
-      ${this.renderFooter()}
+      ${this.renderBody()} ${this.renderFooter()}
     `;
   }
 

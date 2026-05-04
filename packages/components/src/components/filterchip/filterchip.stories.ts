@@ -1,7 +1,7 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
 import { hideControls } from '../../../config/storybook/utils';
@@ -18,13 +18,11 @@ const render = (args: Args) =>
   ></mdc-filterchip>`;
 
 const meta: Meta = {
-  title: 'Components/chip/filter',
+  title: 'Components/chip/filterchip',
   tags: ['autodocs'],
   component: 'mdc-filterchip',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     label: {
       control: 'text',

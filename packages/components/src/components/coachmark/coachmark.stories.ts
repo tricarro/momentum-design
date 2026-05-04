@@ -1,25 +1,36 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
-import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
-
 import '.';
+import { html } from 'lit';
+import { action } from 'storybook/actions';
+import { ifDefined } from 'lit/directives/if-defined.js';
+
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
 import popoverMeta from '../popover/popover.stories';
 import { DEFAULTS as POPOVER_DEFAULTS } from '../popover/popover.constants';
 import { hideControls } from '../../../config/storybook/utils';
+import { ROLE } from '../../utils/roles';
 
 import { DEFAULTS } from './coachmark.constants';
 import type Coachmark from './coachmark.component';
 
+import '../button';
+import '../list';
+import '../listitem';
+import '../text';
+
 const render = (args: Args) => html`
-  <div style="height: 50vh; display: inline-block">
-    <mdc-button @click="${() => (document.getElementById(args.id) as Coachmark | undefined)?.show()}">
-      open
-    </mdc-button>
-    <mdc-button @click="${() => (document.getElementById(args.id) as Coachmark | undefined)?.hide()}">
-      close
-    </mdc-button>
-    <mdc-text id="${args.triggerID}">Anchor</mdc-text>
+  <div style="height: 50vh; display: inline-block" role="${ROLE.MAIN}">
+    <div style="display: flex; gap: 0.5rem;">
+      <mdc-button @click="${() => (document.getElementById(args.id) as Coachmark | undefined)?.show()}">
+        open
+      </mdc-button>
+      <mdc-button @click="${() => (document.getElementById(args.id) as Coachmark | undefined)?.hide()}">
+        close
+      </mdc-button>
+    </div>
+    <mdc-list>
+      <mdc-listitem id="${args.triggerID}" label="Anchor Content"></mdc-listitem>
+    </mdc-list>
     <mdc-coachmark
       id="${args.id}"
       triggerID="${args.triggerID}"
@@ -32,7 +43,7 @@ const render = (args: Args) => html`
       ?interactive=${args.interactive}
       ?focus-trap=${args['focus-trap']}
       ?show-arrow=${args['show-arrow']}
-      ?flip=${args.flip}
+      ?disable-flip=${args['disable-flip']}
       ?size=${args.size}
       ?backdrop=${args.backdrop}
       ?close-button=${args['close-button']}
@@ -47,12 +58,31 @@ const render = (args: Args) => html`
       aria-labelledby="${args['aria-labelledby']}"
       aria-describedby="${args['aria-describedby']}"
       role="${args.role}"
+      ?disable-aria-expanded="${args['disable-aria-expanded']}"
+      ?keep-connected-tooltip-open="${args['keep-connected-tooltip-open']}"
+      backdrop-append-to="${ifDefined(args['backdrop-append-to'])}"
+      ?is-backdrop-invisible="${args['is-backdrop-invisible']}"
+      boundary="${ifDefined(args.boundary)}"
+      boundary-padding="${ifDefined(args['boundary-padding'])}"
+      boundary-root="${ifDefined(args['boundary-root'])}"
+      strategy="${ifDefined(args.strategy)}"
       @shown="${action('onshown')}"
       @hidden="${action('onhidden')}"
       @created="${action('oncreated')}"
       @destroyed="${action('ondestroyed')}"
+      style="${args.style}"
+      class="${args.class}"
     >
-      <mdc-text>Lorem ipsum dolor sit amet.</mdc-text>
+      <mdc-text type="body-midsize-bold" tagname="div">Coachmark</mdc-text>
+      <mdc-text type="body-midsize-regular" tagname="div"
+        >This is a sample coach mark. Follow me to walk you through different ways that I can be used.</mdc-text
+      >
+      <div style="display: flex; flex-direction: row-reverse; gap: .5rem; margin-top: 0.75rem;">
+        <mdc-button variant="primary" inverted>Next</mdc-button>
+        <mdc-button style="--mdc-button-border-color: var(--mds-color-theme-inverted-outline-button-normal);"
+          >Back</mdc-button
+        >
+      </div>
     </mdc-coachmark>
   </div>
 `;
@@ -62,14 +92,12 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-coachmark',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     ...classArgType,
     ...styleArgType,
     ...popoverMeta.argTypes,
-    ...hideControls(['color']),
+    ...hideControls(['color', 'show-arrow']),
   },
 };
 
@@ -95,9 +123,10 @@ export const Example: StoryObj = {
     'hide-on-outside-click': POPOVER_DEFAULTS.HIDE_ON_CLICK_OUTSIDE,
     'focus-back-to-trigger': POPOVER_DEFAULTS.FOCUS_BACK,
     backdrop: POPOVER_DEFAULTS.BACKDROP,
-    flip: POPOVER_DEFAULTS.FLIP,
+    'disable-flip': POPOVER_DEFAULTS.DISABLE_FLIP,
     size: POPOVER_DEFAULTS.SIZE,
     'z-index': POPOVER_DEFAULTS.Z_INDEX,
     role: POPOVER_DEFAULTS.ROLE,
+    style: 'width: 17.5rem; height: 9rem;',
   },
 };

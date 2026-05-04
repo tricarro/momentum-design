@@ -7,6 +7,7 @@ import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
 import { VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
 import { getHelperIcon } from '../formfieldwrapper/formfieldwrapper.utils';
 import type { AutoCapitalizeType } from '../input/input.types';
+import { KEYS } from '../../utils/keys';
 
 import type { AutoCompleteType, WrapType } from './textarea.types';
 
@@ -33,6 +34,8 @@ type SetupOptions = {
   autocomplete?: AutoCompleteType;
   dirname?: string;
   dataAriaLabel?: string;
+  resizable?: boolean;
+  resizeButtonAriaLabel?: string;
   secondButtonForFocus?: boolean;
 };
 
@@ -64,6 +67,8 @@ const setup = async (args: SetupOptions, isForm = false) => {
       ${restArgs.autocomplete ? `autocomplete="${restArgs.autocomplete}"` : ''}
       ${restArgs.dirname ? `dirname="${restArgs.dirname}"` : ''}
       ${restArgs.dataAriaLabel ? `data-aria-label="${restArgs.dataAriaLabel}"` : ''}
+      ${restArgs.resizable ? 'resizable' : ''}
+      ${restArgs.resizeButtonAriaLabel ? `resize-button-aria-label="${restArgs.resizeButtonAriaLabel}"` : ''}
       ></mdc-textarea>
       ${restArgs.secondButtonForFocus ? '<mdc-button>Second Button</mdc-button></div>' : ''}
     ${isForm ? '<mdc-button type="submit" size="24">Submit</mdc-button></form>' : ''}
@@ -80,7 +85,7 @@ const setup = async (args: SetupOptions, isForm = false) => {
   return textarea;
 };
 
-test.use({ viewport: { width: 800, height: 1200 } });
+test.use({ viewport: { width: 800, height: 2000 } });
 test('mdc-textarea', async ({ componentsPage }) => {
   /**
    * ATTRIBUTES
@@ -120,7 +125,7 @@ test('mdc-textarea', async ({ componentsPage }) => {
       await componentsPage.setAttributes(mdcTextarea, { 'max-character-limit': '100' });
       await expect(mdcTextarea).toHaveAttribute('max-character-limit', '100');
       const characterCounter = mdcTextarea.locator('mdc-text[part="character-counter"]');
-      await expect(characterCounter).toHaveText('00/100');
+      await expect(characterCounter).toHaveText('0/100');
       await componentsPage.removeAttribute(mdcTextarea, 'max-character-counter');
     });
 
@@ -192,6 +197,26 @@ test('mdc-textarea', async ({ componentsPage }) => {
       await expect(mdcTextarea).toHaveAttribute('dirname', 'ltr');
       await componentsPage.removeAttribute(mdcTextarea, 'dirname');
     });
+
+    await test.step('attribute resizable should control resize button visibility', async () => {
+      const resizeButton = mdcTextarea.locator('mdc-button[part="resize-button"]');
+      await expect(resizeButton).toHaveCount(0);
+      await componentsPage.setAttributes(mdcTextarea, { resizable: '' });
+      await expect(resizeButton).toHaveCount(1);
+      await expect(resizeButton).toBeVisible();
+      await componentsPage.removeAttribute(mdcTextarea, 'resizable');
+    });
+
+    await test.step('attribute resize-button-aria-label should be present on component', async () => {
+      await componentsPage.setAttributes(mdcTextarea, { resizable: '' });
+      const resizeButton = mdcTextarea.locator('mdc-button[part="resize-button"]');
+      await expect(resizeButton).toHaveAttribute('aria-label', '');
+      await componentsPage.setAttributes(mdcTextarea, { 'resize-button-aria-label': 'Resize textarea' });
+      await expect(mdcTextarea).toHaveAttribute('resize-button-aria-label', 'Resize textarea');
+      await expect(resizeButton).toHaveAttribute('aria-label', 'Resize textarea');
+      await componentsPage.removeAttribute(mdcTextarea, 'resize-button-aria-label');
+      await componentsPage.removeAttribute(mdcTextarea, 'resizable');
+    });
   });
 
   /**
@@ -204,7 +229,9 @@ test('mdc-textarea', async ({ componentsPage }) => {
       label: 'Label',
       'help-text': 'Help Text',
       rows: 3,
-      cols: 12,
+      style: 'width: 135px',
+      resizable: '',
+      'resize-button-aria-label': 'Resize textarea',
     };
     const textareaStickerSheet = new StickerSheet(componentsPage, 'mdc-textarea');
 
@@ -213,12 +240,17 @@ test('mdc-textarea', async ({ componentsPage }) => {
       'help-text-type': VALIDATION,
     });
 
-    // textarea field with rows set to 7 & cols to 30
-    textareaStickerSheet.setAttributes({ ...attributes, rows: 5, cols: 30 });
+    // textarea field with rows set to 5 & width to 330px
+    textareaStickerSheet.setAttributes({ ...attributes, rows: 5, style: 'width: 330px; margin-top: 0.5rem' });
     await textareaStickerSheet.createMarkupWithCombination({});
 
     // textarea field with max-character-limit set to 100
-    textareaStickerSheet.setAttributes({ ...attributes, 'max-character-limit': 100, value: 'Example Text', cols: 30 });
+    textareaStickerSheet.setAttributes({
+      ...attributes,
+      'max-character-limit': 100,
+      value: 'Example Text',
+      style: 'width: 330px; margin-top: 0.5rem',
+    });
     await textareaStickerSheet.createMarkupWithCombination({});
 
     // textarea field with max-character-limit set to 10 & value exceeding the limit
@@ -228,16 +260,38 @@ test('mdc-textarea', async ({ componentsPage }) => {
       value: 'This is a long text',
       'help-text': 'Input must not exceed 10 characters',
       'help-text-type': 'error',
-      cols: 30,
+      style: 'width: 330px; margin-top: 0.5rem',
     });
     await textareaStickerSheet.createMarkupWithCombination({});
 
     // disabled textarea field with value
-    textareaStickerSheet.setAttributes({ ...attributes, value: 'Disabled', disabled: '', cols: 30 });
+    textareaStickerSheet.setAttributes({
+      ...attributes,
+      value: 'Disabled',
+      disabled: '',
+      style: 'width: 330px; margin-top: 0.5rem',
+      'toggletip-text': 'This is additional toggletip text that provides more context',
+      'info-icon-aria-label': 'Additional information',
+    });
+    await textareaStickerSheet.createMarkupWithCombination({});
+
+    // Short width test for word wrapping
+    textareaStickerSheet.setAttributes({
+      ...attributes,
+      label: 'This is a very long label text that should wrap when constrained to a narrow width',
+      style: 'width: 7.5rem; margin-top: 0.5rem',
+      'toggletip-text': 'This is additional toggletip text that provides more context',
+      'info-icon-aria-label': 'Additional information',
+    });
     await textareaStickerSheet.createMarkupWithCombination({});
 
     // readonly textarea field with value
-    textareaStickerSheet.setAttributes({ ...attributes, value: 'Readonly value', readonly: '', cols: 30 });
+    textareaStickerSheet.setAttributes({
+      ...attributes,
+      value: 'Readonly value',
+      readonly: '',
+      style: 'width: 330px; margin-top: 0.5rem',
+    });
     await textareaStickerSheet.createMarkupWithCombination({});
 
     // textarea that is marked required
@@ -245,7 +299,17 @@ test('mdc-textarea', async ({ componentsPage }) => {
       ...attributes,
       required: 'required',
       placeholder: 'Textarea is required',
-      cols: 30,
+      style: 'width: 330px; margin-top: 0.5rem',
+    });
+    await textareaStickerSheet.createMarkupWithCombination({});
+
+    // textarea field with long help-text for word wrapping
+    textareaStickerSheet.setAttributes({
+      ...attributes,
+      'help-text':
+        'This is a very long help text that should wrap appropriately when the textarea has a constrained width to ensure readability',
+      'help-text-type': 'info',
+      style: 'width: 330px; margin-top: 0.5rem',
     });
     await textareaStickerSheet.createMarkupWithCombination({});
 
@@ -274,42 +338,172 @@ test('mdc-textarea', async ({ componentsPage }) => {
       placeholder: 'Placeholder',
       label: 'Label',
       helpText: 'Help Text',
+      resizable: true,
       secondButtonForFocus: true,
     });
     const textareaElement = mdcTextarea.locator('textarea');
+    const resizeButton = mdcTextarea.locator('mdc-button[part="resize-button"]');
+
+    // Helper function to simulate pointer drag on resize button
+    const simulateResizeDrag = async (rowChange: number) => {
+      const resizeBtn = mdcTextarea.locator('mdc-button[part="resize-button"]');
+      const textareaEl = mdcTextarea.locator('textarea');
+
+      const lineHeight = await textareaEl.evaluate(el => parseFloat(window.getComputedStyle(el).lineHeight));
+      const box = await resizeBtn.boundingBox();
+      if (!box) throw new Error('Resize button not found');
+
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      await componentsPage.page.mouse.move(centerX, centerY);
+      await componentsPage.page.mouse.down();
+      await componentsPage.page.mouse.move(centerX, centerY + lineHeight * rowChange, { steps: 5 });
+      await componentsPage.page.mouse.up();
+    };
+
     await test.step('component should be focusable with tab', async () => {
       await componentsPage.actionability.pressTab();
       await expect(mdcTextarea).toBeFocused();
       await textareaElement.fill('test');
       await expect(textareaElement).toHaveValue('test');
       await componentsPage.actionability.pressTab();
+      await expect(resizeButton).toBeFocused();
+      await componentsPage.actionability.pressTab();
       await expect(mdcTextarea).not.toBeFocused();
     });
 
     await test.step('readonly component should be focusable with tab but not editable', async () => {
-      await setup({ componentsPage, value: 'Readonly', readonly: true, secondButtonForFocus: true });
+      await setup({ componentsPage, value: 'Readonly', readonly: true, resizable: true, secondButtonForFocus: true });
       await componentsPage.actionability.pressTab();
       await expect(mdcTextarea).toBeFocused();
       await expect(textareaElement).toHaveValue('Readonly');
       await textareaElement.press('A');
       await expect(textareaElement).toHaveValue('Readonly');
       await componentsPage.actionability.pressTab();
+      await expect(resizeButton).not.toBeFocused();
+      await expect(resizeButton).toBeDisabled();
+      await componentsPage.actionability.pressTab();
       await expect(mdcTextarea).not.toBeFocused();
       await componentsPage.removeAttribute(mdcTextarea, 'readonly');
     });
 
     await test.step('component should not be focusable when disabled', async () => {
-      await setup({ componentsPage, disabled: true, value: 'Disabled' });
+      await setup({ componentsPage, disabled: true, value: 'Disabled', resizable: true });
       await componentsPage.actionability.pressTab();
       await expect(mdcTextarea).not.toBeFocused();
       await expect(textareaElement).toHaveValue('Disabled');
+      await expect(resizeButton).toBeDisabled();
+      await componentsPage.removeAttribute(mdcTextarea, 'disabled');
+    });
+
+    await test.step('resize button should be functional with keyboard (ArrowUp/ArrowDown)', async () => {
+      await setup({
+        componentsPage,
+        value: 'Test textarea',
+        rows: 5,
+        resizable: true,
+        resizeButtonAriaLabel: 'Resize',
+        secondButtonForFocus: true,
+      });
+      const resizeBtn = mdcTextarea.locator('mdc-button[part="resize-button"]');
+
+      // Tab to textarea, then tab to resize button
+      await componentsPage.actionability.pressTab();
+      await expect(mdcTextarea).toBeFocused();
+      await componentsPage.actionability.pressTab();
+      await expect(resizeBtn).toBeFocused();
+
+      // Press ArrowDown to increase rows
+      await componentsPage.page.keyboard.press('ArrowDown');
+      await expect(mdcTextarea).toHaveAttribute('rows', '6');
+      await componentsPage.page.keyboard.press('ArrowDown');
+      await expect(mdcTextarea).toHaveAttribute('rows', '7');
+
+      // Press ArrowUp to decrease rows
+      await componentsPage.page.keyboard.press('ArrowUp');
+      await expect(mdcTextarea).toHaveAttribute('rows', '6');
+      await componentsPage.page.keyboard.press('ArrowUp');
+      await expect(mdcTextarea).toHaveAttribute('rows', '5');
+    });
+
+    await test.step('resize button keyboard interaction should not work when readonly', async () => {
+      await setup({
+        componentsPage,
+        value: 'Readonly textarea',
+        rows: 5,
+        readonly: true,
+        resizable: true,
+        resizeButtonAriaLabel: 'Resize',
+        secondButtonForFocus: true,
+      });
+
+      await componentsPage.actionability.pressTab();
+      await expect(mdcTextarea).toBeFocused();
+      await componentsPage.actionability.pressTab();
+      // Should skip the disabled resize button
+      await expect(mdcTextarea).not.toBeFocused();
+      // Verify rows haven't changed
+      await expect(mdcTextarea).toHaveAttribute('rows', '5');
+      await componentsPage.removeAttribute(mdcTextarea, 'readonly');
+    });
+
+    await test.step('resize button should work with pointer/mouse drag', async () => {
+      await setup({
+        componentsPage,
+        value: 'Test textarea',
+        rows: 5,
+        resizable: true,
+        resizeButtonAriaLabel: 'Resize',
+        secondButtonForFocus: true,
+      });
+
+      // Drag down by 2 line heights to increase rows
+      await simulateResizeDrag(2);
+      await expect(mdcTextarea).toHaveAttribute('rows', '7');
+      // Drag up by 1 line height to decrease rows
+      await simulateResizeDrag(-1);
+      await expect(mdcTextarea).toHaveAttribute('rows', '6');
+    });
+
+    await test.step('resize button pointer interaction should not work when readonly', async () => {
+      await setup({
+        componentsPage,
+        value: 'Readonly textarea',
+        rows: 5,
+        readonly: true,
+        resizable: true,
+        resizeButtonAriaLabel: 'Resize',
+        secondButtonForFocus: true,
+      });
+
+      // Try to drag - should not change rows
+      await simulateResizeDrag(2);
+      await expect(mdcTextarea).toHaveAttribute('rows', '5');
+      await componentsPage.removeAttribute(mdcTextarea, 'readonly');
+    });
+
+    await test.step('resize button pointer interaction should not work when disabled', async () => {
+      await setup({
+        componentsPage,
+        value: 'Disabled textarea',
+        rows: 5,
+        disabled: true,
+        resizable: true,
+        resizeButtonAriaLabel: 'Resize',
+        secondButtonForFocus: true,
+      });
+
+      // Try to drag - should not change rows
+      await simulateResizeDrag(2);
+      await expect(mdcTextarea).toHaveAttribute('rows', '5');
       await componentsPage.removeAttribute(mdcTextarea, 'disabled');
     });
 
     await test.step('component should have character counter when max-character-limit is set', async () => {
       await componentsPage.setAttributes(mdcTextarea, { 'max-character-limit': '10', value: '' });
       const characterCounter = mdcTextarea.locator('mdc-text[part="character-counter"]');
-      await expect(characterCounter).toHaveText('00/10');
+      await expect(characterCounter).toHaveText('0/10');
       await textareaElement.fill('This is a long text');
       await expect(textareaElement).toHaveValue('This is a long text');
       await expect(characterCounter).toHaveText('19/10');
@@ -473,6 +667,38 @@ test('mdc-textarea', async ({ componentsPage }) => {
       // 5. Reset form and check help-text resets
       await resetButton.click();
       await expectHelpText('Please provide a valid tweet', 'default');
+    });
+
+    await test.step('spatial navigation', async () => {
+      const mdcTextarea = await setup({
+        componentsPage,
+        id: 'test-mdc-textarea',
+        placeholder: 'Placeholder',
+        label: 'Label',
+        helpText: 'Help Text',
+        resizable: true,
+        secondButtonForFocus: true,
+      });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(mdcTextarea.locator('textarea')).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_RIGHT);
+      const resizeBtn = mdcTextarea.locator('mdc-button[part="resize-button"]');
+      await expect(resizeBtn).toBeFocused();
+
+      // Press ArrowDown twice to increase rows
+      await expect(mdcTextarea).toHaveAttribute('rows', '5');
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(mdcTextarea).toHaveAttribute('rows', '7');
+
+      // Need 2 left to leave the resize button
+      await keyboard.press(KEYS.ARROW_LEFT);
+      await keyboard.press(KEYS.ARROW_LEFT);
+      await expect(componentsPage.page.getByText('Second Button')).toBeFocused();
     });
   });
 });

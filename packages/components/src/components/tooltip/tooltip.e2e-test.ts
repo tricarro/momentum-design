@@ -6,6 +6,7 @@ import { expect } from '@playwright/test';
 import { test, ComponentsPage } from '../../../config/playwright/setup';
 import { PopoverColor, PopoverPlacement, PopoverTrigger } from '../popover/popover.types';
 import { COLOR, POPOVER_PLACEMENT, DEFAULTS as POPOVER_DEFAULTS } from '../popover/popover.constants';
+import { VALID_TEXT_TAGS } from '../text/text.constants';
 
 import { DEFAULTS, TOOLTIP_TYPES } from './tooltip.constants';
 
@@ -15,7 +16,7 @@ type SetupOptions = {
   color?: PopoverColor;
   delay?: string;
   id?: string;
-  offset?: boolean;
+  offset?: number;
   placement?: PopoverPlacement;
   showArrow?: boolean;
   tooltipType?: string;
@@ -30,7 +31,7 @@ const setup = async (args: SetupOptions) => {
     <div id="wrapper" >
       <div style="height: 10vh">
         <mdc-button id="${restArgs.triggerID}">Trigger</mdc-button>
-        <mdc-button>Other button</mdc-button>
+        <mdc-button style="margin-top: 2px;">Other button</mdc-button>
       </div>
       <mdc-tooltip
         ${restArgs.color ? `color="${restArgs.color}"` : ''}
@@ -87,7 +88,7 @@ const attributeTestCases = async (componentsPage: ComponentsPage) => {
     await expect(tooltip).not.toHaveAttribute('visible');
     await expect(tooltip).not.toHaveAttribute('enabledFocusTrap');
     await expect(tooltip).not.toHaveAttribute('enabledPreventScroll');
-    await expect(tooltip).toHaveAttribute('flip');
+    await expect(tooltip).not.toHaveAttribute('disable-flip');
     await expect(tooltip).not.toHaveAttribute('focus-trap');
     await expect(tooltip).not.toHaveAttribute('prevent-scroll');
     await expect(tooltip).not.toHaveAttribute('close-button');
@@ -240,6 +241,7 @@ test('mdc-tooltip', async ({ componentsPage }) => {
       id: 'tooltip',
       triggerID: 'trigger-button',
       children: 'Lorem ipsum dolor sit amet.',
+      offset: 15,
     });
     await test.step('focus', async () => {
       await test.step('focusing on trigger button should show tooltip', async () => {
@@ -263,13 +265,167 @@ test('mdc-tooltip', async ({ componentsPage }) => {
         await expect(triggerButton).not.toBeFocused();
         await expect(tooltip).not.toBeVisible();
       });
+      await test.step('mouse hovered from trigger to the tooltip content should still keep tooltip visible', async () => {
+        await componentsPage.page.mouse.move(40, 20);
+        await expect(tooltip).toBeVisible();
+        await componentsPage.page.mouse.move(40, 45);
+        await expect(tooltip).toBeVisible();
+        await componentsPage.page.mouse.move(40, 60);
+        await expect(tooltip).toBeVisible();
+        await componentsPage.page.mouse.move(40, 100);
+        await expect(tooltip).not.toBeVisible();
+      });
     });
+  });
+
+  await test.step('onlyShowWhenTriggerOverflows interaction', async () => {
+    const testCases: { desc: string; content: string; testHover: boolean; testFocus: boolean }[] = [
+      {
+        desc: 'works with mdc-button',
+        content: `<mdc-button style='width: 100px' id='element'>Lorem ipsum dolor sit amet</mdc-button>`,
+        testHover: true,
+        testFocus: true,
+      },
+      ...Object.values(VALID_TEXT_TAGS).map(tag => ({
+        desc: `works with mdc-text[tagname=${tag}]`,
+        content: `<mdc-text style='width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' id='element' tagname='${tag}'>
+          Lorem ipsum dolor sit amet
+        </mdc-text>`,
+        testHover: true,
+        testFocus: false,
+      })),
+    ];
+
+    for (const testCase of testCases) {
+      const { desc, content, testHover, testFocus } = testCase;
+
+      await test.step(desc, async () => {
+        await componentsPage.mount({
+          html: `
+            <div id='wrapper'>
+              ${content}
+              <mdc-tooltip triggerID="element" only-show-when-trigger-overflows>
+                This is a tooltip
+              </mdc-tooltip>
+              <mdc-button id='after'>After</mdc-button>
+            </div>
+          `,
+          clearDocument: true,
+        });
+
+        const wrapper = componentsPage.page.locator('#wrapper');
+        await wrapper.waitFor();
+
+        const element = componentsPage.page.locator('#element').first();
+        const tooltip = componentsPage.page.locator('mdc-tooltip').first();
+
+        // Ensure tooltip is hidden initially
+        await expect(tooltip).not.toBeVisible();
+
+        if (testHover) {
+          await element.hover();
+          await expect(tooltip).toBeVisible();
+          await componentsPage.page.mouse.move(1000, 1000);
+          await expect(tooltip).not.toBeVisible();
+        }
+
+        if (testFocus) {
+          await componentsPage.actionability.pressTab();
+          await expect(tooltip).toBeVisible();
+          await componentsPage.actionability.pressTab();
+          await expect(tooltip).not.toBeVisible();
+        }
+
+        await element.evaluate(el => {
+          el.setAttribute('style', '');
+        });
+
+        // Ensure tooltip is hidden initially
+        await expect(tooltip).not.toBeVisible();
+
+        if (testHover) {
+          await element.hover();
+          await expect(tooltip).not.toBeVisible();
+          await componentsPage.page.mouse.move(1000, 1000);
+          await expect(tooltip).not.toBeVisible();
+        }
+
+        if (testFocus) {
+          await componentsPage.actionability.pressShiftTab();
+          await element.focus();
+          await expect(tooltip).not.toBeVisible();
+          await componentsPage.actionability.pressTab();
+          await expect(tooltip).not.toBeVisible();
+        }
+      });
+    }
   });
 
   /**
    * ACCESSIBILITY
    */
   await test.step('accessibility for tooltip', async () => {
+    await setup({
+      componentsPage,
+      id: 'tooltip',
+      triggerID: 'trigger-button',
+      children: 'Lorem ipsum dolor sit amet.',
+    });
+
     await componentsPage.accessibility.checkForA11yViolations('tooltip');
+  });
+
+  /**
+   * INLINE POSITIONING
+   */
+  await test.step('inline positioning for tooltip on inline link', async () => {
+    await componentsPage.mount({
+      html: `
+        <div id="wrapper" style="max-width: 300px; padding: 100px;">
+          <mdc-text type="body-large-regular" tagname="p">
+            Here is some text with a
+            <mdc-link id="inline-link" href="https://example.com" inline style="display: inline;">
+              longer inline link that should wrap across multiple lines to demonstrate positioning
+            </mdc-link>
+            and more text after the link.
+          </mdc-text>
+          <mdc-tooltip
+            id="inline-tooltip"
+            triggerid="inline-link"
+            placement="top"
+            inline
+          >
+            This tooltip is attached to an inline link
+          </mdc-tooltip>
+        </div>
+      `,
+      clearDocument: true,
+    });
+
+    const wrapper = componentsPage.page.locator('#wrapper');
+    await wrapper.waitFor();
+
+    const tooltip = componentsPage.page.locator('#inline-tooltip');
+    const link = componentsPage.page.locator('#inline-link');
+
+    await test.step('should have inline attribute set', async () => {
+      await expect(tooltip).toHaveAttribute('inline');
+    });
+
+    await test.step('should position tooltip correctly over inline link', async () => {
+      await link.hover();
+      await expect(tooltip).toBeVisible();
+      await componentsPage.visualRegression.takeScreenshot('mdc-tooltip-inline-link', {
+        assertionAfterSwitchingDirection: async page => {
+          await page.locator('#inline-link').hover();
+          await expect(page.locator('#inline-tooltip')).toBeVisible();
+        },
+      });
+    });
+
+    await test.step('should hide tooltip when mouse leaves inline link', async () => {
+      await componentsPage.page.mouse.move(1, 1);
+      await expect(tooltip).not.toBeVisible();
+    });
   });
 });

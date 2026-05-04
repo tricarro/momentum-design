@@ -1,4 +1,5 @@
 import utils from '../../utils/tag-name';
+import { ROLE } from '../../utils/roles';
 
 const TAG_NAME = utils.constructTagName('popover');
 
@@ -29,13 +30,24 @@ const COLOR = {
   CONTRAST: 'contrast',
 } as const;
 
+const STRATEGY = {
+  ABSOLUTE: 'absolute',
+  FIXED: 'fixed',
+} as const;
+
+const BOUNDARY_ROOT = {
+  VIEWPORT: 'viewport',
+  DOCUMENT: 'document',
+} as const;
+
 const DEFAULTS = {
   PLACEMENT: POPOVER_PLACEMENT.BOTTOM,
   TRIGGER: TRIGGER.CLICK,
   COLOR: COLOR.TONAL,
+  STRATEGY: STRATEGY.ABSOLUTE,
   OFFSET: 4,
   BOUNDARY: 'clippingAncestors',
-  BOUNDARY_ROOT: 'viewport',
+  BOUNDARY_ROOT: BOUNDARY_ROOT.VIEWPORT,
   BOUNDARY_PADDING: 0,
   VISIBLE: false,
   ARROW: false,
@@ -48,16 +60,23 @@ const DEFAULTS = {
   HIDE_ON_CLICK_OUTSIDE: false,
   FOCUS_BACK: false,
   BACKDROP: false,
-  FLIP: true,
+  DISABLE_FLIP: false,
   SIZE: false,
   DELAY: '0,0',
-  ROLE: 'dialog',
+  ROLE: ROLE.DIALOG,
   Z_INDEX: 1000,
   DISABLE_ARIA_EXPANDED: false,
   PROPAGATE_EVENT_ON_ESCAPE: false,
-  KEEP_CONNECTED_TOOLTIP_CLOSED: true,
-  STRATEGY: 'absolute',
+  KEEP_CONNECTED_TOOLTIP_OPEN: false,
   IS_BACKDROP_INVISIBLE: true,
+  ANIMATION_FRAME: false,
+  INLINE: false,
 } as const;
 
-export { TAG_NAME, POPOVER_PLACEMENT, COLOR, TRIGGER, DEFAULTS };
+const TIMEOUTS = {
+  OPEN: 'open',
+  HOVER: 'hover',
+  CLOSE: 'close',
+} as const;
+
+export { TAG_NAME, POPOVER_PLACEMENT, COLOR, STRATEGY, TRIGGER, BOUNDARY_ROOT, DEFAULTS, TIMEOUTS };

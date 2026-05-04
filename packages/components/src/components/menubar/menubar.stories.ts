@@ -1,4 +1,4 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Meta, StoryObj } from '@storybook/web-components';
 import { html } from 'lit';
 
@@ -118,26 +118,6 @@ const meta: Meta = {
   render,
   parameters: {
     badges: ['stable'],
-    docs: {
-      source: {
-        format: 'html',
-        code: `
-          <mdc-menubar>
-            <mdc-menuitem label="..."></mdc-menuitem>
-            <mdc-menupopover triggerid="menu-id">
-              <mdc-menuitem label="..."></mdc-menuitem>
-              <mdc-menuitem id="sub-menu-id" label="..."></mdc-menuitem>
-              <mdc-menupopover triggerid="sub-menu-id">
-                <mdc-menuitem label="..."></mdc-menuitem>
-                <mdc-menuitem label="..."></mdc-menuitem>
-              </mdc-menupopover>
-              <mdc-menuitem label="..."></mdc-menuitem>
-            </mdc-menupopover>
-            <mdc-menuitem label="..."></mdc-menuitem>
-          </mdc-menubar>
-        `,
-      },
-    },
   },
   argTypes: {
     ...classArgType,

@@ -35,6 +35,31 @@ Feature: Combobox component
       And I should not see any options
       And the dropdown icon should get updated from the name 'arrow-up' to 'arrow-down'
 
+    Scenario: User selects an option with controlled vs uncontrolled behavior using the mouse
+      Given I have opened the combobox component with the placeholder "Start typing to search"
+      When the combobox has control-type="uncontrolled"
+      And I click on the option "Brazil" using the mouse
+      Then the combobox input text should be updated to "Brazil"
+      And the dropdown should be closed
+      And a change event should be fired with the selected value
+      When the combobox has control-type="controlled"
+      And I click on the option "Austria" using the mouse
+      Then the combobox input text should not change automatically
+      But a selection event should be fired with value "austria" and label "Austria"
+      And the dropdown should remain open until controlled externally
+
+    Scenario: User input text changes with controlled vs uncontrolled behavior using the mouse
+      Given I see the combobox component with the placeholder "Start typing to search"
+      When the combobox has control-type="uncontrolled"
+      And I click on the combobox input and type "can"
+      Then the combobox input text should be updated to "can" as I type
+      And the dropdown should show filtered option "Canada"
+      When the combobox has control-type="controlled"
+      And I click on the combobox input and type "arg"
+      Then input events should be fired for each keystroke
+      But the combobox input text should only change if controlled externally
+      And the dropdown should show filtered options based on the typed value "arg"
+
   Rule: ✅ Keyboard Interactions
 
     Scenario: User opens the combobox dropdown using the keyboard
@@ -129,6 +154,7 @@ Feature: Combobox component
       And I press Tab key once
       Then the combobox input text should still have "aus"
       And the dropdown should be closed
+      And a custom validation message should be displayed
       And the DOM focus should not be on the combobox
 
     Scenario: User leaves the combobox with valid input text and navigates to the first option using the keyboard
@@ -176,3 +202,60 @@ Feature: Combobox component
       When I press Escape key again
       Then the combobox input text should be cleared
       And the DOM focus should be on the combobox
+
+    Scenario: User selects an option with controlled vs uncontrolled behavior using the keyboard
+      Given I have opened the combobox component with the placeholder "Start typing to search"
+      When the combobox has control-type="uncontrolled"
+      And I press the Arrow Down key to open the dropdown
+      And I press the Arrow Down key to navigate to "Austria"
+      And I press Enter to select the option
+      Then the combobox input text should be updated to "Austria"
+      And the dropdown should be closed
+      And a change event should be fired with the selected value
+      When the combobox has control-type="controlled"
+      And I press the Arrow Down key to open the dropdown
+      And I press the Arrow Down key twice to navigate to "Australia"
+      And I press Enter to select the option
+      Then the combobox input text should not change automatically
+      But a selection event should be fired with value "australia" and label "Australia"
+      And the dropdown should only close if controlled externally
+
+    Scenario: User types with controlled vs uncontrolled behavior using the keyboard
+      Given I see the combobox component with the placeholder "Start typing to search"
+      When the combobox has control-type="uncontrolled"
+      And I focus on the combobox and type "ban"
+      Then the combobox input text should display "ban" as I type
+      And the dropdown should open with filtered option "Bangladesh"
+      And the DOM focus should remain on the combobox input text
+      When the combobox has control-type="controlled"
+      And I clear the input and type "bra"
+      Then input events should be fired for each character "b", "r", "a"
+      But the combobox input text should only update if controlled externally
+      And the dropdown should show filtered options based on the typed value "bra"
+      And the visual focus should remain available for keyboard navigation
+
+  Rule: ✅ Filter
+
+    Scenario: All options remain visible when filter is "none" and user types text
+      Given the combobox component has the attribute filter set to "none"
+      And I see the combobox component with the placeholder "Start typing to search"
+      When I type the character "xyz"
+      Then I see the dropdown open with all options "Argentina", "Austria", "Australia", "Bangladesh", "Brazil", and "Canada"
+      And no options should be hidden
+
+    Scenario: User can still select an option when filter is "none"
+      Given the combobox component has the attribute filter set to "none"
+      And I have opened the combobox component with the placeholder "Start typing to search"
+      When I click on the option "Brazil" using the mouse
+      Then the combobox input text should be updated to "Brazil"
+      And the dropdown should be closed
+
+    Scenario: Keyboard navigation works across all options when filter is "none"
+      Given the combobox component has the attribute filter set to "none"
+      And I see the combobox component with the placeholder "Start typing to search"
+      When I type the character "b"
+      Then I see the dropdown open with all options
+      And I press the Arrow Down key to navigate in the dropdown option
+      Then the visual focus should move to the first option "Argentina"
+      And I press the Enter key to select the option "Argentina"
+      Then the combobox input text should be updated to "Argentina"

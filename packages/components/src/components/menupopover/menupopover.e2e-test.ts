@@ -1,6 +1,5 @@
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
+import { KEYS } from '../../utils/keys';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
@@ -286,7 +285,8 @@ test('mdc-menupopover', async ({ componentsPage }) => {
         const waitForClick = await componentsPage.waitForEvent(submenuItem, 'click');
         const waitForAction = await componentsPage.waitForEvent(menupopover, 'action');
         await submenuItem.click();
-        await Promise.all([waitForClick(), waitForAction()]);
+        await expect(waitForClick).toEventEmitted();
+        await expect(waitForAction).toEventEmitted();
         await expect(menupopover).not.toBeVisible();
       });
 
@@ -299,7 +299,8 @@ test('mdc-menupopover', async ({ componentsPage }) => {
         // ArrowDown: Profile -> Settings (disabled, skip to Notifications)
         await componentsPage.actionability.pressAndCheckFocus('ArrowDown', [submenuItems.nth(2), submenuItems.nth(3)]);
         await componentsPage.page.keyboard.press('Enter');
-        await Promise.all([waitForClick(), waitForAction()]);
+        await expect(waitForClick).toEventEmitted();
+        await expect(waitForAction).toEventEmitted();
         await expect(menupopover).not.toBeVisible();
         await expect(triggerElement).toBeFocused();
       });
@@ -313,7 +314,8 @@ test('mdc-menupopover', async ({ componentsPage }) => {
         // ArrowDown: Profile -> Settings (disabled, skip to Notifications)
         await componentsPage.actionability.pressAndCheckFocus('ArrowDown', [submenuItems.nth(2), submenuItems.nth(3)]);
         await componentsPage.page.keyboard.press('Space');
-        await Promise.all([waitForClick(), waitForAction()]);
+        await expect(waitForClick).toEventEmitted();
+        await expect(waitForAction).toEventEmitted();
         await expect(menupopover).not.toBeVisible();
         await expect(triggerElement).toBeFocused();
       });
@@ -557,6 +559,77 @@ test('mdc-menupopover', async ({ componentsPage }) => {
       await expect(popover2).toBeVisible();
     });
 
+    // AI-Assisted
+    await test.step('Backdrop click stops event propagation', async () => {
+      await componentsPage.mount({
+        html: `
+          <div style="display: flex; flex-direction: row; gap: 10px">
+            <mdc-button id="trigger-1">Trigger 1 Button</mdc-button>
+            <mdc-menupopover id="first-menupopover" triggerID="trigger-1">
+              <mdc-menuitem label="Menu 1"></mdc-menuitem>
+            </mdc-menupopover>
+            <mdc-button id="trigger-2">Trigger 2 Button</mdc-button>
+            <mdc-menupopover id="second-menupopover" triggerID="trigger-2">
+              <mdc-menuitem label="Menu 2"></mdc-menuitem>
+            </mdc-menupopover>
+          </div>
+        `,
+        clearDocument: true,
+      });
+      const trigger1 = componentsPage.page.locator('#trigger-1');
+      const menuPopover1 = componentsPage.page.locator('#first-menupopover');
+      const trigger2 = componentsPage.page.locator('#trigger-2');
+      const menuPopover2 = componentsPage.page.locator('#second-menupopover');
+
+      await trigger1.click();
+      await expect(menuPopover1).toBeVisible();
+
+      // Force-clicking trigger-2 through the auto-set backdrop should close menuPopover1
+      // but NOT open menuPopover2, because the backdrop click stops event propagation
+      await trigger2.click({ force: true });
+      await expect(menuPopover1).not.toBeVisible();
+      await expect(menuPopover2).not.toBeVisible();
+
+      // After the backdrop is gone, clicking trigger-2 normally does open menuPopover2
+      await trigger2.click();
+      await expect(menuPopover2).toBeVisible();
+    });
+
+    await test.step('Outside click without backdrop does not stop event propagation', async () => {
+      await componentsPage.mount({
+        html: `
+          <div style="display: flex; flex-direction: row; gap: 10px">
+            <mdc-menuitem id="trigger-1" label="Trigger 1"></mdc-menuitem>
+            <mdc-menupopover id="first-menupopover" triggerID="trigger-1">
+              <mdc-menuitem id="submenu-trigger" label="Settings" arrow-position="trailing"></mdc-menuitem>
+              <mdc-menupopover triggerid="submenu-trigger" placement="right-start">
+                <mdc-menuitem label="Account"></mdc-menuitem>
+              </mdc-menupopover>
+            </mdc-menupopover>
+          </div>
+        `,
+        clearDocument: true,
+      });
+      const trigger1 = componentsPage.page.locator('#trigger-1');
+      const menuPopover1 = componentsPage.page.locator('#first-menupopover');
+      const submenu = menuPopover1.locator('mdc-menupopover[triggerid="submenu-trigger"]');
+
+      await trigger1.click();
+      await expect(menuPopover1).toBeVisible();
+
+      // Open the submenu (triggered by a menuitem, so no backdrop is auto-set)
+      const submenuTrigger = menuPopover1.locator('#submenu-trigger');
+      await submenuTrigger.click();
+      await expect(submenu).toBeVisible();
+
+      // Clicking outside the submenu (not on a backdrop) closes the submenu
+      // and event propagation continues — the parent menupopover remains visible
+      await componentsPage.page.mouse.click(200, 300);
+      await expect(submenu).not.toBeVisible();
+      await expect(menuPopover1).not.toBeVisible();
+    });
+    // End AI-Assisted
+
     // Group: Menuitem types: checkbox and radio (with grouped navigation)
     await test.step('Menuitem types: checkbox and radio', async () => {
       const { wrapper, triggerElement } = await setup({ componentsPage, html: groupHTML });
@@ -605,13 +678,13 @@ test('mdc-menupopover', async ({ componentsPage }) => {
         await componentsPage.page.keyboard.press('Space');
 
         await expect(checkboxes.first()).toHaveAttribute('aria-checked', 'true');
-        await waitForChangeAfterSpace();
+        await expect(waitForChangeAfterSpace).toEventEmitted();
         // menu remain visible after checkbox toggle with space
         await expect(menupopover).toBeVisible();
         const waitForChangeAfterEnter = await componentsPage.waitForEvent(menupopover, 'change');
         await componentsPage.page.keyboard.press('Enter');
         await expect(checkboxes.first()).toHaveAttribute('aria-checked', 'false');
-        await waitForChangeAfterEnter();
+        await expect(waitForChangeAfterEnter).toEventEmitted();
         // menu closes after checkbox toggle with Enter
         await expect(menupopover).not.toBeVisible();
       });
@@ -633,7 +706,7 @@ test('mdc-menupopover', async ({ componentsPage }) => {
         await expect(radios.nth(1)).toBeFocused();
         const waitForChangeAfterSpace = await componentsPage.waitForEvent(menupopover, 'change');
         await componentsPage.page.keyboard.press('Space');
-        await waitForChangeAfterSpace();
+        await expect(waitForChangeAfterSpace).toEventEmitted();
         // menu remain visible after checkbox toggle with space
         await expect(menupopover).toBeVisible();
         await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'true');
@@ -643,12 +716,107 @@ test('mdc-menupopover', async ({ componentsPage }) => {
         await expect(radios.nth(2)).toBeFocused();
         const waitForChangeAfterEnter = await componentsPage.waitForEvent(menupopover, 'change');
         await componentsPage.page.keyboard.press('Enter');
-        await waitForChangeAfterEnter();
+        await expect(waitForChangeAfterEnter).toEventEmitted();
         await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'false');
         await expect(radios.nth(0)).toHaveAttribute('aria-checked', 'false');
         await expect(radios.nth(2)).toHaveAttribute('aria-checked', 'true');
         // menu remain visible after checkbox toggle with space
         await expect(menupopover).not.toBeVisible();
+      });
+    });
+
+    await test.step('spatial navigation', async () => {
+      const { keyboard } = componentsPage.page;
+
+      await test.step('nested menu opening and closing', async () => {
+        const { triggerElement } = await setup({ componentsPage, html: nestedHTML });
+        await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+
+        const menuPopover1 = componentsPage.page.locator('mdc-menupopover[triggerid="trigger-btn"]');
+        const menuPopover2 = componentsPage.page.locator('mdc-menupopover[triggerid="submenu-trigger"]');
+        const menuPopover3 = componentsPage.page.locator('mdc-menupopover[triggerid="security-id"]');
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(triggerElement).toBeFocused();
+
+        await keyboard.press(KEYS.ENTER);
+        await expect(menuPopover1).toBeVisible();
+        await expect(menuPopover2).not.toBeVisible();
+        await expect(menuPopover3).not.toBeVisible();
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await keyboard.press(KEYS.ENTER);
+        await expect(menuPopover1).toBeVisible();
+        await expect(menuPopover2).toBeVisible();
+        await expect(menuPopover3).not.toBeVisible();
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await keyboard.press(KEYS.ENTER);
+        await expect(menuPopover1).toBeVisible();
+        await expect(menuPopover2).toBeVisible();
+        await expect(menuPopover3).toBeVisible();
+
+        await keyboard.press(KEYS.ESCAPE);
+        await expect(menuPopover1).toBeVisible();
+        await expect(menuPopover2).toBeVisible();
+        await expect(menuPopover3).not.toBeVisible();
+
+        await keyboard.press(KEYS.ESCAPE);
+        await expect(menuPopover1).toBeVisible();
+        await expect(menuPopover2).not.toBeVisible();
+        await expect(menuPopover3).not.toBeVisible();
+
+        await keyboard.press(KEYS.ESCAPE);
+        await expect(menuPopover1).not.toBeVisible();
+        await expect(menuPopover2).not.toBeVisible();
+        await expect(menuPopover3).not.toBeVisible();
+      });
+
+      await test.step('nested menu opening and closing', async () => {
+        const { triggerElement } = await setup({ componentsPage, html: groupHTML });
+        await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+        const menuPopover = componentsPage.page.locator('mdc-menupopover[triggerid="trigger-btn"]');
+        const menuItem = menuPopover.locator('mdc-menuitem[label="Profile"]');
+        const menuItemCheckbox = menuPopover.locator('mdc-menuitemcheckbox[label="Enable feature"]');
+        const menuItemRadio = menuPopover.locator('mdc-menuitemradio[label="Light"]');
+
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(triggerElement).toBeFocused();
+
+        await keyboard.press(KEYS.ENTER);
+        await expect(menuPopover).toBeVisible();
+
+        await expect(menuItem).toBeFocused();
+
+        const waitForMenuItemClick = await componentsPage.waitForEvent(menuItem, 'click');
+        await keyboard.press(KEYS.ENTER);
+        await expect(waitForMenuItemClick).toEventEmitted();
+        await expect(menuPopover).not.toBeVisible();
+        await expect(triggerElement).toBeFocused();
+
+        await keyboard.press(KEYS.ENTER);
+        await expect(menuPopover).toBeVisible();
+        await expect(menuItem).toBeFocused();
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(menuItemCheckbox).toBeFocused();
+        await keyboard.press(KEYS.ENTER);
+        await expect(waitForMenuItemClick).toEventEmitted();
+        await expect(menuPopover).not.toBeVisible();
+        await expect(triggerElement).toBeFocused();
+        await expect(menuItemCheckbox).toHaveAttribute('aria-checked', 'true');
+
+        await keyboard.press(KEYS.ENTER);
+        await expect(menuPopover).toBeVisible();
+        await expect(menuItemCheckbox).toBeFocused();
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await keyboard.press(KEYS.ARROW_DOWN);
+        await expect(menuItemRadio).toBeFocused();
+        await keyboard.press(KEYS.ENTER);
+        await expect(waitForMenuItemClick).toEventEmitted();
+        await expect(menuPopover).not.toBeVisible();
+        await expect(triggerElement).toBeFocused();
+        await expect(menuItemRadio).toHaveAttribute('aria-checked', 'true');
       });
     });
   });

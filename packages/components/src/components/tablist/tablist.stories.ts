@@ -1,12 +1,13 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import '.';
 import { html } from 'lit';
 
-import { disableControls, textControls } from '../../../config/storybook/utils';
-import { TAB_VARIANTS } from '../tab/tab.constants';
+import { describeStory, hideControls } from '../../../config/storybook/utils';
+import { TAB_SIZES, TAB_VARIANTS } from '../tab/tab.constants';
 import '../badge';
 import '../tab';
+import { ROLE } from '../../utils/roles';
 
 const render = (args: Args) =>
   html` <mdc-tablist
@@ -15,6 +16,7 @@ const render = (args: Args) =>
       data-aria-label=${args['data-aria-label']}
     >
       <mdc-tab
+        size=${args.tabsize}
         variant=${args.tabvariant}
         text="Calls"
         icon-name="audio-call-bold"
@@ -23,15 +25,17 @@ const render = (args: Args) =>
       >
       </mdc-tab>
       <mdc-tab
+        size=${args.tabsize}
         variant=${args.tabvariant}
         text="Videos"
         icon-name="video-bold"
         tab-id="videos-tab"
         aria-controls="videos-panel"
       >
-        <mdc-badge slot="badge" type="counter" counter="5" aria-label="5 New videos"></mdc-badge>
+        <mdc-badge slot="postfix" type="counter" counter="5" aria-label="5 New videos"></mdc-badge>
       </mdc-tab>
       <mdc-tab
+        size=${args.tabsize}
         variant=${args.tabvariant}
         text="Music"
         icon-name="file-music-bold"
@@ -40,6 +44,7 @@ const render = (args: Args) =>
       >
       </mdc-tab>
       <mdc-tab
+        size=${args.tabsize}
         variant=${args.tabvariant}
         text="Documents"
         icon-name="document-bold"
@@ -48,6 +53,7 @@ const render = (args: Args) =>
       >
       </mdc-tab>
       <mdc-tab
+        size=${args.tabsize}
         variant=${args.tabvariant}
         text="Meetings"
         icon-name="calendar-month-bold"
@@ -81,12 +87,12 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-tablist',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     'active-tab-id': {
-      control: 'text',
+      control: 'select',
+      description: 'ID of the active tab. Defaults to the first tab if not provided.',
+      options: ['calls-tab', 'videos-tab', 'music-tab', 'documents-tab', 'meetings-tab'],
     },
     'data-aria-label': {
       control: 'text',
@@ -96,8 +102,12 @@ const meta: Meta = {
       description: 'Set the variant of tab inside the tablist',
       options: Object.values(TAB_VARIANTS),
     },
-    ...disableControls(['Default']),
-    ...textControls(['--mdc-tablist-gap', '--mdc-tablist-width', '--mdc-tablist-arrow-button-margin']),
+    tabsize: {
+      control: 'select',
+      description: 'Set the size of tabs inside the tablist',
+      options: Object.values(TAB_SIZES),
+    },
+    ...hideControls(['itemsStore']),
   },
 };
 
@@ -105,19 +115,22 @@ export default meta;
 
 export const Example: StoryObj = {
   args: {
+    'active-tab-id': 'documents-tab',
+    'data-aria-label': 'Media types',
+    tabsize: TAB_SIZES[32],
     tabvariant: 'line',
   },
 };
 
-export const ActiveTabAttributeSet: StoryObj = {
-  args: {
-    tabvariant: 'glass',
-    'active-tab-id': 'documents-tab',
-    'data-aria-label': 'Media types',
-  },
-};
-
 export const TablistWithPanels: StoryObj = {
+  parameters: {
+    ...describeStory(
+      html` <b>Note:</b> This logic of updating the tab panels based on the active tab has been added only on this
+        storybook example. <code>mdc-tablist</code> component does not control this logic. This implementation has to be
+        added on the consumer's side`,
+      true,
+    ),
+  },
   render: args => {
     const updateTabPanel = (event: CustomEvent) => {
       const activeTab = document.querySelector(`mdc-tab[tab-id="${event.detail.tabId}"]`);
@@ -134,6 +147,7 @@ export const TablistWithPanels: StoryObj = {
         data-aria-label=${args['data-aria-label']}
       >
         <mdc-tab
+          size=${args.tabsize}
           variant=${args.tabvariant}
           text="Calls"
           icon-name="audio-call-bold"
@@ -142,6 +156,7 @@ export const TablistWithPanels: StoryObj = {
         >
         </mdc-tab>
         <mdc-tab
+          size=${args.tabsize}
           variant=${args.tabvariant}
           text="Videos"
           icon-name="video-bold"
@@ -151,6 +166,7 @@ export const TablistWithPanels: StoryObj = {
           <mdc-badge slot="badge" type="counter" counter="5" aria-label="5 New videos"></mdc-badge>
         </mdc-tab>
         <mdc-tab
+          size=${args.tabsize}
           variant=${args.tabvariant}
           text="Music"
           icon-name="file-music-bold"
@@ -159,6 +175,7 @@ export const TablistWithPanels: StoryObj = {
         >
         </mdc-tab>
         <mdc-tab
+          size=${args.tabsize}
           variant=${args.tabvariant}
           text="Documents"
           icon-name="document-bold"
@@ -167,6 +184,7 @@ export const TablistWithPanels: StoryObj = {
         >
         </mdc-tab>
         <mdc-tab
+          size=${args.tabsize}
           variant=${args.tabvariant}
           text="Meetings"
           icon-name="calendar-month-bold"
@@ -193,18 +211,31 @@ This markup is not part of the component and is only provided for context. -->
       <div id="meetings-panel" role="tabpanel" hidden>
         <p>Meetings panel</p>
       </div>
-      <!-- End of example markup for the tab panels -->
-      <br />
-      <br />
-      <p>
-        <b>Note:</b> This logic of updating the tab panels based on the active tab has been added only on this storybook
-        example. <code>mdc-tablist</code> component does not control this logic. This implementation has to be added on
-        the consumer's side
-      </p>`;
+      <!-- End of example markup for the tab panels -->`;
   },
   args: {
     tabvariant: 'glass',
+    tabsize: TAB_SIZES[32],
     'active-tab-id': 'documents-tab',
     'data-aria-label': 'Media types',
   },
+};
+
+export const TablistWithButtons: StoryObj = {
+  render: () => html`
+    <div role="${ROLE.MAIN}">
+      <mdc-tablist active-tab-id="tab-2" data-aria-label="Tablist with a lot of tabs">
+        ${new Array(100)
+          .fill(undefined)
+          .map((_, i) => html`<mdc-tab text="Tab #${i + 1}" tab-id="tab-${i + 1}"></mdc-tab>`)}
+      </mdc-tablist>
+    </div>
+  `,
+  ...describeStory(
+    html`<p role="${ROLE.REGION}">
+      When the tabs overflow the available space, arrow buttons appear at the left and right ends of the tablist. These
+      buttons allow users to scroll through the tabs horizontally. The arrow buttons are automatically shown or hidden
+      based on the scroll position.
+    </p>`,
+  ),
 };

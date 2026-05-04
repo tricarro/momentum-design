@@ -20,12 +20,12 @@ type SetupOptions = {
   delay?: string;
   zIndex?: number;
   visible?: boolean;
-  offset?: boolean;
+  offset?: number;
   interactive?: boolean;
   focusTrap?: boolean;
   showArrow?: boolean;
   color?: PopoverColor;
-  flip?: boolean;
+  disableFlip?: boolean;
   size?: boolean;
   backdrop?: boolean;
   closeButton?: boolean;
@@ -40,6 +40,7 @@ type SetupOptions = {
   ariaDescribedby?: string;
   disableAriaExpanded?: boolean;
   role?: HTMLElement['role'];
+  elementIndexToReceiveFocus?: number;
   children?: any;
 };
 
@@ -64,7 +65,7 @@ const setup = async (args: SetupOptions) => {
         ${restArgs.focusTrap ? 'focus-trap' : ''}
         ${restArgs.showArrow ? 'show-arrow' : ''}
         ${restArgs.color ? `color="${restArgs.color}"` : ''}
-        ${restArgs.flip ? 'flip' : ''}
+        ${restArgs.disableFlip ? 'disable-flip' : ''}
         ${restArgs.size ? 'size' : ''}
         ${restArgs.backdrop ? 'backdrop' : ''}
         ${restArgs.closeButton ? 'close-button' : ''}
@@ -79,6 +80,7 @@ const setup = async (args: SetupOptions) => {
         ${restArgs.ariaLabelledby ? `aria-labelledby="${restArgs.ariaLabelledby}"` : ''}
         ${restArgs.ariaDescribedby ? `aria-describedby="${restArgs.ariaDescribedby}"` : ''}
         ${restArgs.role ? `role="${restArgs.role}"` : ''}
+        ${restArgs.elementIndexToReceiveFocus !== undefined ? `element-index-to-receive-focus="${restArgs.elementIndexToReceiveFocus}"` : ''}
       >
         ${restArgs.children}
       </mdc-popover>
@@ -197,14 +199,14 @@ const attributeTestCases = async (componentsPage: ComponentsPage) => {
   await test.step('default attributes for popover', async () => {
     await expect(popover).toHaveAttribute('placement', DEFAULTS.PLACEMENT);
     await expect(popover).toHaveAttribute('delay', DEFAULTS.DELAY);
-    await expect(popover).toHaveAttribute('z-index', DEFAULTS.Z_INDEX.toString());
+    await expect(popover).toHaveAttribute('z-index', '1000');
     await expect(popover).not.toHaveAttribute('visible');
     await expect(popover).toHaveAttribute('offset', DEFAULTS.OFFSET.toString());
     await expect(popover).not.toHaveAttribute('interactive');
     await expect(popover).not.toHaveAttribute('focus-trap');
     await expect(popover).not.toHaveAttribute('show-arrow');
     await expect(popover).toHaveAttribute('color', DEFAULTS.COLOR);
-    await expect(popover).toHaveAttribute('flip');
+    await expect(popover).not.toHaveAttribute('disable-flip');
     await expect(popover).not.toHaveAttribute('size');
     await expect(popover).not.toHaveAttribute('backdrop');
     await expect(popover).not.toHaveAttribute('close-button');
@@ -236,7 +238,7 @@ const attributeTestCases = async (componentsPage: ComponentsPage) => {
       'focus-trap': '',
       'show-arrow': '',
       color: COLOR.CONTRAST,
-      flip: 'false',
+      'disable-flip': 'false',
       size: '',
       backdrop: '',
       'close-button': '',
@@ -261,7 +263,7 @@ const attributeTestCases = async (componentsPage: ComponentsPage) => {
     await expect(popover).toHaveAttribute('focus-trap');
     await expect(popover).toHaveAttribute('show-arrow');
     await expect(popover).toHaveAttribute('color', COLOR.CONTRAST);
-    await expect(popover).toHaveAttribute('flip', 'false');
+    await expect(popover).toHaveAttribute('disable-flip', 'false');
     await expect(popover).toHaveAttribute('size');
     await expect(popover).toHaveAttribute('backdrop');
     await expect(popover).toHaveAttribute('close-button');
@@ -423,6 +425,236 @@ const interactionsTestCases = async (componentsPage: ComponentsPage) => {
       await expect(popover).not.toBeVisible();
     });
   });
+
+  await test.step('mouse', async () => {
+    await test.step('does not display popover when mouse hovers and leaves trigger within open delay', async () => {
+      // Start AI-Assisted
+      const { popover, triggerButton } = await setup({
+        componentsPage,
+        id: 'popover-hover',
+        triggerID: 'trigger-button-hover',
+        trigger: TRIGGER.MOUSEENTER,
+        delay: '500,0', // 500ms open delay, 0ms close delay
+        children: 'Hover popover content',
+      });
+
+      // Verify popover is initially hidden
+      await expect(popover).not.toBeVisible();
+
+      // Hover over the trigger
+      await triggerButton.hover();
+
+      // Wait for a short time (less than the open delay)
+      await componentsPage.page.waitForTimeout(200);
+
+      // Move mouse away from trigger
+      await componentsPage.page.mouse.move(0, 0);
+
+      // Wait past the original delay time to ensure popover doesn't appear
+      await componentsPage.page.waitForTimeout(400);
+
+      // Popover should still not be visible
+      await expect(popover).not.toBeVisible();
+      // End AI-Assisted
+    });
+
+    await test.step('does not hide popover when mouse leaves trigger and enters trigger within close delay', async () => {
+      const { popover, triggerButton } = await setup({
+        componentsPage,
+        id: 'popover-hover',
+        triggerID: 'trigger-button-hover',
+        trigger: TRIGGER.MOUSEENTER,
+        delay: '0,1000', // 0ms open delay, 1000ms close delay
+        children: 'Hover popover content',
+      });
+
+      // Verify popover is initially hidden
+      await expect(popover).not.toBeVisible();
+
+      // Hover over the trigger
+      await triggerButton.hover();
+
+      // Popover should be visible
+      await expect(popover).toBeVisible();
+
+      // Move mouse away from trigger
+      await componentsPage.page.mouse.move(0, 0);
+
+      // Wait less than close delay
+      await componentsPage.page.waitForTimeout(500);
+
+      // Move mouse back to trigger
+      await triggerButton.hover();
+
+      // Popover should be visible
+      await expect(popover).toBeVisible();
+
+      // Wait the rest of the close delay time
+      await componentsPage.page.waitForTimeout(1000);
+
+      // Popover should be visible
+      await expect(popover).toBeVisible();
+
+      await componentsPage.page.mouse.move(0, 0);
+      await componentsPage.page.waitForTimeout(1000);
+      await expect(popover).not.toBeVisible();
+    });
+
+    await test.step('should keep popover open when mouse moves between trigger and popover', async () => {
+      const ADJUSTMENT = 15;
+      const placementsToTest = [
+        { placement: POPOVER_PLACEMENT.TOP, adjustment: { x: 0, y: -ADJUSTMENT } },
+        { placement: POPOVER_PLACEMENT.BOTTOM, adjustment: { x: 0, y: ADJUSTMENT } },
+        { placement: POPOVER_PLACEMENT.LEFT, adjustment: { x: -ADJUSTMENT, y: 0 } },
+        { placement: POPOVER_PLACEMENT.RIGHT, adjustment: { x: ADJUSTMENT, y: 0 } },
+      ] as const;
+
+      const getStartingMousePosition = (
+        placement: PopoverPlacement,
+        triggerBox: { x: number; y: number; width: number; height: number },
+      ) => {
+        if (placement === 'bottom') {
+          return {
+            x: triggerBox.x + triggerBox.width / 2,
+            y: triggerBox.y + triggerBox.height - 1,
+          };
+        }
+        if (placement === 'top') {
+          return {
+            x: triggerBox.x + triggerBox.width / 2,
+            y: triggerBox.y + 1,
+          };
+        }
+        if (placement === 'right') {
+          return {
+            x: triggerBox.x + triggerBox.width - 1,
+            y: triggerBox.y + triggerBox.height / 2,
+          };
+        }
+        if (placement === 'left') {
+          return {
+            x: triggerBox.x + 1,
+            y: triggerBox.y + triggerBox.height / 2,
+          };
+        }
+
+        return undefined;
+      };
+
+      await componentsPage.page.locator('#root').evaluate(node => {
+        /* eslint-disable no-param-reassign */
+        node.style.display = 'flex';
+        node.style.justifyContent = 'center';
+        node.style.alignItems = 'center';
+        /* eslint-enable no-param-reassign */
+      });
+
+      for (const { placement, adjustment } of placementsToTest) {
+        await test.step(`placement = ${placement}`, async () => {
+          const { popover, triggerButton } = await setup({
+            componentsPage,
+            id: 'popover-hover',
+            triggerID: 'trigger-button-hover',
+            trigger: TRIGGER.MOUSEENTER,
+            children: '<mdc-button>Test Button</mdc-button>',
+            interactive: true,
+            placement,
+          });
+
+          await expect(triggerButton).toBeVisible();
+
+          const triggerBox = (await triggerButton.boundingBox())!;
+          const mousePosition: { x: number; y: number } = getStartingMousePosition(placement, triggerBox)!;
+          await componentsPage.page.mouse.move(mousePosition.x, mousePosition.y);
+          await expect(popover).toBeVisible();
+
+          await componentsPage.page.mouse.move(mousePosition.x + adjustment.x, mousePosition.y + adjustment.y, {
+            steps: ADJUSTMENT,
+          });
+
+          await expect(popover).toBeVisible();
+        });
+      }
+
+      await componentsPage.page.locator('#root').evaluate(node => {
+        /* eslint-disable no-param-reassign */
+        node.style.display = '';
+        node.style.justifyContent = '';
+        node.style.alignItems = '';
+        /* eslint-enable no-param-reassign */
+      });
+    });
+  });
+
+  await test.step('spatial navigation', async () => {
+    await componentsPage.mount({
+      html: `
+          <mdc-dialog id="test-dialog" visible>
+            <div slot="dialog-body">
+              <mdc-button id="trigger-button-dialog">Open Popover</mdc-button>
+              <mdc-popover
+                id="popover"
+                triggerId="trigger-button-dialog"
+                interactive
+                hide-on-escape
+                focus-trap
+                focus-back-to-trigger
+                hide-on-outside-click
+              >
+                <mdc-button>Button inside Popover inside dialog</mdc-button>
+              </mdc-popover>
+            </div>
+          </mdc-dialog>
+        `,
+      clearDocument: true,
+    });
+
+    await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+    const { keyboard } = componentsPage.page;
+
+    const dialog = componentsPage.page.locator('#test-dialog');
+    const popover = componentsPage.page.locator('#popover');
+
+    await componentsPage.setAttributes(dialog, { visible: '' });
+
+    // add event listener to dialog for close event
+    // this is to ensure that the dialog closes when the close button is clicked
+    // since the dialog is a controlled component, the consumer needs to handle the close event
+    // and set the visible attribute to false
+    await componentsPage.page.evaluate(dialogId => {
+      const dialogElement = document.querySelector(`#${dialogId}`) as Dialog;
+      if (dialogElement) {
+        dialogElement.onclose = () => {
+          dialogElement.visible = false;
+        };
+      }
+    }, 'test-dialog');
+
+    // Ensure dialog and popover are visible
+    await expect(dialog).toBeVisible();
+
+    await componentsPage.page.locator('#trigger-button-dialog').focus();
+    await keyboard.press(KEYS.ENTER);
+    await expect(popover).toBeVisible();
+
+    await componentsPage.page.pause();
+    // Focus the popover and press Escape
+    await expect(
+      componentsPage.page.getByRole('button', { name: 'Button inside Popover inside dialog' }),
+    ).toBeFocused();
+    await keyboard.press(KEYS.ESCAPE);
+
+    // Popover should close, dialog should remain open and Popover Button Trigger should be focused
+    await expect(popover).not.toBeVisible();
+    await expect(dialog).toBeVisible();
+    await expect(componentsPage.page.locator('#trigger-button-dialog')).toBeFocused();
+
+    // Press Escape again to close the dialog
+    await keyboard.press(KEYS.ESCAPE);
+    // Dialog should close
+    await expect(dialog).not.toBeVisible();
+    await expect(popover).not.toBeVisible();
+  });
 };
 
 /**
@@ -489,10 +721,10 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
       await expect(popover).toHaveAttribute('placement', POPOVER_PLACEMENT.TOP);
     });
 
-    await test.step('Flip attribute', async () => {
-      await expect(popover).toHaveAttribute('flip');
-      await componentsPage.removeAttribute(popover, 'flip');
-      await expect(popover).not.toHaveAttribute('flip');
+    await test.step('Disable Flip attribute', async () => {
+      await expect(popover).not.toHaveAttribute('disable-flip');
+      await componentsPage.setAttributes(popover, { 'disable-flip': 'true' });
+      await expect(popover).toHaveAttribute('disable-flip');
     });
 
     await test.step('Display arrow attribute', async () => {
@@ -544,6 +776,74 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
       await expect(popover).not.toBeVisible();
     });
 
+    await test.step('Hide on blur with click trigger - tab away closes non-interactive popover', async () => {
+      await componentsPage.mount({
+        html: `
+          <div>
+            <mdc-button id="trigger-button">Trigger</mdc-button>
+            <mdc-popover id="popover" triggerID="trigger-button" trigger="click" hide-on-blur>
+              Text-only popover content
+            </mdc-popover>
+            <mdc-button id="outside-button">Outside</mdc-button>
+          </div>
+        `,
+        clearDocument: true,
+      });
+      const popover = componentsPage.page.locator('#popover');
+      const triggerButton = componentsPage.page.locator('#trigger-button');
+      const outsideButton = componentsPage.page.locator('#outside-button');
+
+      await expect(popover).not.toBeVisible();
+
+      // Tab to trigger and press Enter to open
+      await componentsPage.actionability.pressTab();
+      await expect(triggerButton).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(popover).toBeVisible();
+
+      // Tab away should close the popover
+      await componentsPage.actionability.pressTab();
+      await expect(outsideButton).toBeFocused();
+      await expect(popover).not.toBeVisible();
+    });
+
+    await test.step('Hide on blur with click trigger - focus within component keeps popover open', async () => {
+      await componentsPage.mount({
+        html: `
+          <div>
+            <mdc-button id="trigger-button">Trigger</mdc-button>
+            <mdc-popover id="popover" triggerID="trigger-button" trigger="click" hide-on-blur interactive>
+              <mdc-button id="inside-button">Inside Button</mdc-button>
+            </mdc-popover>
+            <mdc-button id="outside-button">Outside</mdc-button>
+          </div>
+        `,
+        clearDocument: true,
+      });
+      const popover = componentsPage.page.locator('#popover');
+      const triggerButton = componentsPage.page.locator('#trigger-button');
+      const insideButton = popover.locator('#inside-button');
+      const outsideButton = componentsPage.page.locator('#outside-button');
+
+      await expect(popover).not.toBeVisible();
+
+      // Tab to trigger and press Enter to open
+      await componentsPage.actionability.pressTab();
+      await expect(triggerButton).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(popover).toBeVisible();
+
+      // Tab to inside button - popover should stay open (focus within component)
+      await componentsPage.actionability.pressTab();
+      await expect(insideButton).toBeFocused();
+      await expect(popover).toBeVisible();
+
+      // Tab away from popover should close it
+      await componentsPage.actionability.pressTab();
+      await expect(outsideButton).toBeFocused();
+      await expect(popover).not.toBeVisible();
+    });
+
     await test.step('Hide on escape attribute', async () => {
       await componentsPage.setAttributes(popover, {
         'hide-on-escape': 'true',
@@ -586,6 +886,87 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
       await componentsPage.actionability.pressTab();
       await expect(popover.locator('#first')).toBeFocused();
     });
+
+    // AI-Assisted
+    await test.step('Focus trap with list should respect roving tabindex', async () => {
+      const { popover, triggerButton } = await setup({
+        componentsPage,
+        id: 'popover',
+        triggerID: 'trigger-button',
+        focusTrap: true,
+        interactive: true,
+        children: `
+          <mdc-list>
+            <mdc-listitem label="Item 1" aria-label="item 1">
+              <div slot="trailing-controls">
+                <mdc-button id="btn-1" aria-label="action 1">Action</mdc-button>
+              </div>
+            </mdc-listitem>
+            <mdc-listitem label="Item 2" aria-label="item 2">
+              <div slot="trailing-controls">
+                <mdc-button id="btn-2" aria-label="action 2">Action</mdc-button>
+              </div>
+            </mdc-listitem>
+            <mdc-listitem label="Item 3" aria-label="item 3">
+              <div slot="trailing-controls">
+                <mdc-button id="btn-3" aria-label="action 3">Action</mdc-button>
+              </div>
+            </mdc-listitem>
+          </mdc-list>
+        `,
+      });
+      await expect(popover).not.toBeVisible();
+      await componentsPage.actionability.pressTab();
+      await expect(triggerButton).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(popover).toBeVisible();
+
+      // Focus trap initial focus should land on first list item
+      const listItem1 = popover.locator('mdc-listitem[label="Item 1"]');
+      const listItem2 = popover.locator('mdc-listitem[label="Item 2"]');
+      const listItem3 = popover.locator('mdc-listitem[label="Item 3"]');
+      const btn1 = popover.locator('#btn-1');
+      const btn2 = popover.locator('#btn-2');
+
+      await expect(listItem1).toBeFocused();
+
+      // Tab should move focus to the button inside the active (first) list item only
+      await componentsPage.actionability.pressTab();
+      await expect(btn1).toBeFocused();
+
+      // Tab again should wrap back to the first list item (not jump to btn-2 or btn-3)
+      await componentsPage.actionability.pressTab();
+      await expect(listItem1).toBeFocused();
+
+      // Shift+Tab should move focus to the button inside the active (first) list item only
+      await componentsPage.actionability.pressShiftTab();
+      await expect(btn1).toBeFocused();
+
+      // Shift+Tab again should wrap back to the first list item (not jump to btn-2 or btn-3)
+      await componentsPage.actionability.pressShiftTab();
+      await expect(listItem1).toBeFocused();
+
+      // Arrow Down should move to the second list item
+      await componentsPage.page.keyboard.press(KEYS.ARROW_DOWN);
+      await expect(listItem2).toBeFocused();
+
+      // Tab should now move to the button inside the second list item
+      await componentsPage.actionability.pressTab();
+      await expect(btn2).toBeFocused();
+
+      // Tab again should wrap back to the second list item
+      await componentsPage.actionability.pressTab();
+      await expect(listItem2).toBeFocused();
+
+      // Arrow Down should move to the third list item
+      await componentsPage.page.keyboard.press(KEYS.ARROW_DOWN);
+      await expect(listItem3).toBeFocused();
+
+      // Arrow Up should move back to the second list item
+      await componentsPage.page.keyboard.press(KEYS.ARROW_UP);
+      await expect(listItem2).toBeFocused();
+    });
+    // End AI-Assisted
 
     await test.step('Prevent outside scroll', async () => {
       await componentsPage.setAttributes(popover, {
@@ -647,6 +1028,115 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
       await trigger2.click();
       await expect(popover2).toBeVisible();
     });
+
+    // AI-Assisted
+    await test.step('Backdrop click stops event propagation', async () => {
+      await componentsPage.mount({
+        html: `
+          <div style="display: flex; flex-direction: row; gap: 10px">
+            <mdc-button id="trigger-1">Trigger 1 Button</mdc-button>
+            <mdc-popover id="first-popover" triggerID="trigger-1" backdrop hide-on-outside-click>
+              First Popover Content
+            </mdc-popover>
+            <mdc-button id="trigger-2">Trigger 2 Button</mdc-button>
+            <mdc-popover id="second-popover" triggerID="trigger-2">Second Popover Content</mdc-popover>
+          </div>
+        `,
+        clearDocument: true,
+      });
+      const trigger1 = componentsPage.page.locator('#trigger-1');
+      const popover1 = componentsPage.page.locator('#first-popover');
+      const trigger2 = componentsPage.page.locator('#trigger-2');
+      const popover2 = componentsPage.page.locator('#second-popover');
+
+      await trigger1.click();
+      await expect(popover1).toBeVisible();
+
+      // Force-clicking trigger-2 through the backdrop should close popover1
+      // but NOT open popover2, because the backdrop click stops event propagation
+      await trigger2.click({ force: true });
+      await expect(popover1).not.toBeVisible();
+      await expect(popover2).not.toBeVisible();
+
+      // After the backdrop is gone, clicking trigger-2 normally does open popover2
+      await trigger2.click();
+      await expect(popover2).toBeVisible();
+    });
+
+    // TODO: Fix this issue. The first popover should close, and then the 2nd popover should be added into the depth manager. This test case is currently skipped as it fails.
+    await test.step.skip('Outside click without backdrop does not stop event propagation', async () => {
+      await componentsPage.mount({
+        html: `
+          <div style="display: flex; flex-direction: row; gap: 10px">
+            <mdc-button id="trigger-1">Trigger 1 Button</mdc-button>
+            <mdc-popover id="first-popover" triggerID="trigger-1" hide-on-outside-click>
+              First Popover Content
+            </mdc-popover>
+            <mdc-button id="trigger-2">Trigger 2 Button</mdc-button>
+            <mdc-popover id="second-popover" triggerID="trigger-2">Second Popover Content</mdc-popover>
+          </div>
+        `,
+        clearDocument: true,
+      });
+      const trigger1 = componentsPage.page.locator('#trigger-1');
+      const popover1 = componentsPage.page.locator('#first-popover');
+      const trigger2 = componentsPage.page.locator('#trigger-2');
+      const popover2 = componentsPage.page.locator('#second-popover');
+
+      await trigger1.click();
+      await expect(popover1).toBeVisible();
+
+      // Clicking trigger-2 (outside popover1, no backdrop) closes popover1 AND opens popover2
+      // because outside clicks without a backdrop do NOT stop event propagation
+      await trigger2.click();
+      await expect(popover1).not.toBeVisible();
+      await expect(popover2).toBeVisible();
+    });
+    // End AI-Assisted
+
+    await test.step('Element index to receive focus', async () => {
+      const { popover, triggerButton } = await setup({
+        componentsPage,
+        id: 'popover',
+        triggerID: 'trigger-button',
+        focusTrap: true,
+        interactive: true,
+        elementIndexToReceiveFocus: 1,
+        children:
+          '<mdc-button id="first">First</mdc-button><mdc-button id="second">Second</mdc-button><mdc-button id="last">Last</mdc-button>',
+      });
+      await expect(popover).not.toBeVisible();
+      await componentsPage.actionability.pressTab();
+      await expect(triggerButton).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(popover).toBeVisible();
+      // AI-Assisted
+      // With elementIndexToReceiveFocus set to 1, the second element should receive focus
+      await expect(popover.locator('#second')).toBeFocused();
+      await componentsPage.actionability.pressTab();
+      await expect(popover.locator('#last')).toBeFocused();
+      // End AI-Assisted
+    });
+
+    await test.step('Element index to receive focus defaults to 0', async () => {
+      const { popover, triggerButton } = await setup({
+        componentsPage,
+        id: 'popover-default',
+        triggerID: 'trigger-button-default',
+        focusTrap: true,
+        interactive: true,
+        children: '<mdc-button id="first-default">First</mdc-button><mdc-button id="last-default">Last</mdc-button>',
+      });
+      await expect(popover).not.toBeVisible();
+      await componentsPage.actionability.pressTab();
+      await expect(triggerButton).toBeFocused();
+      await componentsPage.page.keyboard.press(KEYS.ENTER);
+      await expect(popover).toBeVisible();
+      // AI-Assisted
+      // Without elementIndexToReceiveFocus, the first element (index 0) should receive focus
+      await expect(popover.locator('#first-default')).toBeFocused();
+      // End AI-Assisted
+    });
   });
 
   await test.step('Accessibility', async () => {
@@ -707,6 +1197,51 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
       await expect(childPopover).not.toBeVisible();
       await expect(parentPopover).toBeVisible();
       await componentsPage.page.mouse.click(200, 100);
+      await expect(parentPopover).not.toBeVisible();
+    });
+
+    await test.step('Closing parent popover should also close nested child popovers', async () => {
+      await componentsPage.mount({
+        html: `
+        <div id="wrapper">
+          <mdc-button id="trigger-button">Open Parent</mdc-button>
+          <mdc-popover id="parent-popover" triggerID="trigger-button" interactive backdrop hide-on-escape>
+            <p>Parent content</p>
+            <mdc-button id="child-trigger">Open Child</mdc-button>
+            <mdc-popover id="child-popover" triggerID="child-trigger" interactive backdrop hide-on-escape>
+              <p>Child content</p>
+              <mdc-button id="grandchild-trigger">Open Grandchild</mdc-button>
+              <mdc-popover id="grandchild-popover" triggerID="grandchild-trigger" interactive backdrop hide-on-escape>
+                <p>Grandchild content</p>
+              </mdc-popover>
+            </mdc-popover>
+          </mdc-popover>
+        </div>
+        `,
+        clearDocument: true,
+      });
+
+      const parentPopover = componentsPage.page.locator('#parent-popover');
+      const childPopover = componentsPage.page.locator('#child-popover');
+      const grandchildPopover = componentsPage.page.locator('#grandchild-popover');
+
+      // Open all three levels
+      await componentsPage.page.locator('#trigger-button').click();
+      await expect(parentPopover).toBeVisible();
+
+      await componentsPage.page.locator('#child-trigger').click();
+      await expect(childPopover).toBeVisible();
+
+      await componentsPage.page.locator('#grandchild-trigger').click();
+      await expect(grandchildPopover).toBeVisible();
+
+      // Close the parent — child and grandchild should also close
+      await componentsPage.page.evaluate(() => {
+        document.querySelector('#parent-popover')?.removeAttribute('visible');
+      });
+
+      await expect(grandchildPopover).not.toBeVisible();
+      await expect(childPopover).not.toBeVisible();
       await expect(parentPopover).not.toBeVisible();
     });
   });
@@ -830,7 +1365,7 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
     await expect(trigger).toBeFocused();
   });
 
-  await test.step('Tooltip and popover with keepConnectedTooltipClosed', async () => {
+  await test.step('Tooltip and popover with keepConnectedTooltipOpen as false', async () => {
     await componentsPage.mount({
       html: `
         <div style="height: 500px; width: 500px; display: 
@@ -850,7 +1385,6 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
             interactive 
             focus-trap
             placement="top"
-            keep-connected-tooltip-closed
           >Click Popover</mdc-popover>
         </div>
       `,
@@ -912,10 +1446,10 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
       const openDialogBtn = document.querySelector('#open-dialog');
       if (openDialogBtn) {
         openDialogBtn.addEventListener('click', () => {
-          const dialog = document.querySelector('#dialog') as Dialog;
-          if (dialog) dialog.visible = true;
           const popover = document.querySelector('#popover') as Popover;
           if (popover) popover.visible = false;
+          const dialog = document.querySelector('#dialog') as Dialog;
+          if (dialog) dialog.visible = true;
         });
       }
     });
@@ -977,12 +1511,12 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
     await expect(tooltip).not.toBeVisible();
     await expect(popoverActionButton).toBeFocused();
 
-    // Press Space on action inside popover to open dialog
+    // Press Escape to close popover
     await componentsPage.page.keyboard.press(KEYS.ESCAPE);
 
-    await expect(popover).not.toBeVisible();
-    await expect(tooltip).not.toBeVisible();
+    await expect(popover).not.toHaveAttribute('visible');
     await expect(trigger).not.toBeFocused();
+    await expect(tooltip).not.toHaveAttribute('visible');
   });
 
   await test.step('Focus does return to trigger when popover has focus-back-to-trigger attribute', async () => {
@@ -1018,9 +1552,9 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
     // Press Space on action inside popover to open dialog
     await componentsPage.page.keyboard.press(KEYS.ESCAPE);
 
-    await expect(popover).not.toBeVisible();
-    await expect(tooltip).not.toBeVisible();
+    await expect(popover).not.toHaveAttribute('visible');
     await expect(trigger).toBeFocused();
+    await expect(tooltip).not.toHaveAttribute('visible');
   });
 
   await test.step('Tooltip on trigger element does not open if it does not have visual focus when popover is closed', async () => {
@@ -1063,9 +1597,79 @@ const userStoriesTestCases = async (componentsPage: ComponentsPage) => {
     // Click on backdrop to close popover
     await backdrop.click({ force: true });
 
-    await expect(popover).not.toBeVisible();
-    await expect(tooltip).not.toBeVisible();
+    await expect(popover).not.toHaveAttribute('visible');
     await expect(trigger).toBeFocused();
+    await expect(tooltip).not.toHaveAttribute('visible');
+  });
+
+  await test.step('Popover should determine z-index for backdrop with default values', async () => {
+    await componentsPage.mount({
+      html: `
+        <div style="display: flex; height: 100%; flex-direction: column; justify-content: center;">
+          <mdc-button id="trigger">Trigger</mdc-button>
+          <mdc-popover id="parent-popover" triggerID="trigger" backdrop>
+            <p>Popover content</p>
+            <mdc-button id="nested-popover-trigger">Action</mdc-button>
+            <mdc-popover id="nested-popover" triggerID="nested-popover-trigger" backdrop>
+              <p>Nested Popover content</p>
+            </mdc-popover>
+          </mdc-popover>
+        </div>
+      `,
+      clearDocument: true,
+    });
+    const trigger = componentsPage.page.locator('#trigger');
+    await trigger.click();
+
+    await expect(componentsPage.page.locator('#parent-popover')).toHaveCSS('z-index', '1000');
+    await expect(trigger).toHaveCSS('z-index', '999');
+    await expect(componentsPage.page.locator('div[class="popover-backdrop"]')).toHaveCSS('z-index', '998');
+
+    const nestedPopoverTrigger = componentsPage.page.locator('#nested-popover-trigger');
+    await nestedPopoverTrigger.waitFor();
+    await nestedPopoverTrigger.click();
+
+    await expect(componentsPage.page.locator('#nested-popover')).toHaveCSS('z-index', '1003');
+    await expect(nestedPopoverTrigger).toHaveCSS('z-index', '1002');
+    await expect(componentsPage.page.locator('#parent-popover div[class="popover-backdrop"]')).toHaveCSS(
+      'z-index',
+      '1001',
+    );
+  });
+
+  await test.step('Popover should determine z-index for backdrop with custom z-index values', async () => {
+    await componentsPage.mount({
+      html: `
+        <div style="display: flex; height: 100%; flex-direction: column; justify-content: center;">
+          <mdc-button id="trigger">Trigger</mdc-button>
+          <mdc-popover id="parent-popover" triggerID="trigger" backdrop z-index="2500">
+            <p>Popover content</p>
+            <mdc-button id="nested-popover-trigger">Action</mdc-button>
+            <mdc-popover id="nested-popover" triggerID="nested-popover-trigger" backdrop z-index="3500">
+              <p>Nested Popover content</p>
+            </mdc-popover>
+          </mdc-popover>
+        </div>
+      `,
+      clearDocument: true,
+    });
+    const trigger = componentsPage.page.locator('#trigger');
+    await trigger.click();
+
+    await expect(componentsPage.page.locator('#parent-popover')).toHaveCSS('z-index', '2500');
+    await expect(trigger).toHaveCSS('z-index', '2499');
+    await expect(componentsPage.page.locator('div[class="popover-backdrop"]')).toHaveCSS('z-index', '2498');
+
+    const nestedPopoverTrigger = componentsPage.page.locator('#nested-popover-trigger');
+    await nestedPopoverTrigger.waitFor();
+    await nestedPopoverTrigger.click();
+
+    await expect(componentsPage.page.locator('#nested-popover')).toHaveCSS('z-index', '3500');
+    await expect(nestedPopoverTrigger).toHaveCSS('z-index', '3499');
+    await expect(componentsPage.page.locator('#parent-popover div[class="popover-backdrop"]')).toHaveCSS(
+      'z-index',
+      '3498',
+    );
   });
 };
 
@@ -1075,6 +1679,55 @@ test('mdc-popover', async ({ componentsPage }) => {
    */
   await test.step('attributes for popover component', async () => {
     await attributeTestCases(componentsPage);
+  });
+
+  /**
+   * PROPERTIES
+   */
+  await test.step('properties for popover component', async () => {
+    await test.step('default attributes for popover', async () => {
+      const { popover, triggerButton } = await setup({
+        componentsPage,
+        id: 'popover',
+        triggerID: 'trigger-button',
+        children: 'Lorem ipsum dolor sit amet.',
+      });
+
+      await triggerButton.evaluate((el: HTMLElement) => {
+        const { style } = el;
+        style.width = '500px';
+        style.height = '500px';
+      });
+
+      await expect(popover).toHaveAttribute('offset', '4');
+      // open the popover
+      await triggerButton.click();
+      await expect(popover).toBeVisible();
+      // With the default offset, the popover should be positioned at the bottom of the trigger with a 4px gap
+      const defaultOffsetBBox = (await popover.boundingBox())!;
+      // Firefox round values differently than other browsers, so we need to use Math.floor to compare the values
+      expect(Math.floor(defaultOffsetBBox.x)).toEqual(132);
+      expect(Math.floor(defaultOffsetBBox.y)).toEqual(504);
+      // close the popover
+      await triggerButton.click();
+
+      // Align the popover to the center of the trigger using offset property
+      await popover.evaluate((popoverEl: Popover) => {
+        // eslint-disable-next-line no-param-reassign
+        popoverEl.offset = ({ rects }) => ({
+          mainAxis: -rects.reference.height / 2 - rects.floating.height / 2,
+        });
+      });
+
+      await expect(popover).toHaveAttribute('offset', '');
+      // open the popover
+      await triggerButton.click();
+      await expect(popover).toBeVisible();
+      // With the custom offset, the popover should be centered to the trigger
+      const centeredOffsetBBox = (await popover.boundingBox())!;
+      expect(Math.floor(centeredOffsetBBox.x)).toEqual(132);
+      expect(Math.floor(centeredOffsetBBox.y)).toEqual(227);
+    });
   });
 
   /**
@@ -1126,6 +1779,196 @@ test('mdc-popover', async ({ componentsPage }) => {
       await componentsPage.visualRegression.takeScreenshot('mdc-popover', {
         element: visualPopover,
       });
+    });
+  });
+
+  /**
+   * DYNAMIC CONTENT
+   */
+  await test.step('popover handle dynamic content changes', async () => {
+    await componentsPage.mount({
+      html: `<div id="root">
+            <div id="container"></div>
+        </div>`,
+      clearDocument: true,
+    });
+
+    type Utils = {
+      $: (id: string) => HTMLElement;
+      wait: (ms: number) => Promise<void>;
+      rmById: (id: string) => void;
+      createPopover: (attrs?: Record<string, string>) => void;
+      createTrigger: () => void;
+      init: () => void;
+    };
+
+    // Prepare script to add popover and trigger dynamically
+    await componentsPage.page.evaluate(async () => {
+      const w = window as typeof window & Utils;
+
+      w.$ = id => document.getElementById(id)!;
+
+      w.wait = (ms: number) =>
+        new Promise(resolve => {
+          setTimeout(resolve, ms);
+        });
+
+      w.rmById = (id: string) => {
+        const el = w.$(id);
+        if (el && el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      };
+
+      w.createPopover = (attrs = {}) => {
+        const container = w.$('container');
+        if (container) {
+          const popover = document.createElement('mdc-popover');
+          popover.setAttribute('id', 'runtime-popover');
+          popover.setAttribute('triggerid', 'runtime-trigger');
+          Object.entries(attrs).forEach(([key, value]) => {
+            popover.setAttribute(key, value);
+          });
+          popover.innerHTML = 'Runtime Popover Content';
+          container.appendChild(popover);
+        }
+      };
+
+      w.createTrigger = () => {
+        const container = w.$('container');
+        if (container) {
+          const trigger = document.createElement('mdc-button');
+          trigger.setAttribute('id', 'runtime-trigger');
+          trigger.textContent = 'Runtime Trigger';
+          container.appendChild(trigger);
+        }
+      };
+
+      w.init = () => {
+        w.$('root').innerHTML = `<div id="container"></div>`;
+      };
+    });
+
+    const container = componentsPage.page.locator('#container');
+    const popover = componentsPage.page.locator('#runtime-popover');
+    const trigger = componentsPage.page.locator('#runtime-trigger');
+
+    await test.step('popover created befor trigger', async () => {
+      await componentsPage.page.evaluate(async () => {
+        const w = window as typeof window & Utils;
+        w.init();
+
+        w.createPopover();
+        await w.wait(100);
+        w.createTrigger();
+      });
+
+      // Wait for the trigger to be available
+      await expect(trigger).toBeVisible();
+
+      // Click the trigger to open the popover
+      await trigger.click();
+      await expect(popover).toBeVisible();
+
+      // Click the trigger again to close the popover
+      await trigger.click();
+      await expect(popover).not.toBeVisible();
+    });
+
+    await test.step('Remove and re-create popover', async () => {
+      await componentsPage.page.evaluate(async () => {
+        const w = window as typeof window & Utils;
+
+        w.init();
+
+        w.createTrigger();
+        w.createPopover();
+        w.rmById('runtime-popover');
+        await w.wait(100);
+        w.createPopover();
+      });
+
+      // Wait for the trigger to be available
+      await expect(trigger).toBeVisible();
+
+      // Click the trigger to open the popover
+      await trigger.click();
+      await expect(popover).toBeVisible();
+
+      // Click the trigger again to close the popover
+      await trigger.click();
+      await expect(popover).not.toBeVisible();
+    });
+
+    await test.step('Remove and re-create trigger', async () => {
+      await componentsPage.page.evaluate(async () => {
+        const w = window as typeof window & Utils;
+
+        w.init();
+
+        w.createTrigger();
+        w.createPopover();
+        w.rmById('runtime-trigger');
+        await w.wait(100);
+        w.createTrigger();
+      });
+
+      // Wait for the trigger to be available
+      await expect(trigger).toBeVisible();
+
+      // Click the trigger to open the popover
+      await trigger.click();
+      await expect(popover).toBeVisible();
+
+      // Click the trigger again to close the popover
+      await trigger.click();
+      await expect(popover).not.toBeVisible();
+    });
+
+    await test.step('Append to attribute mount and unmount the popover correctly', async () => {
+      await componentsPage.page.evaluate(async () => {
+        const w = window as typeof window & Utils;
+
+        w.init();
+        w.createTrigger();
+        w.createPopover({ 'append-to': 'root' });
+      });
+
+      await expect(popover.evaluate(node => node.parentElement?.id)).resolves.toBe('root');
+      await expect(container.locator('mdc-popoverportal')).toHaveCount(1);
+      await expect(container.locator('mdc-popoverportal')).not.toBeVisible();
+
+      await componentsPage.page.evaluate(async () => {
+        const w = window as typeof window & Utils;
+
+        w.rmById('container');
+      });
+
+      await expect(popover).toHaveCount(0);
+      await expect(container.locator('mdc-popoverportal')).toHaveCount(0);
+    });
+
+    await test.step('Removing of appended popover will remove the corresponding portal element as well', async () => {
+      await componentsPage.page.evaluate(() => {
+        const w = window as typeof window & Utils;
+
+        w.init();
+        w.createTrigger();
+        w.createPopover({ 'append-to': 'root' });
+      });
+
+      await expect(popover.evaluate(node => node.parentElement?.id)).resolves.toBe('root');
+      await expect(container.locator('mdc-popoverportal')).toHaveCount(1);
+      await expect(container.locator('mdc-popoverportal')).not.toBeVisible();
+
+      await componentsPage.page.evaluate(() => {
+        const w = window as typeof window & Utils;
+
+        w.rmById('runtime-popover');
+      });
+
+      await expect(popover).toHaveCount(0);
+      await expect(container.locator('mdc-popoverportal')).toHaveCount(0);
     });
   });
 });

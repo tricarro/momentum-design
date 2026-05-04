@@ -1,13 +1,16 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import '../badge';
+import '../staticchip';
+import '../brandvisual';
 import { html, nothing } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import { ifDefined } from 'lit/directives/if-defined.js';
 
-import { textControls, hideControls, readOnlyControls } from '../../../config/storybook/utils';
+import { hideAllControls, hideControls, readOnlyControls } from '../../../config/storybook/utils';
+import { ROLE } from '../../utils/roles';
 
-import { TAB_VARIANTS } from './tab.constants';
+import { TAB_SIZES, TAB_VARIANTS } from './tab.constants';
 
 const render = (args: Args) =>
   html`<div role="tablist">
@@ -20,14 +23,15 @@ const render = (args: Args) =>
       ?active="${args.active}"
       aria-label="${ifDefined(args.text ? nothing : 'Label')}"
       ?disabled="${args.disabled}"
+      ?soft-disabled="${args['soft-disabled']}"
       icon-name="${ifDefined(args['icon-name'])}"
+      size="${ifDefined(args.size)}"
       tabIndex="${ifDefined(args.tabIndex)}"
       text="${ifDefined(args.text)}"
       variant="${ifDefined(args.variant)}"
       tab-id="tab1"
       ?auto-focus-on-mount="${args['auto-focus-on-mount']}"
-      >${args.showBadge ? html`<mdc-badge slot="badge" type="counter" counter="1"></mdc-badge>` : nothing}</mdc-tab
-    >
+    ></mdc-tab>
   </div>`;
 
 const meta: Meta = {
@@ -35,9 +39,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-tab',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     active: {
       control: 'boolean',
@@ -46,16 +48,19 @@ const meta: Meta = {
     disabled: {
       control: 'boolean',
     },
+    'soft-disabled': {
+      control: 'boolean',
+    },
     'icon-name': {
       control: 'text',
     },
-    showBadge: {
-      control: 'boolean',
-      description: 'This is an internal argument to show the badge in the story',
-      table: { disable: true },
-    },
     tabIndex: {
       control: 'number',
+    },
+    size: {
+      control: 'select',
+      options: Object.values(TAB_SIZES),
+      description: 'Size of the tab in pixels.',
     },
     text: {
       control: 'text',
@@ -67,59 +72,7 @@ const meta: Meta = {
     'auto-focus-on-mount': {
       control: 'boolean',
     },
-    ...textControls([
-      '--mdc-tab-content-gap',
-      '--mdc-tab-height',
-      '--mdc-tab-glass-active-background-color-disabled',
-      '--mdc-tab-glass-active-background-color-hover',
-      '--mdc-tab-glass-active-background-color-normal',
-      '--mdc-tab-glass-active-background-color-pressed',
-      '--mdc-tab-glass-active-color',
-      '--mdc-tab-glass-active-color-disabled',
-      '--mdc-tab-glass-border-radius',
-      '--mdc-tab-glass-inactive-background-color-disabled',
-      '--mdc-tab-glass-inactive-background-color-hover',
-      '--mdc-tab-glass-inactive-background-color-normal',
-      '--mdc-tab-glass-inactive-background-color-pressed',
-      '--mdc-tab-glass-inactive-color',
-      '--mdc-tab-glass-inactive-color-disabled',
-      '--mdc-tab-line-active-background-color-disabled',
-      '--mdc-tab-line-active-background-color-hover',
-      '--mdc-tab-line-active-background-color-normal',
-      '--mdc-tab-line-active-background-color-pressed',
-      '--mdc-tab-line-active-color',
-      '--mdc-tab-line-active-color-disabled',
-      '--mdc-tab-line-active-indicator-color',
-      '--mdc-tab-line-active-indicator-color-disabled',
-      '--mdc-tab-line-active-indicator-height',
-      '--mdc-tab-line-active-indicator-width',
-      '--mdc-tab-line-border-bottom-left-radius',
-      '--mdc-tab-line-border-bottom-right-radius',
-      '--mdc-tab-line-border-top-left-radius',
-      '--mdc-tab-line-border-top-right-radius',
-      '--mdc-tab-line-inactive-background-color-disabled',
-      '--mdc-tab-line-inactive-background-color-hover',
-      '--mdc-tab-line-inactive-background-color-normal',
-      '--mdc-tab-line-inactive-background-color-pressed',
-      '--mdc-tab-line-inactive-color',
-      '--mdc-tab-line-inactive-color-disabled',
-      '--mdc-tab-padding-left',
-      '--mdc-tab-padding-right',
-      '--mdc-tab-pill-active-background-color-disabled',
-      '--mdc-tab-pill-active-background-color-hover',
-      '--mdc-tab-pill-active-background-color-normal',
-      '--mdc-tab-pill-active-background-color-pressed',
-      '--mdc-tab-pill-active-color',
-      '--mdc-tab-pill-active-color-disabled',
-      '--mdc-tab-pill-border-radius',
-      '--mdc-tab-pill-inactive-background-color-disabled',
-      '--mdc-tab-pill-inactive-background-color-hover',
-      '--mdc-tab-pill-inactive-background-color-normal',
-      '--mdc-tab-pill-inactive-background-color-pressed',
-      '--mdc-tab-pill-inactive-color',
-      '--mdc-tab-pill-inactive-color-disabled',
-    ]),
-    ...hideControls(['role', 'size', 'soft-disabled', 'type']),
+    ...hideControls(['role', 'type', 'Slot Name: ""']),
   },
 };
 
@@ -130,17 +83,16 @@ const defaultArgs = {
   disabled: false,
   'icon-name': 'placeholder-bold',
   role: 'tab',
-  showBadge: false,
+  size: TAB_SIZES[32],
   tabIndex: 0,
   text: 'Label',
-  variant: 'pill',
+  variant: TAB_VARIANTS.PILL,
 };
 
 export const Example: StoryObj = {
   render,
   args: {
     ...defaultArgs,
-    showBadge: true,
   },
 };
 
@@ -148,7 +100,7 @@ export const GlassTab: StoryObj = {
   render,
   args: {
     ...defaultArgs,
-    variant: 'glass',
+    variant: TAB_VARIANTS.GLASS,
   },
   argTypes: {
     ...readOnlyControls(['variant']),
@@ -159,7 +111,7 @@ export const LineTab: StoryObj = {
   render,
   args: {
     ...defaultArgs,
-    variant: 'line',
+    variant: TAB_VARIANTS.LINE,
   },
   argTypes: {
     ...readOnlyControls(['variant']),
@@ -170,7 +122,7 @@ export const PillTab: StoryObj = {
   render,
   args: {
     ...defaultArgs,
-    variant: 'pill',
+    variant: TAB_VARIANTS.PILL,
   },
   argTypes: {
     ...readOnlyControls(['variant']),
@@ -186,4 +138,68 @@ export const IconOnlyTab: StoryObj = {
   argTypes: {
     ...hideControls(['text']),
   },
+};
+
+export const CustomPrefixSlot: StoryObj = {
+  render: (args: Args) =>
+    html`<div role="tablist">
+      <mdc-tab
+        @click="${action('onclick')}"
+        @keydown="${action('onkeydown')}"
+        @keyup="${action('onkeyup')}"
+        @focus="${action('onfocus')}"
+        @activechange="${action('onactivechange')}"
+        ?active="${args.active}"
+        aria-label="${ifDefined(args.text ? nothing : 'Label')}"
+        ?disabled="${args.disabled}"
+        ?soft-disabled="${args['soft-disabled']}"
+        size="${ifDefined(args.size)}"
+        tabIndex="${ifDefined(args.tabIndex)}"
+        text="${ifDefined(args.text)}"
+        variant="${ifDefined(args.variant)}"
+        tab-id="tab1"
+        ?auto-focus-on-mount="${args['auto-focus-on-mount']}"
+      >
+        <mdc-brandvisual style="width: 1rem;" slot="prefix" name="webex-symbol-common-color-gradient"></mdc-brandvisual>
+      </mdc-tab>
+    </div>`,
+  args: {
+    ...defaultArgs,
+    'icon-name': undefined, // Remove default icon-name since we're using custom slot
+  },
+  argTypes: {
+    ...hideControls(['icon-name']),
+  },
+};
+
+export const TabWithSlots: StoryObj = {
+  render: () => html`
+    <div role="${ROLE.MAIN}" style="display: flex; gap: 2rem; flex-direction: column;">
+      <div style="display: flex; gap: 1rem;" role="${ROLE.TABLIST}">
+        <mdc-tab text="Postfix Icon">
+          <mdc-icon slot="postfix" name="placeholder-bold"></mdc-icon>
+        </mdc-tab>
+        <mdc-tab active text="Prefix Icon">
+          <mdc-icon slot="prefix" name="placeholder-bold"></mdc-icon>
+        </mdc-tab>
+      </div>
+      <div style="display: flex; gap: 1rem;" role="${ROLE.TABLIST}">">
+        <mdc-tab text="Postfix Badge">
+          <mdc-badge slot="postfix" type="counter" counter="1"></mdc-badge>
+        </mdc-tab>
+        <mdc-tab active text="Prefix Badge">
+          <mdc-badge slot="prefix"></mdc-badge>
+        </mdc-tab>
+      </div>
+      <div style="display: flex; gap: 1rem;" role="${ROLE.TABLIST}">">
+        <mdc-tab text="Postfix Chip">
+          <mdc-staticchip slot="postfix" label="Alpha"></mdc-chip>
+        </mdc-tab>
+        <mdc-tab active text="Prefix Chip">
+          <mdc-staticchip slot="prefix" label="Beta"></mdc-chip>
+        </mdc-tab>
+      </div>
+    </div>
+  `,
+  ...hideAllControls(),
 };

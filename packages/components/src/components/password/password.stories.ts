@@ -2,12 +2,12 @@ import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { hideControls, textControls } from '../../../config/storybook/utils';
+import { hideControls } from '../../../config/storybook/utils';
 import { VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
-import { POPOVER_PLACEMENT } from '../popover/popover.constants';
+import { POPOVER_PLACEMENT, STRATEGY } from '../popover/popover.constants';
 
 import type Password from './password.component';
 
@@ -21,8 +21,9 @@ const render = (args: Args) => {
     label="${args.label}"
     help-text="${args['help-text']}"
     help-text-type="${args['help-text-type']}"
-    toggletip-placement="${args['toggletip-placement']}"
     toggletip-text="${args['toggletip-text']}"
+    toggletip-placement="${args['toggletip-placement']}"
+    toggletip-strategy="${args['toggletip-strategy']}"
     info-icon-aria-label="${args['info-icon-aria-label']}"
     name="${args.name}"
     value="${value}"
@@ -43,7 +44,8 @@ const render = (args: Args) => {
     pattern="${ifDefined(args.pattern)}"
     list="${ifDefined(args.list)}"
     size="${ifDefined(args.size)}"
-    show-hide-button-aria-label="${args['show-hide-button-aria-label']}"
+    show-button-aria-label="${args['show-button-aria-label']}"
+    hide-button-aria-label="${args['hide-button-aria-label']}"
   ></mdc-password>`;
 };
 const meta: Meta = {
@@ -51,9 +53,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-password',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   args: {
     name: 'password',
   },
@@ -70,7 +70,10 @@ const meta: Meta = {
       control: 'text',
       description: 'The name of the password field. It is used to identify the password field in a form.',
     },
-    'show-hide-button-aria-label': {
+    'show-button-aria-label': {
+      control: 'text',
+    },
+    'hide-button-aria-label': {
       control: 'text',
     },
     label: {
@@ -137,27 +140,13 @@ const meta: Meta = {
       control: 'select',
       options: Object.values(POPOVER_PLACEMENT),
     },
+    'toggletip-strategy': {
+      control: 'select',
+      options: Object.values(STRATEGY),
+    },
     'info-icon-aria-label': {
       control: 'text',
     },
-    ...textControls([
-      '--mdc-input-disabled-border-color',
-      '--mdc-input-disabled-text-color',
-      '--mdc-input-disabled-background-color',
-      '--mdc-input-border-color',
-      '--mdc-input-text-color',
-      '--mdc-input-background-color',
-      '--mdc-input-selection-background-color',
-      '--mdc-input-selection-text-color',
-      '--mdc-input-support-text-color',
-      '--mdc-input-hover-background-color',
-      '--mdc-input-focused-background-color',
-      '--mdc-input-focused-border-color',
-      '--mdc-input-error-border-color',
-      '--mdc-input-warning-border-color',
-      '--mdc-input-success-border-color',
-      '--mdc-input-primary-border-color',
-    ]),
     ...hideControls([
       'autocapitalize',
       'clear-aria-label',
@@ -182,7 +171,8 @@ export const Example: StoryObj = {
     readonly: false,
     disabled: false,
     required: true,
-    'show-hide-button-aria-label': 'Show or hide password',
+    'show-button-aria-label': 'Show password',
+    'hide-button-aria-label': 'Hide password',
     'validation-message': '',
   },
 };
@@ -220,7 +210,8 @@ export const FormFieldPassword: StoryObj = {
     required: true,
     'help-text': 'Enter a strong password',
     'help-text-type': 'default',
-    'show-hide-button-aria-label': 'Show or hide password',
+    'show-button-aria-label': 'Show password',
+    'hide-button-aria-label': 'Hide password',
     'validation-message': 'Password must be between 5 and 10 characters.',
     minlength: 5,
     maxlength: 10,
@@ -284,7 +275,8 @@ export const FormFieldPasswordWithHelpTextValidation: StoryObj = {
             maxlength=${ifDefined(args.maxlength)}
             help-text=${args['help-text']}
             help-text-type=${args['help-text-type']}
-            show-hide-button-aria-label=${args['show-hide-button-aria-label']}
+            show-button-aria-label=${args['show-button-aria-label']}
+            hide-button-aria-label=${args['hide-button-aria-label']}
           ></mdc-password>
           <div style="display: flex; gap: 0.25rem; margin-top: 0.25rem">
             <mdc-button type="submit" size="24">Submit</mdc-button>
@@ -303,7 +295,8 @@ export const FormFieldPasswordWithHelpTextValidation: StoryObj = {
     maxlength: 10,
     'help-text': 'Please provide a valid password',
     'help-text-type': 'default',
-    'show-hide-button-aria-label': 'Show or hide password',
+    'show-button-aria-label': 'Show password',
+    'hide-button-aria-label': 'Hide password',
   },
 };
 
@@ -314,7 +307,8 @@ export const DefaultValidation: StoryObj = {
     'help-text-type': 'default',
     placeholder: 'Enter password',
     value: 'default_password123',
-    'show-hide-button-aria-label': 'Toggle password visibility',
+    'show-button-aria-label': 'Show password',
+    'hide-button-aria-label': 'Hide password',
   },
 };
 
@@ -325,7 +319,8 @@ export const ErrorValidation: StoryObj = {
     'help-text-type': 'error',
     placeholder: 'Enter password',
     value: 'error_password123',
-    'show-hide-button-aria-label': 'Toggle password visibility',
+    'show-button-aria-label': 'Show password',
+    'hide-button-aria-label': 'Hide password',
   },
 };
 
@@ -336,6 +331,7 @@ export const SuccessValidation: StoryObj = {
     'help-text-type': 'success',
     placeholder: 'Enter password',
     value: 'success_password123',
-    'show-hide-button-aria-label': 'Toggle password visibility',
+    'show-button-aria-label': 'Show password',
+    'hide-button-aria-label': 'Hide password',
   },
 };

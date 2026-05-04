@@ -1,10 +1,10 @@
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import { html, TemplateResult } from 'lit';
 
 import '.';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, hideControls } from '../../../config/storybook/utils';
+import { hideControls } from '../../../config/storybook/utils';
 import { DEFAULTS, POPOVER_PLACEMENT } from '../popover/popover.constants';
 import '../button';
 import '../buttongroup';
@@ -24,7 +24,7 @@ const createPopover = (args: Args, content: TemplateResult = html``) => html`
     placement="${args.placement}"
     ?visible="${args.visible}"
     .offset="${args.offset ?? 0}"
-    ?flip="${args.flip}"
+    ?disable-flip="${args['disable-flip']}"
     ?size="${args.size}"
     z-index="${args['z-index']}"
     delay="${args.delay}"
@@ -48,9 +48,7 @@ const meta: Meta = {
   title: 'Components/menupopover/menupopover',
   tags: ['autodocs'],
   component: 'mdc-menupopover',
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     id: {
       control: 'text',
@@ -77,7 +75,7 @@ const meta: Meta = {
     delay: {
       control: 'text',
     },
-    flip: {
+    'disable-flip': {
       control: 'boolean',
     },
     size: {
@@ -106,19 +104,6 @@ const meta: Meta = {
     },
     ...classArgType,
     ...styleArgType,
-    ...disableControls([
-      '--mdc-popover-arrow-border-radius',
-      '--mdc-popover-arrow-border',
-      '--mdc-popover-primary-background-color',
-      '--mdc-popover-border-color',
-      '--mdc-popover-inverted-background-color',
-      '--mdc-popover-inverted-border-color',
-      '--mdc-popover-inverted-text-color',
-      '--mdc-popover-elevation-3',
-      '--mdc-popover-width',
-      '--mdc-popover-max-width',
-      '--mdc-popover-max-height',
-    ]),
     ...hideControls([
       'arrowElement',
       'backdrop',
@@ -172,13 +157,14 @@ const groupedMenuContent = html` <mdc-menuitem label="Profile"></mdc-menuitem>
   <mdc-menusection headerText="Preferences">
     <mdc-menuitemcheckbox label="Enable feature"></mdc-menuitemcheckbox>
     <mdc-menuitemcheckbox label="Beta mode" checked></mdc-menuitemcheckbox>
-    <mdc-divider></mdc-divider>
-    <mdc-menusection header-text="Theme">
-      <mdc-menuitemradio name="theme" value="light" label="Light" checked></mdc-menuitemradio>
-      <mdc-menuitemradio name="theme" value="dark" label="Dark"></mdc-menuitemradio>
-      <mdc-menuitemradio name="theme" value="system" label="System"></mdc-menuitemradio>
-    </mdc-menusection>
   </mdc-menusection>
+  <mdc-divider></mdc-divider>
+  <mdc-menusection header-text="Theme">
+    <mdc-menuitemradio name="theme" value="light" label="Light" checked></mdc-menuitemradio>
+    <mdc-menuitemradio name="theme" value="dark" label="Dark"></mdc-menuitemradio>
+    <mdc-menuitemradio name="theme" value="system" label="System"></mdc-menuitemradio>
+  </mdc-menusection>
+  <mdc-divider></mdc-divider>
   <mdc-menuitem label="Notifications"></mdc-menuitem>`;
 
 const nestedSubmenuContent = html` <mdc-menuitem label="Profile"></mdc-menuitem>
@@ -233,7 +219,7 @@ export const Example: StoryObj = {
     offset: DEFAULTS.OFFSET,
     'z-index': DEFAULTS.Z_INDEX,
     delay: DEFAULTS.DELAY,
-    flip: DEFAULTS.FLIP,
+    'disable-flip': DEFAULTS.DISABLE_FLIP,
     'disable-aria-expanded': false,
   },
   render: args => html`
@@ -284,7 +270,7 @@ export const WithNestedSubmenus: StoryObj = {
   render: (args: Args) => html`
     <div
       id="menupopover-test-wrapper"
-      style="display: flex; justify-content: flex-start; align-items: center; height: 100vh;"
+      style="display: flex; justify-content: flex-start; align-items: center; height: 100%;"
     >
       <mdc-button id="trigger-btn">Options</mdc-button>
       ${createPopover(args, nestedSubmenuContent)}
@@ -296,7 +282,7 @@ export const WithNestedSubmenuContentAndSelectMenuItems: StoryObj = {
   render: (args: Args) => html`
     <div
       id="menupopover-test-wrapper"
-      style="display: flex; justify-content: flex-start; align-items: center; height: 100vh;"
+      style="display: flex; justify-content: flex-start; align-items: center; height: 100%;"
     >
       <mdc-button id="trigger-btn">Options</mdc-button>
       ${createPopover(args, nestedSubmenuContentAndSelectMenuItems)}

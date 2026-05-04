@@ -1,12 +1,15 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
 
 import '.';
 import '../tooltip';
+import '../avatar';
+import '../button';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, hideAllControls, hideControls, textControls } from '../../../config/storybook/utils';
+import { disableControls, hideAllControls, hideControls } from '../../../config/storybook/utils';
+import { imageFixtures } from '../../../config/playwright/setup/utils/imageFixtures';
 
 const wrapWithDiv = (htmlString: TemplateResult) => html`
   <div aria-label="List box" role="listbox">${htmlString}</div>
@@ -27,7 +30,8 @@ const render = (args: Args) =>
       value="${args.value}"
       prefix-icon="${args['prefix-icon']}"
       aria-label="${args['aria-label']}"
-    ></mdc-option>
+      >${args.children}</mdc-option
+    >
   `);
 
 const meta: Meta = {
@@ -35,9 +39,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-option',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     disabled: {
       control: 'boolean',
@@ -82,15 +84,6 @@ const meta: Meta = {
       'trailing-controls',
       'trailing-text-side-header',
       'trailing-text-subline',
-    ]),
-    ...textControls([
-      '--mdc-listitem-background-color-active',
-      '--mdc-listitem-background-color-hover',
-      '--mdc-listitem-default-background-color',
-      '--mdc-listitem-primary-label-color',
-      '--mdc-listitem-secondary-label-color',
-      '--mdc-listitem-disabled-color',
-      '--mdc-listitem-column-gap',
     ]),
     ...disableControls(['default']),
     ...classArgType,
@@ -143,5 +136,16 @@ export const DisabledOption: StoryObj = {
     'prefix-icon': 'placeholder-bold',
     label: 'Option Label',
     disabled: true,
+  },
+};
+
+export const OptionWithLeadingControls: StoryObj = {
+  args: {
+    label: 'Its chai tea time',
+    selected: true,
+    children: html`
+      <mdc-avatar slot="leading-controls" presence="active" src="${imageFixtures.avatar}"></mdc-avatar>
+      <mdc-button slot="leading-controls">Click me</mdc-button>
+    `,
   },
 };

@@ -674,6 +674,11 @@
             "type": "color",
             "value": "{color.core.black-alpha.0}",
             "description": ""
+          },
+          "subtle": {
+            "value": "{color.core.black-alpha.7}",
+            "type": "color",
+            "description": "Used in the Agent/Supervisor Desktop"
           }
         },
         "accent": {
@@ -1093,6 +1098,11 @@
             "type": "color",
             "description": "Used for glass effect background for operation pop. "
           },
+          "active": {
+            "value": "{color.core.white-alpha.60}",
+            "type": "color",
+            "description": "Used for glass effect background for operation pop. "
+          },
           "light": {
             "value": "{color.core.white-alpha.40}",
             "type": "color",
@@ -1108,26 +1118,14 @@
             "type": "color",
             "description": "Used for glass effect background for operation pop. "
           },
-          "overlay": {
-            "normal": {
-              "value": "{color.core.white-alpha.80}",
-              "type": "color",
-              "description": "Used for operation pop: knocked-back effect when signle card is selected"
-            },
-            "inactive": {
-              "value": "{color.core.white-alpha.40}",
-              "type": "color",
-              "description": "Used for operation pop: knocked-back effect when signle card is selected"
-            }
-          },
           "radial": {
             "0": {
-              "value": "{color.core.white-alpha.90}",
+              "value": "{color.core.white-alpha.5}",
               "type": "color",
               "description": "Used for operation pop background. "
             },
             "1": {
-              "value": "{color.core.white-alpha.40}",
+              "value": "{color.core.white-alpha.0}",
               "type": "color",
               "description": "Used for operation pop background. "
             }
@@ -1138,6 +1136,26 @@
             "value": "{color.core.black-alpha.11}",
             "type": "color",
             "description": "Used for disabled/read-only/read-only focus states for input components. "
+          }
+        },
+        "overlay": {
+          "normal": {
+            "value": "{color.core.blue.100}",
+            "type": "color",
+            "$extensions": {
+              "studio.tokens": {
+                "modify": {
+                  "type": "alpha",
+                  "value": "0.4",
+                  "space": "lch"
+                }
+              },
+              "com.figma.scopes": [
+                "ALL_FILLS",
+                "FRAME_FILL"
+              ]
+            },
+            "description": "Used for overlay background"
           }
         }
       },
@@ -1407,56 +1425,47 @@
           "cobalt": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.cobalt.40}",
-            "description": ""
+            "value": "{color.decorative.cobalt.60}"
           },
           "gold": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.gold.40}",
-            "description": ""
+            "value": "{color.decorative.gold.60}"
           },
           "lime": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.lime.40}",
-            "description": ""
+            "value": "{color.decorative.lime.60}"
           },
           "mint": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.mint.40}",
-            "description": ""
+            "value": "{color.decorative.mint.60}"
           },
           "orange": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.core.orange.40}",
-            "description": ""
+            "value": "{color.core.orange.60}"
           },
           "pink": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.pink.40}",
-            "description": ""
+            "value": "{color.decorative.pink.60}"
           },
           "purple": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.purple.40}",
-            "description": ""
+            "value": "{color.decorative.purple.60}"
           },
           "slate": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.slate.40}",
-            "description": ""
+            "value": "{color.decorative.slate.60}"
           },
           "violet": {
             "parent": "theme/stable/light",
             "type": "color",
-            "value": "{color.decorative.violet.40}",
-            "description": ""
+            "value": "{color.decorative.violet.60}"
           }
         },
         "promotion": {
@@ -1481,9 +1490,16 @@
         },
         "glass": {
           "normal": {
-            "value": "linear-gradient(180deg, {color.core.black-alpha.4} 0%, {color.core.black-alpha.11} 100%)",
+            "value": "linear-gradient(180deg, {color.core.black-alpha.7} 0%, {color.core.black-alpha.20} 100%)",
             "type": "color",
             "description": "Used for operation pop"
+          }
+        },
+        "ai": {
+          "normal": {
+            "value": "linear-gradient(27deg, {color.ai.steelblue} 10.22%, {color.ai.skyblue} 88.93%, {color.ai.aquablue} 162.86%)",
+            "type": "color",
+            "description": "linear-gradient(27deg, #3B76EA 10.22%, #00BCEB 88.93%, #63FFF7 162.86%)\nUsed for AI assistant feature"
           }
         }
       },

@@ -1,24 +1,27 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
 import type { TemplateResult } from 'lit';
-import { html } from 'lit';
+import { html, nothing } from 'lit';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import '.';
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, hideAllControls, hideControls, textControls } from '../../../config/storybook/utils';
+import { describeStory, hideAllControls, hideControls } from '../../../config/storybook/utils';
 import '../divider';
 import { VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
 import '../optgroup';
 import '../option';
+import '../selectlistbox';
 import '../tooltip';
-import { POPOVER_PLACEMENT } from '../popover/popover.constants';
+import { POPOVER_PLACEMENT, STRATEGY } from '../popover/popover.constants';
 
 import type Select from './select.component';
+import * as CountriesList from './select.utils.json';
 
 const helpTextTypes = Object.values(VALIDATION).filter((type: string) => type !== 'priority');
 
 const wrapWithDiv = (htmlString: TemplateResult) => html`
-  <div style="height: 100%; width: 20rem; display: flex; flex-direction: column; justify-content: flex-start;">
+  <div style="height: 100%; width: 20rem; display: flex; flex-direction: column; justify-content: center;">
     ${htmlString}
   </div>
 `;
@@ -31,33 +34,29 @@ const render = (args: Args) =>
       @input="${action('oninput')}"
       @keydown="${action('onkeydown')}"
       @focus="${action('onfocus')}"
-      label="${args.label}"
+      label="${ifDefined(args.label)}"
       ?required="${args.required}"
-      help-text-type="${args['help-text-type']}"
-      help-text="${args['help-text']}"
-      data-aria-label="${args['data-aria-label']}"
-      toggletip-text="${args['toggletip-text']}"
-      toggletip-placement="${args['toggletip-placement']}"
-      info-icon-aria-label="${args['info-icon-aria-label']}"
-      placement="${args.placement}"
-      name="${args.name}"
-      placeholder="${args.placeholder}"
+      help-text-type="${ifDefined(args['help-text-type'])}"
+      help-text="${ifDefined(args['help-text'])}"
+      data-aria-label="${ifDefined(args['data-aria-label'])}"
+      toggletip-text="${ifDefined(args['toggletip-text'])}"
+      toggletip-placement="${ifDefined(args['toggletip-placement'])}"
+      toggletip-strategy="${ifDefined(args['toggletip-strategy'])}"
+      info-icon-aria-label="${ifDefined(args['info-icon-aria-label'])}"
+      placement="${ifDefined(args.placement)}"
+      name="${ifDefined(args.name)}"
+      placeholder="${ifDefined(args.placeholder)}"
       ?disabled="${args.disabled}"
       ?soft-disabled="${args['soft-disabled']}"
       ?readonly="${args.readonly}"
-      boundary="${args.boundary}"
-      strategy="${args.strategy}"
-      popover-z-index="${args['popover-z-index']}"
-      backdrop-append-to="${args['backdrop-append-to']}"
+      boundary="${ifDefined(args.boundary)}"
+      strategy="${ifDefined(args.strategy)}"
+      popover-z-index="${ifDefined(args['popover-z-index'])}"
+      backdrop-append-to="${ifDefined(args['backdrop-append-to'])}"
       ?auto-focus-on-mount="${args['auto-focus-on-mount']}"
+      ?disable-flip="${args['disable-flip']}"
     >
-      <mdc-selectlistbox>
-        <mdc-option value="london" label="London, UK"></mdc-option>
-        <mdc-option selected value="losangeles" label="Los Angeles, CA"></mdc-option>
-        <mdc-option value="newyork" label="New York, NY"></mdc-option>
-        <mdc-option value="phoenix" label="Phoenix, AZ"></mdc-option>
-        <mdc-option value="seattle" label="Seattle, WA"></mdc-option>
-      </mdc-selectlistbox>
+      ${args.children}
     </mdc-select>
   `);
 
@@ -66,9 +65,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-select',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     name: {
       control: 'text',
@@ -109,34 +106,37 @@ const meta: Meta = {
       control: 'select',
       options: Object.values(POPOVER_PLACEMENT),
     },
+    'toggletip-strategy': {
+      control: 'select',
+      options: Object.values(STRATEGY),
+    },
     'auto-focus-on-mount': {
       control: 'boolean',
     },
     placement: {
       control: 'select',
-      options: ['bottom-start', 'top-start'],
+      options: [POPOVER_PLACEMENT.BOTTOM_START, POPOVER_PLACEMENT.TOP_START],
     },
     'soft-disabled': {
       control: 'boolean',
     },
-    ...hideControls(['id', 'value', 'validity', 'validation-message', 'willValidate', 'default']),
-    ...textControls([
-      '--mdc-select-background-color',
-      '--mdc-select-background-color-hover',
-      '--mdc-select-background-color-active',
-      '--mdc-select-background-color-disabled',
-      '--mdc-select-text-color',
-      '--mdc-select-text-color-selected',
-      '--mdc-select-text-color-disabled',
-      '--mdc-select-border-color',
-      '--mdc-select-border-color-disabled',
-      '--mdc-select-border-color-success',
-      '--mdc-select-border-color-warning',
-      '--mdc-select-border-color-error',
-      '--mdc-select-width',
-      '--mdc-select-listbox-height',
-      '--mdc-select-listbox-width',
-    ]),
+    'disable-flip': {
+      control: 'boolean',
+    },
+    'backdrop-append-to': {
+      control: 'text',
+    },
+    boundary: {
+      control: 'text',
+    },
+    strategy: {
+      control: 'select',
+      options: Object.values(STRATEGY),
+    },
+    'popover-z-index': {
+      control: 'number',
+    },
+    ...hideControls(['children', 'value', 'validation-message', 'itemsStore', 'validity', 'willValidate']),
     ...classArgType,
     ...styleArgType,
   },
@@ -152,88 +152,85 @@ export const Example: StoryObj = {
     disabled: false,
     readonly: false,
     'help-text': 'Select Help Text',
-    'help-text-type': '',
     'data-aria-label': 'Select label',
-    placement: 'bottom-start',
+    children: html`<mdc-selectlistbox>
+      <mdc-option value="london" label="London, UK"></mdc-option>
+      <mdc-option selected value="losangeles" label="Los Angeles, CA"></mdc-option>
+      <mdc-option value="newyork" label="New York, NY"></mdc-option>
+      <mdc-option value="phoenix" label="Phoenix, AZ"></mdc-option>
+      <mdc-option value="seattle" label="Seattle, WA"></mdc-option>
+    </mdc-selectlistbox>`,
   },
 };
 
 export const SelectWithSecondaryLabel: StoryObj = {
-  render: () =>
-    wrapWithDiv(html`
-      <mdc-select label="Select an option" placeholder="Select an option">
-        <mdc-selectlistbox>
-          <mdc-option label="Option 1" secondary-label="Secondary Label 1"></mdc-option>
-          <mdc-option label="Option 2" secondary-label="Secondary Label 2"></mdc-option>
-          <mdc-option label="Option 3" secondary-label="Secondary Label 3"></mdc-option>
-          <mdc-option label="Option 4" secondary-label="Secondary Label 4"></mdc-option>
-        </mdc-selectlistbox>
-      </mdc-select>
-    `),
-  ...hideAllControls(),
+  args: {
+    label: 'Options with Secondary labels',
+    placeholder: 'Select an option',
+    children: html`<mdc-selectlistbox>
+      <mdc-option label="Option 1" secondary-label="Secondary Label 1"></mdc-option>
+      <mdc-option label="Option 2" secondary-label="Secondary Label 2"></mdc-option>
+      <mdc-option label="Option 3" secondary-label="Secondary Label 3"></mdc-option>
+      <mdc-option label="Option 4" secondary-label="Secondary Label 4"></mdc-option>
+    </mdc-selectlistbox>`,
+  },
 };
 
 export const SelectWithGroups: StoryObj = {
-  render: () => html`
-    <div style="height: 35rem;">
-      <mdc-select label="Select an option from the list of groups" data-aria-label="Select an option">
-        <mdc-selectlistbox>
-          <mdc-optgroup label="Fruit">
-            <mdc-option value="apple" label="Apples"></mdc-option>
-            <mdc-option value="banana" label="Bananas"></mdc-option>
-            <mdc-option value="cherry" label="Cherries"></mdc-option>
-            <mdc-option value="damson" label="Damsons"></mdc-option>
-          </mdc-optgroup>
-          <mdc-divider></mdc-divider>
-          <mdc-optgroup label="Vegetables">
-            <mdc-option value="artichoke" label="Artichokes"></mdc-option>
-            <mdc-option value="broccoli" label="Broccoli"></mdc-option>
-            <mdc-option value="cabbage" label="Cabbages"></mdc-option>
-          </mdc-optgroup>
-          <mdc-divider></mdc-divider>
-          <mdc-optgroup label="Fish">
-            <mdc-option value="tuna" label="Tuna"></mdc-option>
-            <mdc-option value="salmon" label="Salmon"></mdc-option>
-          </mdc-optgroup>
-        </mdc-selectlistbox>
-      </mdc-select>
-    </div>
-  `,
-  ...hideAllControls(),
+  args: {
+    label: 'Options with groups',
+    children: html`<mdc-selectlistbox>
+      <mdc-optgroup label="Fruit">
+        <mdc-option value="apple" label="Apples"></mdc-option>
+        <mdc-option value="banana" label="Bananas"></mdc-option>
+        <mdc-option value="cherry" label="Cherries"></mdc-option>
+        <mdc-option value="damson" label="Damsons"></mdc-option>
+      </mdc-optgroup>
+      <mdc-divider></mdc-divider>
+      <mdc-optgroup label="Vegetables">
+        <mdc-option value="artichoke" label="Artichokes"></mdc-option>
+        <mdc-option value="broccoli" label="Broccoli"></mdc-option>
+        <mdc-option value="cabbage" label="Cabbages"></mdc-option>
+      </mdc-optgroup>
+      <mdc-divider></mdc-divider>
+      <mdc-optgroup label="Fish">
+        <mdc-option value="tuna" label="Tuna"></mdc-option>
+        <mdc-option value="salmon" label="Salmon"></mdc-option>
+      </mdc-optgroup>
+    </mdc-selectlistbox>`,
+  },
 };
 
 export const SelectWithLongOptionText: StoryObj = {
-  render: () =>
-    wrapWithDiv(html`
-      <mdc-select placeholder="Select a color" label="Select one color">
-        <mdc-selectlistbox>
-          <mdc-option label="Red"></mdc-option>
-          <mdc-option label="Yellow" id="trigger-option"></mdc-option>
-          <mdc-option id="option-1" label="White and Black are the biggest colors on the spectrum"></mdc-option>
-          <mdc-option label="Green"></mdc-option>
-        </mdc-selectlistbox>
-      </mdc-select>
-      <mdc-tooltip triggerid="option-1" show-arrow>
-        White and Black are the biggest colors on the spectrum
-      </mdc-tooltip>
-    `),
-  ...hideAllControls(),
+  args: {
+    label: 'Options with long text',
+    placeholder: 'Select one color',
+    children: html`<mdc-selectlistbox>
+      <mdc-option label="Red"></mdc-option>
+      <mdc-option label="Yellow" id="trigger-option"></mdc-option>
+      <mdc-option id="option-1" label="White and Black are the biggest colors on the spectrum"></mdc-option>
+      <mdc-option label="Green"></mdc-option>
+    </mdc-selectlistbox>`,
+  },
+  render: (args: Args) => html`
+    ${render(args)}
+    <mdc-tooltip triggerid="option-1" show-arrow> White and Black are the biggest colors on the spectrum </mdc-tooltip>
+  `,
+  ...describeStory('Hover on the long option text to see its full label.'),
 };
 
 export const SelectWithIconOptions: StoryObj = {
-  render: () =>
-    wrapWithDiv(html`
-      <mdc-select placeholder="Select an option" label="You are in a meeting">
-        <mdc-selectlistbox>
-          <mdc-option prefix-icon="alert-bold" label="Mute notifications"></mdc-option>
-          <mdc-option prefix-icon="apps-bold" label="Add apps"></mdc-option>
-          <mdc-option prefix-icon="stored-info-bold" label="View direct message policy"></mdc-option>
-          <mdc-option prefix-icon="calendar-day-bold" label="Meeting capabilities"></mdc-option>
-          <mdc-option prefix-icon="exit-room-bold" label="Leave"></mdc-option>
-        </mdc-selectlistbox>
-      </mdc-select>
-    `),
-  ...hideAllControls(),
+  args: {
+    label: 'You are in a meeting',
+    placeholder: 'Select an option',
+    children: html`<mdc-selectlistbox>
+      <mdc-option prefix-icon="alert-bold" label="Mute notifications"></mdc-option>
+      <mdc-option prefix-icon="apps-bold" label="Add apps"></mdc-option>
+      <mdc-option prefix-icon="stored-info-bold" label="View direct message policy"></mdc-option>
+      <mdc-option prefix-icon="calendar-day-bold" label="Meeting capabilities"></mdc-option>
+      <mdc-option prefix-icon="exit-room-bold" label="Leave"></mdc-option>
+    </mdc-selectlistbox>`,
+  },
 };
 
 export const SelectWithStates: StoryObj = {
@@ -458,16 +455,15 @@ export const SelectWithDynamicOptions: StoryObj = {
       </mdc-select>
     `);
   },
-  argTypes: {
-    ...disableControls(['readonly', 'name', 'data-aria-label', 'disabled', 'required', 'help-text-type', 'help-text']),
+  parameters: {
+    ...hideAllControls(true),
+    ...describeStory('The last two options are added dynamically after 2000ms.', true),
   },
-  ...hideAllControls(),
 };
 
-export const SelectWithChangingSelectedAfterMount: StoryObj = {
+export const SelectWithChangingSelectedOption: StoryObj = {
   render: () => {
     const handleClick = () => {
-      const select = document.querySelector('mdc-select[label="Select an option"]') as Select;
       const selectListbox = document.querySelector('mdc-select[label="Select an option"] mdc-selectlistbox');
       if (selectListbox) {
         const options = selectListbox.querySelectorAll('mdc-option');
@@ -479,25 +475,22 @@ export const SelectWithChangingSelectedAfterMount: StoryObj = {
             option.setAttribute('selected', '');
           }
         });
-        select.updateState();
       }
     };
 
     const handleClickRemove = () => {
-      const select = document.querySelector('mdc-select[label="Select an option"]') as Select;
       const selectListbox = document.querySelector('mdc-select[label="Select an option"] mdc-selectlistbox');
       if (selectListbox) {
         const options = selectListbox.querySelectorAll('mdc-option');
         options.forEach(option => {
           option.removeAttribute('selected');
         });
-        select.updateState();
       }
     };
 
     return wrapWithDiv(html`
       <mdc-button @click=${handleClick}>Change Selected to Option 2</mdc-button>
-      <mdc-button @click=${handleClickRemove}>Remove Selected</mdc-button>
+      <mdc-button @click=${handleClickRemove} style="margin: 8px 0;">Remove Selected</mdc-button>
       <mdc-select
         label="Select an option"
         placeholder="Select an option"
@@ -517,4 +510,57 @@ export const SelectWithChangingSelectedAfterMount: StoryObj = {
     `);
   },
   ...hideAllControls(),
+};
+
+export const SelectWithChangingValueAttribute: StoryObj = {
+  render: () => {
+    const changeValidOption = () => {
+      const select = document.querySelector('mdc-select[label="Select"]') as Select;
+      if (select) {
+        select.value = 'option3';
+      }
+    };
+    const changeInvalidOption = () => {
+      const select = document.querySelector('mdc-select[label="Select"]') as Select;
+      if (select) {
+        select.value = 'invalid-option';
+      }
+    };
+    return wrapWithDiv(
+      html` <mdc-button @click=${changeValidOption}>Set value to Option 3</mdc-button>
+        <mdc-button @click=${changeInvalidOption} style="margin: 8px 0;">Set value to invalid value</mdc-button>
+        <mdc-select label="Select" value="option2" placeholder="Select an Option">
+          <mdc-selectlistbox>
+            <mdc-option label="Option 1" value="option1"></mdc-option>
+            <mdc-option label="Option 2" selected value="option2"></mdc-option>
+            <mdc-option label="Option 3" value="option3"></mdc-option>
+          </mdc-selectlistbox>
+        </mdc-select>`,
+    );
+  },
+  ...hideAllControls(),
+};
+
+export const SelectCountriesList: StoryObj = {
+  render: () =>
+    wrapWithDiv(html`
+      <mdc-select label="Select a country" placeholder="Select a country">
+        <mdc-selectlistbox>
+          ${CountriesList.countries.map(({ name: country }) =>
+            country ? html`<mdc-option label="${country}"></mdc-option>` : nothing,
+          )}
+        </mdc-selectlistbox>
+      </mdc-select>
+    `),
+  parameters: {
+    ...hideAllControls(true),
+    ...describeStory(
+      html`Character key based navigation lets users open the Select by typing any key. <br />
+        Focus on the Select and start typing. As characters are typed (with a 500 ms debounce), <br />
+        the component searches for the first matching label(country) and focuses it. <br />
+        If no match exists, the Select still opens and focuses the first option, ensuring smooth, predictable
+        navigation.`,
+      true,
+    ),
+  },
 };

@@ -1,11 +1,10 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-restricted-syntax */
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
 import { VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
 import { getHelperIcon } from '../formfieldwrapper/formfieldwrapper.utils';
+import { KEYS } from '../../utils/keys';
 
 type SetupOptions = {
   componentsPage: ComponentsPage;
@@ -32,6 +31,7 @@ type SetupOptions = {
   list?: string;
   size?: number;
   dataAriaLabel?: string;
+  dataAriaDescribedby?: string;
   clearAriaLabel?: string;
   secondButtonForFocus?: boolean;
 };
@@ -66,6 +66,7 @@ const setup = async (args: SetupOptions, isForm = false) => {
       ${restArgs.list ? `list="${restArgs.list}"` : ''}
       ${restArgs.size ? `size="${restArgs.size}"` : ''}
       ${restArgs.dataAriaLabel ? `data-aria-label="${restArgs.dataAriaLabel}"` : ''}
+      ${restArgs.dataAriaDescribedby ? `data-aria-describedby="${restArgs.dataAriaDescribedby}"` : ''}
       ${restArgs.clearAriaLabel ? `data-aria-label="${restArgs.clearAriaLabel}"` : ''}
       ></mdc-input>
       ${restArgs.secondButtonForFocus ? '<mdc-button>Second Button</mdc-button></div>' : ''}
@@ -76,6 +77,8 @@ const setup = async (args: SetupOptions, isForm = false) => {
   if (isForm) {
     const form = componentsPage.page.locator('form');
     await form.waitFor();
+    // Wait for the custom element inside the form to upgrade and render its shadow DOM
+    await form.locator('mdc-input input').waitFor();
     return form;
   }
   const text = componentsPage.page.locator('mdc-input');
@@ -83,10 +86,10 @@ const setup = async (args: SetupOptions, isForm = false) => {
   return text;
 };
 
-test.use({ viewport: { width: 800, height: 1500 } });
-test('mdc-input', async ({ componentsPage, browserName }) => {
-  const input = await setup({
-    componentsPage,
+test.describe('mdc-input', () => {
+  test.use({ viewport: { width: 800, height: 1500 } });
+
+  const defaultSetupOptions = {
     id: 'test-mdc-input',
     placeholder: 'Placeholder',
     maxlength: 10,
@@ -97,12 +100,14 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
     label: 'Label',
     helpText: 'Help Text',
     secondButtonForFocus: true,
-  });
+    dataAriaDescribedby: 'custom-helper-text-id', // custom aria-describedby
+  };
 
   /**
    * ATTRIBUTES
    */
-  await test.step('attributes', async () => {
+  test('attributes', async ({ componentsPage }) => {
+    const input = await setup({ componentsPage, ...defaultSetupOptions });
     await test.step('attributes should be present on component', async () => {
       await expect(input).toHaveAttribute('id', 'test-mdc-input');
       await expect(input).toHaveAttribute('placeholder', 'Placeholder');
@@ -114,8 +119,10 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
       await expect(helpText).toHaveText('Help Text');
       await expect(input).toHaveAttribute('prefix-text', 'Prefix');
       await expect(input).toHaveAttribute('data-aria-label', 'prefix');
+      await expect(input).toHaveAttribute('data-aria-describedby', 'custom-helper-text-id');
       const inputEl = input.locator('input');
       await expect(inputEl).toHaveAttribute('aria-label', 'prefix');
+      await expect(inputEl).toHaveAttribute('aria-describedby', 'helper-text-id');
       await expect(input).toHaveAttribute('leading-icon', 'placeholder-bold');
       const icon = input.locator('mdc-icon');
       await expect(icon).toHaveAttribute('name', 'placeholder-bold');
@@ -194,16 +201,16 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
       await componentsPage.removeAttribute(input, 'autocomplete');
     });
 
-    await test.step('attribute direname should be present on component', async () => {
-      await componentsPage.setAttributes(input, { direname: 'ltr' });
-      await expect(input).toHaveAttribute('direname', 'ltr');
-      await componentsPage.removeAttribute(input, 'direname');
+    await test.step('attribute dirname should be present on component', async () => {
+      await componentsPage.setAttributes(input, { dirname: 'ltr' });
+      await expect(input).toHaveAttribute('dirname', 'ltr');
+      await componentsPage.removeAttribute(input, 'dirname');
     });
 
-    await test.step('attribute direname should be present on component', async () => {
-      await componentsPage.setAttributes(input, { direname: 'ltr' });
-      await expect(input).toHaveAttribute('direname', 'ltr');
-      await componentsPage.removeAttribute(input, 'direname');
+    await test.step('attribute dirname should be present on component', async () => {
+      await componentsPage.setAttributes(input, { dirname: 'ltr' });
+      await expect(input).toHaveAttribute('dirname', 'ltr');
+      await componentsPage.removeAttribute(input, 'dirname');
     });
 
     await test.step('attribute pattern should be present on component', async () => {
@@ -217,12 +224,23 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
       await expect(input).toHaveAttribute('list', 'browsers');
       await componentsPage.removeAttribute(input, 'list');
     });
+
+    await test.step('attribute data-aria-describedby should be present on component if help-text is not set', async () => {
+      await componentsPage.setAttributes(input, { 'data-aria-describedby': 'this-is-a-test-id' });
+      await componentsPage.removeAttribute(input, 'help-text');
+      await expect(input).toHaveAttribute('data-aria-describedby', 'this-is-a-test-id');
+      const inputEl = input.locator('input');
+      await expect(inputEl).toHaveAttribute('aria-describedby', 'this-is-a-test-id');
+      await componentsPage.removeAttribute(input, 'data-aria-describedby');
+      await componentsPage.setAttributes(input, { helpText: 'Help Text' });
+    });
   });
 
   /**
    * INTERACTIONS
    */
-  await test.step('interactions', async () => {
+  test('interactions', async ({ componentsPage, browserName }) => {
+    const input = await setup({ componentsPage, ...defaultSetupOptions });
     const inputEl = input.locator('input');
     await test.step('component should be focusable with tab', async () => {
       await componentsPage.actionability.pressTab();
@@ -231,6 +249,21 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
       await expect(inputEl).toHaveValue('test');
       await componentsPage.actionability.pressTab();
       await expect(input).not.toBeFocused();
+    });
+
+    await test.step('focus using JavaScript focus() method', async () => {
+      // Use JavaScript to focus the element
+      await input.evaluate((el: HTMLElement) => el.focus());
+
+      // Verify the internal input element is focused (delegatesFocus delegates to shadow DOM)
+      const isFocused = await input.evaluate(el => {
+        const { shadowRoot } = el;
+        if (!shadowRoot) return false;
+        const anchor = shadowRoot.querySelector('input');
+        return document.activeElement === el && anchor === shadowRoot.activeElement;
+      });
+
+      expect(isFocused).toBe(true);
     });
 
     await test.step('dynamic help-text validation interaction test for mdc-input (FormFieldInputWithHelpTextValidation)', async () => {
@@ -453,6 +486,7 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
       const mdcInput = form.locator('mdc-input');
       const submitButton = form.locator('mdc-button[type="submit"]');
       const inputEl = mdcInput.locator('input');
+      await expect(inputEl).toBeVisible();
       await componentsPage.actionability.pressTab();
       await expect(mdcInput).toBeFocused();
       await inputEl.fill('He');
@@ -577,12 +611,36 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
         'Use at least 5 characters',
       ]).toContain(validationMessage);
     });
+
+    await test.step('spatial navigation', async () => {
+      const form = await setup(
+        {
+          componentsPage,
+          id: 'test-mdc-input',
+          placeholder: 'Placeholder',
+          required: true,
+          maxlength: 10,
+        },
+        true,
+      );
+      const input = form.locator('mdc-input');
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(input).toBeFocused();
+
+      // Enter does not trigger submit in spatial navigation mode
+      const waitForInput = await componentsPage.waitForEvent(form, 'submit');
+      await keyboard.press(KEYS.ENTER);
+      await expect(waitForInput).not.toEventEmitted();
+    });
   });
 
   /**
    * VISUAL REGRESSION
    */
-  await test.step('visual-regression', async () => {
+  test('visual-regression', async ({ componentsPage }) => {
     const attributes = {
       id: 'test-mdc-input',
       placeholder: 'Placeholder',
@@ -597,7 +655,13 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
     });
 
     // disabled input field with value
-    inputStickerSheet.setAttributes({ ...attributes, value: 'Disabled', disabled: true });
+    inputStickerSheet.setAttributes({
+      ...attributes,
+      value: 'Disabled',
+      disabled: true,
+      'toggletip-text': 'This is a toggletip that provides additional context',
+      'info-icon-aria-label': 'Additional information',
+    });
     await inputStickerSheet.createMarkupWithCombination({});
 
     // input with value and leading icon
@@ -625,12 +689,14 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
     inputStickerSheet.setAttributes({ ...attributes, required: '', placeholder: 'Input is required' });
     await inputStickerSheet.createMarkupWithCombination({});
 
-    // Long text label that is truncated in a small container
+    // Short width test for word wrapping
     inputStickerSheet.setAttributes({
-      label: 'This is a large label text',
-      required: '',
-      placeholder: 'placeholder',
-      style: 'width: 200px',
+      label: 'This is a very long label that should wrap to multiple lines when constrained to a short width',
+      'help-text': 'This is also a very long help text that should wrap properly',
+      placeholder: 'Short width placeholder',
+      style: 'width: 7.5rem;',
+      'toggletip-text': 'This is additional toggletip text that provides more context',
+      'info-icon-aria-label': 'Additional information',
     });
     await inputStickerSheet.createMarkupWithCombination({});
 
@@ -646,7 +712,8 @@ test('mdc-input', async ({ componentsPage, browserName }) => {
   /**
    * ACCESSIBILITY
    */
-  await test.step('accessibility', async () => {
+  test('accessibility', async ({ componentsPage }) => {
+    await setup({ componentsPage, ...defaultSetupOptions });
     await componentsPage.accessibility.checkForA11yViolations('input-default');
   });
 });

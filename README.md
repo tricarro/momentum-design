@@ -2,7 +2,11 @@
 
 [![license: mit](https://img.shields.io/badge/License-MIT-blueviolet?style=flat-square)](https://github.com/momentum-design/momentum-design/blob/main/LICENSE) ![state: alpha](https://img.shields.io/badge/State-Alpha-blue?style=flat-square)
 
+<<<<<<< HEAD
 ## Overview
+=======
+The Momentum Design mono-repository is designed as a single source-of-truth for all Momentum Design related resources. Read more about our assets and token libraries here: https://momentum.design.
+>>>>>>> upstream/main
 
 **Momentum Design** is a monorepo that serves as the single source of truth for design system resources: tokens, visual assets, and UI components. Everything here is intended to stay aligned with the same design language so product teams can ship consistent experiences.
 

@@ -5,41 +5,14 @@ import { hostFocusRingStyles } from '../../utils/styles';
 const styles = [
   css`
     :host {
-      --mdc-textarea-disabled-border-color: var(--mds-color-theme-outline-primary-disabled);
-      --mdc-textarea-disabled-text-color: var(--mds-color-theme-text-primary-disabled);
-      --mdc-textarea-disabled-background-color: var(--mds-color-theme-background-input-disabled);
       --mdc-textarea-text-color: var(--mds-color-theme-text-primary-normal);
-      --mdc-textarea-background-color: var(--mds-color-theme-background-primary-ghost);
       --mdc-textarea-border-color: var(--mds-color-theme-outline-input-normal);
+      --mdc-textarea-background-color: var(--mds-color-theme-background-primary-ghost);
+      --mdc-textarea-container-background-color: var(--mds-color-theme-background-primary-ghost);
       --mdc-textarea-text-secondary-normal: var(--mds-color-theme-text-secondary-normal);
-      --mdc-textarea-error-border-color: var(--mds-color-theme-text-error-normal);
-      --mdc-textarea-warning-border-color: var(--mds-color-theme-text-warning-normal);
-      --mdc-textarea-success-border-color: var(--mds-color-theme-text-success-normal);
-      --mdc-textarea-primary-border-color: var(--mds-color-theme-text-accent-normal);
-      --mdc-textarea-hover-background-color: var(--mds-color-theme-background-primary-hover);
-      --mdc-textarea-focused-background-color: var(--mds-color-theme-background-primary-ghost);
-      --mdc-textarea-focused-border-color: var(--mds-color-theme-outline-input-active);
       --mdc-textarea-text-font-size: var(--mds-font-size-body-midsize);
       --mdc-textarea-text-line-height: var(--mds-font-lineheight-body-midsize);
-    }
-
-    :host([disabled])::part(textarea),
-    :host([disabled])::part(textarea)::placeholder {
-      color: var(--mdc-input-disabled-text-color);
-    }
-
-    :host([disabled])::part(textarea-container),
-    :host([readonly])::part(textarea-container) {
-      border-color: var(--mdc-textarea-disabled-border-color);
-      background: var(--mdc-textarea-disabled-background-color);
-    }
-
-    :host([disabled][help-text-type='default'])::part(textarea-container),
-    :host([disabled][help-text-type='success'])::part(textarea-container),
-    :host([disabled][help-text-type='warning'])::part(textarea-container),
-    :host([disabled][help-text-type='error'])::part(textarea-container),
-    :host([disabled][help-text-type='priority'])::part(textarea-container) {
-      border-color: var(--mdc-textarea-disabled-border-color);
+      width: 100%;
     }
 
     :host::part(textarea) {
@@ -53,6 +26,7 @@ const styles = [
       border: none;
       outline: none;
       box-sizing: border-box;
+      width: 100%;
     }
 
     :host::part(textarea-container) {
@@ -61,6 +35,9 @@ const styles = [
       border: 0.0625rem solid var(--mdc-textarea-border-color);
       overflow: hidden;
       padding: 0.375rem 0.25rem 0.25rem 0.75rem;
+      background-color: var(--mdc-textarea-container-background-color);
+      width: 100%;
+      position: relative;
     }
 
     :host(:dir(rtl))::part(textarea-container) {
@@ -68,13 +45,13 @@ const styles = [
     }
 
     :host(:not([disabled]))::part(textarea-container):hover {
-      background-color: var(--mdc-textarea-hover-background-color);
+      --mdc-textarea-container-background-color: var(--mds-color-theme-background-primary-hover);
     }
 
     :host(:not([disabled]))::part(textarea-container):active,
     :host(:not([disabled]))::part(textarea-container):focus-within {
-      background-color: var(--mdc-textarea-focused-background-color);
-      border-color: var(--mdc-textarea-focused-border-color);
+      --mdc-textarea-container-background-color: var(--mds-color-theme-background-primary-ghost);
+      --mdc-textarea-border-color: var(--mds-color-theme-outline-input-active);
     }
 
     :host::part(textarea-footer) {
@@ -84,7 +61,7 @@ const styles = [
       width: 100%;
     }
 
-    .textarea::placeholder {
+    textarea::placeholder {
       color: var(--mdc-textarea-text-secondary-normal);
     }
 
@@ -94,33 +71,62 @@ const styles = [
     }
 
     :host([help-text-type='error'])::part(character-counter) {
-      color: var(--mdc-textarea-error-border-color);
+      color: var(--mdc-help-text-color);
+    }
+
+    :host([help-text-type='error'])::part(textarea-container),
+    :host([help-text-type='error'])::part(textarea-container):focus-within,
+    :host([help-text-type='warning'])::part(textarea-container),
+    :host([help-text-type='warning'])::part(textarea-container):focus-within,
+    :host([help-text-type='success'])::part(textarea-container),
+    :host([help-text-type='success'])::part(textarea-container):focus-within,
+    :host([help-text-type='priority'])::part(textarea-container),
+    :host([help-text-type='priority'])::part(textarea-container):focus-within {
+      --mdc-textarea-border-color: var(--mdc-help-text-color);
     }
 
     :host([disabled])::part(character-counter) {
       color: var(--mds-color-theme-text-primary-disabled);
     }
 
-    :host([help-text-type='error'])::part(textarea-container),
-    :host([help-text-type='error'])::part(textarea-container):focus-within {
-      border-color: var(--mdc-textarea-error-border-color);
+    :host([disabled])::part(textarea),
+    :host([disabled]) textarea::placeholder {
+      color: var(--mdc-input-disabled-text-color);
     }
-    :host([help-text-type='warning'])::part(textarea-container),
-    :host([help-text-type='warning'])::part(textarea-container):focus-within {
-      border-color: var(--mdc-textarea-warning-border-color);
-    }
-    :host([help-text-type='success'])::part(textarea-container),
-    :host([help-text-type='success'])::part(textarea-container):focus-within {
-      border-color: var(--mdc-textarea-success-border-color);
-    }
-    :host([help-text-type='priority'])::part(textarea-container),
-    :host([help-text-type='priority'])::part(textarea-container):focus-within {
-      border-color: var(--mdc-textarea-primary-border-color);
+
+    :host([disabled])::part(textarea-container),
+    :host([readonly])::part(textarea-container) {
+      --mdc-textarea-border-color: var(--mds-color-theme-outline-primary-disabled);
+      --mdc-textarea-container-background-color: var(--mds-color-theme-background-input-disabled);
     }
 
     .hidden {
       opacity: 0;
       pointer-events: none;
+    }
+
+    :host::part(resize-button) {
+      position: absolute;
+      bottom: 0.25rem;
+      inset-inline-end: 0.25rem;
+      cursor: nwse-resize;
+      opacity: 0.5;
+      z-index: 1;
+      border-radius: 50%;
+    }
+
+    :host::part(resize-button):focus-visible {
+      opacity: 1;
+    }
+
+    :host(:dir(rtl))::part(resize-button) {
+      cursor: nesw-resize;
+      transform: scaleX(-1);
+    }
+
+    :host([readonly])::part(resize-button),
+    :host([disabled])::part(resize-button) {
+      cursor: default;
     }
   `,
   ...hostFocusRingStyles(true),

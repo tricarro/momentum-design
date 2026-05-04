@@ -6,6 +6,7 @@ import { expect } from '@playwright/test';
 import { test, ComponentsPage } from '../../../config/playwright/setup';
 import type { PopoverColor, PopoverPlacement } from '../popover/popover.types';
 import { COLOR, POPOVER_PLACEMENT, DEFAULTS as POPOVER_DEFAULTS } from '../popover/popover.constants';
+import { KEYS } from '../../utils/keys';
 
 import { DEFAULTS } from './toggletip.constants';
 
@@ -94,7 +95,7 @@ const attributeTestCases = async (componentsPage: ComponentsPage) => {
 
     await expect(toggletip).not.toHaveAttribute('visible');
     await expect(toggletip).not.toHaveAttribute('enabledPreventScroll');
-    await expect(toggletip).toHaveAttribute('flip');
+    await expect(toggletip).not.toHaveAttribute('disable-flip');
     await expect(toggletip).not.toHaveAttribute('prevent-scroll');
     await expect(toggletip).not.toHaveAttribute('close-button');
     await expect(toggletip).toHaveAttribute('hide-on-outside-click');
@@ -122,7 +123,7 @@ const attributeTestCases = async (componentsPage: ComponentsPage) => {
 
     await expect(toggletip).toHaveAttribute('close-button');
     await expect(toggletip).toHaveAttribute('close-button-aria-label', 'Close');
-    await expect(toggletip.locator('.popover-close')).toHaveAttribute('aria-label', 'Close');
+    await expect(toggletip.locator('[part="popover-close"]')).toHaveAttribute('aria-label', 'Close');
     await expect(toggletip).toHaveAttribute('color', 'contrast');
     await expect(toggletip).toHaveAttribute('delay', '0,0');
     await expect(toggletip).toHaveAttribute('offset', '8');
@@ -192,26 +193,26 @@ const interactionsTestCases = async (componentsPage: ComponentsPage) => {
     await test.step('clicking on trigger button should show toggletip and focus on close button', async () => {
       await triggerButton.click();
       await expect(toggletip).toBeVisible();
-      await expect(toggletip.locator('.popover-close')).toBeFocused();
+      await expect(toggletip.locator('[part="popover-close"]')).toBeFocused();
     });
     await test.step('Pressing Enter key when trigger button is focussed should show toggletip and focus on close button', async () => {
       await triggerButton.focus();
       await componentsPage.page.keyboard.press('Enter');
       await expect(toggletip).toBeVisible();
-      await expect(toggletip.locator('.popover-close')).toBeFocused();
+      await expect(toggletip.locator('[part="popover-close"]')).toBeFocused();
       await expect(triggerButton).toHaveAttribute('aria-expanded', 'true');
     });
     await test.step('Pressing Space key when trigger button is focussed should show toggletip and focus on close button', async () => {
       await triggerButton.focus();
       await componentsPage.page.keyboard.press('Enter');
       await expect(toggletip).toBeVisible();
-      await expect(toggletip.locator('.popover-close')).toBeFocused();
+      await expect(toggletip.locator('[part="popover-close"]')).toBeFocused();
     });
     await test.step('focus should move to next focusable element in toggletip', async () => {
       await triggerButton.focus();
       await componentsPage.page.keyboard.press('Enter');
       await expect(toggletip).toBeVisible();
-      await expect(toggletip.locator('.popover-close')).toBeFocused();
+      await expect(toggletip.locator('[part="popover-close"]')).toBeFocused();
       await componentsPage.actionability.pressTab();
       await expect(toggletip.locator('mdc-link')).toBeFocused();
     });
@@ -219,17 +220,17 @@ const interactionsTestCases = async (componentsPage: ComponentsPage) => {
       await triggerButton.focus();
       await componentsPage.page.keyboard.press('Enter');
       await expect(toggletip).toBeVisible();
-      await expect(toggletip.locator('.popover-close')).toBeFocused();
+      await expect(toggletip.locator('[part="popover-close"]')).toBeFocused();
       await componentsPage.actionability.pressTab();
       await expect(toggletip.locator('mdc-link')).toBeFocused();
       await componentsPage.actionability.pressTab();
-      await expect(toggletip.locator('.popover-close')).toBeFocused();
+      await expect(toggletip.locator('[part="popover-close"]')).toBeFocused();
     });
     await test.step('clicking on close button in toggltip shall dismiss toggletip', async () => {
       await triggerButton.focus();
       await componentsPage.page.keyboard.press('Enter');
       await expect(toggletip).toBeVisible();
-      await toggletip.locator('.popover-close').click();
+      await toggletip.locator('[part="popover-close"]').click();
       await expect(toggletip).not.toBeVisible();
       await expect(triggerButton).toBeFocused();
     });
@@ -285,6 +286,43 @@ test('mdc-toggletip', async ({ componentsPage }) => {
    */
   await test.step('interactions for toggletip', async () => {
     await interactionsTestCases(componentsPage);
+
+    await test.step('spatial navigation', async () => {
+      const { toggletip, triggerButton } = await setup({
+        componentsPage,
+        closeButton: true,
+        closeButtonAriaLabel: 'Close',
+        id: 'toggletip',
+        triggerID: 'trigger-button',
+        showTestButton: true,
+      });
+
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+      const closeBtn = toggletip.locator('[part="popover-close"]');
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(triggerButton).toBeFocused();
+      await keyboard.press(KEYS.ENTER);
+      await expect(toggletip).toBeVisible();
+      await expect(closeBtn).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_LEFT);
+      await expect(toggletip.locator('mdc-link')).toBeFocused();
+
+      // Close with Escape key
+      await keyboard.press(KEYS.ESCAPE);
+      await expect(toggletip).not.toBeVisible();
+      await expect(triggerButton).toBeFocused();
+
+      // Open again
+      await keyboard.press(KEYS.ENTER);
+      await expect(closeBtn).toBeFocused();
+
+      // Close with close button
+      await keyboard.press(KEYS.ENTER);
+      await expect(toggletip).not.toBeVisible();
+    });
   });
 
   /**

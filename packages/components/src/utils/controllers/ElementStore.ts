@@ -1,16 +1,32 @@
 import { ReactiveController } from 'lit';
 
 import { LIFE_CYCLE_EVENTS } from '../mixins/lifecycle/lifecycle.contants';
-import { isBefore } from '../dom';
+import { isAfter, isBefore } from '../dom';
 import type { Component } from '../../models';
 
 export type ElementStoreChangeTypes = 'added' | 'removed';
 
-interface ElementStoreOptions {
+interface ElementStoreOptions<TItem extends HTMLElement> {
   /**
-   * - A function to determine if an item is valid for caching.
+   * Checks if the item is valid.
+   * Invalid items will not be collected or processed.
+   * This method can be overridden by subclasses to define custom validation logic.
+   *
+   * @param item - The item to validate.
+   * @returns - True if the item is valid, false otherwise.
    */
   isValidItem: (item: any) => boolean;
+  /**
+   * Callback function that is called before the store is updated.
+   *
+   * Not called when the store is reset.
+   *
+   * @param item - The item that is being added or removed.
+   * @param changeType - The type of change ('added' or 'removed').
+   * @param index - Index at which the item is added or removed.
+   * @param items - Items in the store before the change.
+   */
+  onStoreUpdate?: (item: TItem, changeType: ElementStoreChangeTypes, index: number, items: TItem[]) => void;
 }
 
 const defaultIsValidFn = (item: any) => !!item;
@@ -44,15 +60,11 @@ const defaultIsValidFn = (item: any) => !!item;
 export class ElementStore<TItem extends HTMLElement> implements ReactiveController {
   private host: Component;
 
-  /**
-   * Checks if the item is valid.
-   * Invalid items will not be collected or processed.
-   * This method can be overridden by subclasses to define custom validation logic.
-   *
-   * @param item - The item to validate.
-   * @returns - True if the item is valid, false otherwise.
-   */
-  private readonly isValidItem: ElementStoreOptions['isValidItem'];
+  /** Checks if the item is valid. */
+  private readonly isValidItem: ElementStoreOptions<TItem>['isValidItem'];
+
+  /** Callback function that is called before the store is updated. */
+  private readonly onStoreUpdate: ElementStoreOptions<TItem>['onStoreUpdate'];
 
   /** Stored items */
   private cache: TItem[] = [];
@@ -105,18 +117,26 @@ export class ElementStore<TItem extends HTMLElement> implements ReactiveControll
    * @param host - The host component that this controller is attached to.
    * @param options - Element store options
    */
-  constructor(host: Component, options?: ElementStoreOptions) {
+  constructor(host: Component, options?: ElementStoreOptions<TItem>) {
     this.host = host;
     host.addController(this);
     this.isValidItem = options?.isValidItem || defaultIsValidFn;
+    this.onStoreUpdate = options?.onStoreUpdate;
+  }
 
+  hostConnected() {
     this.host.addEventListener(LIFE_CYCLE_EVENTS.CREATED, this.itemCreationHandler);
     this.host.addEventListener(LIFE_CYCLE_EVENTS.DESTROYED, this.itemDestroyHandler);
   }
 
-  hostConnected() {}
-
-  hostDisconnected() {}
+  hostDisconnected() {
+    this.host.removeEventListener(LIFE_CYCLE_EVENTS.CREATED, this.itemCreationHandler);
+    this.host.removeEventListener(LIFE_CYCLE_EVENTS.DESTROYED, this.itemDestroyHandler);
+    // This is a shortcut, because after the removal of the parent the children will emit the destroyed event,
+    // but it is less performant also we want to skip the onStoreUpdate calls after disconnection
+    // re-connection of the element will fill the cache again
+    this.reset();
+  }
 
   /**
    * Handles the item creation event.
@@ -124,6 +144,7 @@ export class ElementStore<TItem extends HTMLElement> implements ReactiveControll
    * @param event - The event triggered when an item is created.
    */
   protected itemCreationHandler = (event: Event) => {
+    event.stopPropagation();
     this.addItem(event.target as TItem, undefined);
   };
 
@@ -132,8 +153,9 @@ export class ElementStore<TItem extends HTMLElement> implements ReactiveControll
    *
    * @param event - The event triggered when an item is destroyed.
    */
-  protected itemDestroyHandler = (event: Event) => {
-    this.delete(event.target as TItem);
+  protected itemDestroyHandler = (event: CustomEvent) => {
+    event.stopPropagation();
+    this.delete(event.detail.originalTarget as TItem);
   };
 
   /**
@@ -161,6 +183,34 @@ export class ElementStore<TItem extends HTMLElement> implements ReactiveControll
   }
 
   /**
+   * Implements binary search on the cache, to get the index of the nearest newItem position.
+   *
+   * @param cache - The array which contains the list of dom node elements.
+   * @param newItem - The new node element which is needed to be added in the list item.
+   * @returns either:
+   *  - the index where the new item need to be inserted or
+   *  - -1 when the item must be appended to the end of the list item.
+   */
+  private getIndexToInsertInCache(newItem: TItem): number {
+    // If the new item is located at the last place, then we can check the last -1 cache item and return if valid
+    if (!this.cache.length || !isAfter(this.cache.at(-1)!, newItem)) {
+      return -1;
+    }
+    // Fall back to binary search
+    let begin = 0;
+    let end = this.cache.length - 1;
+    while (begin <= end) {
+      const middle = Math.floor((begin + end) / 2);
+      if (isBefore(this.cache[middle], newItem)) {
+        begin = middle + 1;
+      } else {
+        end = middle - 1;
+      }
+    }
+    return begin;
+  }
+
+  /**
    * Adds an item to the cache at the specified index.
    * When the index
    *  is `undefined`, the item is added automatically keeping the DOM order.
@@ -175,7 +225,11 @@ export class ElementStore<TItem extends HTMLElement> implements ReactiveControll
     const newItem = item as TItem;
 
     if (this.isValidItem(newItem) && !this.cache.includes(newItem)) {
-      const idx = index === undefined ? this.cache.findIndex(e => isBefore(newItem, e)) : index;
+      const idx = index === undefined ? this.getIndexToInsertInCache(newItem) : index;
+
+      if (this.onStoreUpdate) {
+        this.onStoreUpdate?.(newItem, 'added', idx === -1 ? this.cache.length : idx, this.cache.slice());
+      }
 
       if (idx === -1) {
         this.cache.push(newItem);
@@ -192,7 +246,11 @@ export class ElementStore<TItem extends HTMLElement> implements ReactiveControll
    */
   public delete(item: Element): void {
     const idx = this.cache.indexOf(item as TItem);
+
     if (idx !== -1) {
+      if (this.onStoreUpdate) {
+        this.onStoreUpdate?.(item as TItem, 'removed', idx, this.cache.slice());
+      }
       this.cache.splice(idx, 1);
     }
   }
@@ -203,8 +261,8 @@ export class ElementStore<TItem extends HTMLElement> implements ReactiveControll
    *
    * @param items - The items to set in the cache.
    */
-  protected reset(items: TItem[]): void {
+  protected reset(items?: TItem[]): void {
     this.cache.length = 0;
-    this.cache.push(...(items || []));
+    if (items) this.cache.push(...items);
   }
 }

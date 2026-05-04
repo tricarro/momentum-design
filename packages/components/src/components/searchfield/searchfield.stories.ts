@@ -2,11 +2,13 @@ import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
 import { hideControls } from '../../../config/storybook/utils';
 import '../inputchip';
+import '../chip';
+import '../alertchip';
 import { AUTO_CAPITALIZE, AUTO_COMPLETE } from '../input/input.constants';
 
 const render = (args: Args) =>
@@ -16,6 +18,7 @@ const render = (args: Args) =>
     @focus="${action('onfocus')}"
     @blur="${action('onblur')}"
     @clear="${action('onclear')}"
+    @chipRemove="${action('onChipRemove')}"
     label="${args.label}"
     placeholder="${args.placeholder}"
     name="${args.name}"
@@ -43,9 +46,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-searchfield',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     label: {
       control: 'text',
@@ -158,7 +159,12 @@ export const WithInputChipFilters: StoryObj = {
       (e.target as HTMLElement).remove();
     };
     return html`
-      <mdc-searchfield label="Label" placeholder="Placeholder" clear-aria-label="Clear">
+      <mdc-searchfield
+        @chipRemove="${action('onChipRemove')}"
+        label="Label"
+        placeholder="Placeholder"
+        clear-aria-label="Clear"
+      >
         <mdc-inputchip
           clear-aria-label="Clear"
           label="Query: value"
@@ -171,8 +177,61 @@ export const WithInputChipFilters: StoryObj = {
           slot="filters"
           @remove="${clearFilter}"
         ></mdc-inputchip>
-        <mdc-chip label="This does not render" slot="filters"></mdc-chip>
       </mdc-searchfield>
     `;
   },
 };
+
+export const WithAlertChipFilters: StoryObj = {
+  render: () => html`
+    <mdc-searchfield
+      @chipRemove="${action('onChipRemove')}"
+      label="Label"
+      placeholder="Placeholder"
+      clear-aria-label="Clear"
+    >
+      <mdc-alertchip label="Warning: Unsaved changes" variant="warning" slot="filters"></mdc-alertchip>
+      <mdc-alertchip label="Error: Invalid input" variant="error" slot="filters"></mdc-alertchip>
+    </mdc-searchfield>
+  `,
+};
+
+export const WithMixedChipFilters: StoryObj = {
+  render: () => {
+    const clearFilter = (e: Event) => {
+      (e.target as HTMLElement).remove();
+    };
+    return html`
+      <mdc-searchfield
+        @chipRemove="${action('onChipRemove')}"
+        label="Label"
+        placeholder="Placeholder"
+        clear-aria-label="Clear"
+      >
+        <mdc-inputchip
+          clear-aria-label="Clear"
+          label="Query: momentum"
+          slot="filters"
+          @remove="${clearFilter}"
+        ></mdc-inputchip>
+        <mdc-alertchip label="Updated: 2 days ago" slot="filters"></mdc-alertchip>
+      </mdc-searchfield>
+    `;
+  },
+};
+
+export const WithBasicChips: StoryObj = {
+  render: () => html`
+    <mdc-searchfield
+      @chipRemove="${action('onChipRemove')}"
+      label="Label"
+      placeholder="Placeholder"
+      clear-aria-label="Clear"
+    >
+      <mdc-chip label="Filter 1" slot="filters"></mdc-chip>
+      <mdc-chip label="Filter 2" slot="filters"></mdc-chip>
+      <mdc-chip label="Filter 3" slot="filters"></mdc-chip>
+    </mdc-searchfield>
+  `,
+};
+// End AI-Assisted

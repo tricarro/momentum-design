@@ -22,13 +22,11 @@ const render = (args: Args) => html`
 `;
 
 const meta: Meta = {
-  title: 'Components/iconprovider',
+  title: 'Providers/Icon Provider',
   tags: ['autodocs'],
   component: 'mdc-iconprovider',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     'icon-set': {
       control: 'select',

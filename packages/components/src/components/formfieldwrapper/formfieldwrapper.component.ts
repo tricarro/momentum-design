@@ -5,7 +5,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { Component } from '../../models';
 import { DisabledMixin } from '../../utils/mixins/DisabledMixin';
-import type { PopoverPlacement } from '../popover/popover.types';
+import type { PopoverPlacement, PopoverStrategy } from '../popover/popover.types';
 import { BUTTON_VARIANTS } from '../button/button.constants';
 
 import { DEFAULTS, MDC_TEXT_OPTIONS } from './formfieldwrapper.constants';
@@ -25,14 +25,36 @@ import { getHelperIcon } from './formfieldwrapper.utils';
  * @dependency mdc-button
  * @dependency mdc-toggletip
  *
+ * @slot label - Slot for the label element. If not provided, the `label` property will be used to render the label.
+ * @slot toggletip - Slot for the toggletip info icon button. If not provided, the `toggletip-text` property will be used to render the info icon button and toggletip.
+ * @slot help-icon - Slot for the helper/validation icon. If not provided, the icon will be rendered based on the `helpTextType` property.
+ * @slot help-text - Slot for the helper/validation text. If not provided, the `helpText` property will be used to render the helper/validation text.
  *
+ * @csspart label - The label element.
+ * @csspart label-text - The container for the label and required indicator elements.
+ * @csspart required-indicator - The required indicator element that is displayed next to the label when the `required` property is set to true.
+ * @csspart info-icon-btn - The info icon button element that is displayed next to the label when the `toggletip-text` property is set.
+ * @csspart label-toggletip - The toggletip element that is displayed when the info icon button is clicked.
+ * @csspart help-text - The helper/validation text element.
+ * @csspart helper-icon - The helper/validation icon element that is displayed next to the helper/validation text.
+ * @csspart help-text-container - The container for the helper/validation icon and text elements.
+ *
+ * @cssproperty --mdc-label-font-size - Font size for the label text.
+ * @cssproperty --mdc-label-font-weight - Font weight for the label text.
+ * @cssproperty --mdc-label-line-height - Line height for the label text.
+ * @cssproperty --mdc-label-color - Color for the label text.
+ * @cssproperty --mdc-help-text-font-size - Font size for the help text.
+ * @cssproperty --mdc-help-text-font-weight - Font weight for the help text.
+ * @cssproperty --mdc-help-text-line-height - Line height for the help text.
+ * @cssproperty --mdc-help-text-color - Color for the help text.
+ * @cssproperty --mdc-required-indicator-color - Color for the required indicator text.
  */
 class FormfieldWrapper extends DisabledMixin(Component) {
   /**
-  * Indicates the unique identifier for the native input element. 
-  * Required for acccessibility.
-  * @internal
-  */
+   * Indicates the unique identifier for the native input element.
+   * Required for acccessibility.
+   * @internal
+   */
   protected inputId = `mdc-el-${uuidv4()}`;
 
   /**
@@ -49,6 +71,7 @@ class FormfieldWrapper extends DisabledMixin(Component) {
 
   /**
    * The type of help text. It can be 'default', 'error', 'warning', 'success', 'priority'.
+   * @default 'default'
    */
   @property({ reflect: true, attribute: 'help-text-type' }) helpTextType: ValidationType = DEFAULTS.VALIDATION;
 
@@ -58,17 +81,26 @@ class FormfieldWrapper extends DisabledMixin(Component) {
   @property({ type: String, reflect: true, attribute: 'help-text' }) helpText?: string;
 
   /**
-   * The toggletip text that is displayed when the label is hovered.
+   * The toggletip text that is displayed when the info icon is clicked or pressed.
    * It is used to provide additional information about the label.
    */
   @property({ type: String, reflect: true, attribute: 'toggletip-text' }) toggletipText?: string;
 
   /**
-   * The placement of the toggletip that is displayed when the info icon is hovered.
+   * The placement of the toggletip that is displayed when the info icon is clicked or pressed.
    * @default 'top'
    */
   @property({ type: String, reflect: true, attribute: 'toggletip-placement' })
   toggletipPlacement: PopoverPlacement = DEFAULTS.TOGGLETIP_PLACEMENT;
+
+  /**
+   * The positioning strategy for the toggletip.
+   * - **absolute**: Positioned relative to the nearest positioned ancestor.
+   * - **fixed**: Positioned relative to the viewport.
+   * @default 'absolute'
+   */
+  @property({ type: String, reflect: true, attribute: 'toggletip-strategy' })
+  toggletipStrategy: PopoverStrategy = DEFAULTS.TOGGLETIP_STRATEGY;
 
   /**
    * Aria label for the info icon that is displayed next to the label when `toggletipText` is set.
@@ -76,6 +108,20 @@ class FormfieldWrapper extends DisabledMixin(Component) {
    */
   @property({ type: String, reflect: true, attribute: 'info-icon-aria-label' })
   infoIconAriaLabel?: string;
+
+  /**
+   * Determines whether the form field is read-only.
+   * @default false
+   */
+  @property({ type: Boolean, reflect: true })
+  readonly = false;
+
+  /**
+   * Determines whether the form field is soft-disabled.
+   * @default false
+   */
+  @property({ type: Boolean, reflect: true, attribute: 'soft-disabled' })
+  softDisabled = false;
 
   /** @internal */
   protected shouldRenderLabel: Boolean = true;
@@ -91,7 +137,7 @@ class FormfieldWrapper extends DisabledMixin(Component) {
     }
 
     return this.shouldRenderLabel
-      ? html`<label for="${this.inputId}" id="${DEFAULTS.HEADING_ID}" class="mdc-label" part="label">${this.label}</label>`
+      ? html`<label for="${this.inputId}" id="${DEFAULTS.HEADING_ID}" part="label">${this.label}</label>`
       : html` <mdc-text
           id="${DEFAULTS.HEADING_ID}"
           tagname="${MDC_TEXT_OPTIONS.TAGNAME}"
@@ -139,44 +185,52 @@ class FormfieldWrapper extends DisabledMixin(Component) {
   }
 
   /**
-   * renders the mdc-label-text container that contains the label and labelInfoToggleTip.
+   * renders the label container that contains the label and labelInfoToggleTip.
    * @returns void
    */
   protected renderLabel() {
     if (!this.label) return nothing;
-    return html`<div class="mdc-label-text" part="label-text">
+    const triggerId = `toggletip-trigger-${uuidv4()}`;
+    const shouldDisableToggletip = this.disabled || this.softDisabled;
+
+    return html`<div part="label-text">
       <slot name="label">${this.renderLabelElement()}</slot>
       ${this.required ? html`<span part="required-indicator">*</span>` : nothing}
-      ${this.toggletipText
-        ? html` <mdc-button
-              part="info-icon-btn"
-              prefix-icon="${DEFAULTS.INFO_ICON}"
-              size="${DEFAULTS.ICON_SIZE}"
-              variant="${BUTTON_VARIANTS.TERTIARY}"
-              aria-label="${ifDefined(this.infoIconAriaLabel)}"
-              id="info-icon-id"
-            ></mdc-button>
-            <mdc-toggletip
-              part="label-toggletip"
-              triggerid="info-icon-id"
-              id="label-toggletip-id"
-              placement="${this.toggletipPlacement}"
-              show-arrow
-              >${this.toggletipText}</mdc-toggletip
-            >`
-        : nothing}
+      <slot name="toggletip">
+        ${this.toggletipText
+          ? html` <mdc-button
+                part="info-icon-btn"
+                prefix-icon="${DEFAULTS.INFO_ICON}"
+                size="${DEFAULTS.ICON_SIZE}"
+                variant="${BUTTON_VARIANTS.TERTIARY}"
+                aria-label="${ifDefined(this.infoIconAriaLabel)}"
+                ?disabled="${shouldDisableToggletip}"
+                ?soft-disabled="${this.softDisabled}"
+                id="${triggerId}"
+              ></mdc-button>
+              <mdc-toggletip
+                part="label-toggletip"
+                triggerid="${triggerId}"
+                id="label-toggletip-id"
+                placement="${this.toggletipPlacement}"
+                strategy="${this.toggletipStrategy}"
+                show-arrow
+                >${this.toggletipText}</mdc-toggletip
+              >`
+          : nothing}
+      </slot>
     </div>`;
   }
 
   /**
-   * renders the mdc-help-text container that contains the helpertext icon and helpertext.
+   * renders the help-text container that contains the helpertext icon and helpertext.
    * @returns void
    */
   protected renderHelperText() {
     if (!this.helpText) {
       return nothing;
     }
-    return html`<div class="mdc-help-text" part="help-text">
+    return html`<div part="help-text-container">
       <slot name="help-icon">${this.renderHelpTextIcon()}</slot>
       <slot name="help-text">${this.renderHelpText()}</slot>
     </div>`;

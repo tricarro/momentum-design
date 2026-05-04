@@ -1,4 +1,5 @@
-import { CSSResult, html } from 'lit';
+import type { CSSResult, PropertyValues } from 'lit';
+import { html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { createRef, ref } from 'lit/directives/ref.js';
 import type { Ref } from 'lit/directives/ref';
@@ -6,6 +7,7 @@ import lottie, { AnimationItem } from 'lottie-web/build/player/lottie_light';
 import animationManifest from '@momentum-design/animations/dist/manifest';
 
 import { Component } from '../../models';
+import { ROLE } from '../../utils/roles';
 
 import styles from './animation.styles';
 import type { AnimationNames, LoopType } from './animation.types';
@@ -26,55 +28,63 @@ import { DEFAULTS } from './animation.constants';
 class Animation extends Component {
   /**
    * Name of the animation (= filename)
+   * @default undefined
    */
   @property({ type: String, reflect: true })
-  name?: AnimationNames = DEFAULTS.NAME;
+  name?: AnimationNames;
 
   /**
    * How many times to loop the animation
    * - "true" - infinite
    * - "false" - no loop
    * - number - number of times to loop
+   * @default 'true'
    */
   @property({ type: String, reflect: true })
   loop?: LoopType = DEFAULTS.LOOP;
 
   /**
    * Weather start the animation automatically
+   * @default true
    */
   @property({ type: Boolean, reflect: true })
   autoplay?: boolean = DEFAULTS.AUTO_PLAY;
 
   /**
    * Aria-label attribute to be set for accessibility
+   * @default null
    */
   @property({ type: String, attribute: 'aria-label' })
   override ariaLabel: string | null = null;
 
   /**
    * Aria-labelledby attribute to be set for accessibility
+   * @default null
    */
   @property({ type: String, attribute: 'aria-labelledby' })
-  ariaLabelledBy: string | null = null;
+  ariaLabelledby: string | null = null;
 
   /**
    * Lottie animation instance
+   * @internal
    */
   private lottieInstance?: AnimationItem;
 
   /**
    * Container for the animation
+   * @internal
    */
   private containerRef: Ref<HTMLDivElement> = createRef();
 
   /**
    * Exposed API of the animation library (lottie)
+   * @internal
    */
   get animation() {
     return this.lottieInstance;
   }
 
-  private getLoopValue() {
+  private getLoopValue(): boolean | number {
     if (this.loop === 'true') return true;
     if (this.loop === 'false') return false;
     if (this.loop) return Number(this.loop);
@@ -84,7 +94,7 @@ class Animation extends Component {
   /**
    * Create new lotty instance for the loaded data
    */
-  private onLoadSuccessHandler(animationData: any) {
+  private onLoadSuccessHandler(animationData: any): void {
     if (this.lottieInstance) {
       this.lottieInstance.removeEventListener('complete', this.onCompleteHandler);
       this.lottieInstance.destroy();
@@ -108,7 +118,7 @@ class Animation extends Component {
   /**
    * Error handler for animation loading
    */
-  private onLoadFailHandler(error: Error) {
+  private onLoadFailHandler(error: Error): void {
     const errorEvent = new CustomEvent('error', {
       bubbles: true,
       cancelable: true,
@@ -120,7 +130,7 @@ class Animation extends Component {
   /**
    * Import animation data dynamically
    */
-  private getAnimationData() {
+  private getAnimationData(): void {
     if (this.name && animationManifest[this.name]) {
       // Make sure the path is point to a folder (and its sub-folders) that contains animation data only
       // otherwise bundlers (eg. webpack) will try to process everything in this folder including the types.d.ts
@@ -134,7 +144,7 @@ class Animation extends Component {
     }
   }
 
-  override updated(changedProperties: Map<string, any>) {
+  override updated(changedProperties: PropertyValues): void {
     super.updated(changedProperties);
 
     // fetch animation data when new animation needed or any animation parameter changed
@@ -144,8 +154,8 @@ class Animation extends Component {
       this.getAnimationData();
     }
 
-    if (changedProperties.has('ariaLabel') || changedProperties.has('ariaLabelledBy')) {
-      this.role = this.ariaLabel || this.ariaLabelledBy ? 'img' : null;
+    if (changedProperties.has('ariaLabel') || changedProperties.has('ariaLabelledby')) {
+      this.role = this.ariaLabel || this.ariaLabelledby ? ROLE.IMG : null;
     }
   }
 
@@ -165,8 +175,9 @@ class Animation extends Component {
    *
    * This handler called with the animation instance instead of the component instance
    * so we need to bind it to the component instance. The arrow function just does that.
+   * @internal
    */
-  onCompleteHandler = () => {
+  private onCompleteHandler = (): void => {
     const event = new CustomEvent('complete', {
       detail: { name: this.name },
       bubbles: true,

@@ -2,10 +2,9 @@
 import { LitElement } from 'lit';
 
 import type { Component } from '../../models';
+import { OVERLAY_BACKDROP_Z_INDEX_OFFSET, OVERLAY_TRIGGER_Z_INDEX_OFFSET } from '../controllers/DepthManager';
 
 import type { Constructor } from './index.types';
-
-// TODO: add a backdrop singleton / manager to avoid multiple backdrops in the DOM (similar to FocusTrap)
 
 export declare abstract class BackdropMixinInterface {
   abstract zIndex: number;
@@ -31,7 +30,10 @@ export const BackdropMixin = <T extends Constructor<LitElement>>(superClass: T) 
      * IMPLEMENT THIS IN YOUR COMPONENT.
      *
      * The z-index of the component where the backdrop will be attached to.
-     * The backdrop itself will have a z-index of `zIndex - 1`.
+     *
+     * The backdrop itself will have a z-index of `zIndex - OVERLAY_BACKDROP_Z_INDEX_OFFSET`.
+     * The trigger element of the backdrop will have a z-index of `zIndex - OVERLAY_TRIGGER_Z_INDEX_OFFSET`,
+     * to make sure that it is above the backdrop and clickable.
      */
     abstract zIndex: number;
 
@@ -54,7 +56,24 @@ export const BackdropMixin = <T extends Constructor<LitElement>>(superClass: T) 
     protected backdropElement: HTMLElement | null = null;
 
     /** @internal */
+    private triggerElementCache: WeakRef<HTMLElement> | null = null;
+
+    /** @internal */
     private elementOriginalStyle?: Pick<CSSStyleDeclaration, 'zIndex' | 'position'>;
+
+    override update(changedProperties: Map<string | number | symbol, unknown>): void {
+      super.update(changedProperties);
+
+      if (changedProperties.has('zIndex') && this.backdropElement) {
+        // Update the backdrop z-index if the zIndex property changes
+        this.backdropElement.style.zIndex = `${this.zIndex + OVERLAY_BACKDROP_Z_INDEX_OFFSET}`;
+
+        const triggerEl = this.triggerElementCache?.deref();
+        if (triggerEl) {
+          triggerEl.style.zIndex = `${this.zIndex + OVERLAY_TRIGGER_Z_INDEX_OFFSET}`;
+        }
+      }
+    }
 
     /**
      * Creates a backdrop element with the specified class name prefix.
@@ -66,6 +85,10 @@ export const BackdropMixin = <T extends Constructor<LitElement>>(superClass: T) 
       const backdrop = document.createElement('div');
       backdrop.classList.add(`${classNamePrefix}-backdrop`);
       const styleElement = document.createElement('style');
+      const bgColor = this.isBackdropInvisible
+        ? 'transparent'
+        : getComputedStyle(this).getPropertyValue('--mdc-backdrop-mixin-background-color') ||
+          `var(--mds-color-theme-common-overlays-secondary-normal)`;
       styleElement.textContent = `
         .${classNamePrefix}-backdrop {
           position: fixed;
@@ -73,10 +96,8 @@ export const BackdropMixin = <T extends Constructor<LitElement>>(superClass: T) 
           left: 0;
           width: 100%;
           height: 100%;
-          background: ${
-            this.isBackdropInvisible ? `transparent` : `var(--mds-color-theme-common-overlays-secondary-normal)`
-          };
-          z-index: ${this.zIndex - 1};
+          background: ${bgColor};
+          z-index: ${this.zIndex + OVERLAY_BACKDROP_Z_INDEX_OFFSET};
         }
       `;
       backdrop.appendChild(styleElement);
@@ -113,6 +134,8 @@ export const BackdropMixin = <T extends Constructor<LitElement>>(superClass: T) 
       if (!element) {
         return;
       }
+
+      this.triggerElementCache = new WeakRef(element);
       // Store the original z-index and position of the element
       this.elementOriginalStyle = {
         zIndex: element.style.zIndex,
@@ -120,7 +143,7 @@ export const BackdropMixin = <T extends Constructor<LitElement>>(superClass: T) 
       };
 
       // Set the z-index and position to ensure the element is above the backdrop
-      element.style.zIndex = `${this.zIndex}`;
+      element.style.zIndex = `${this.zIndex + OVERLAY_TRIGGER_Z_INDEX_OFFSET}`;
       // Only set the position to relative if it is not already set to fixed or absolute
       if (!['fixed', 'absolute'].includes(window.getComputedStyle(element).position)) {
         element.style.position = 'relative';
@@ -146,6 +169,7 @@ export const BackdropMixin = <T extends Constructor<LitElement>>(superClass: T) 
 
       // Clear the stored original style
       this.elementOriginalStyle = undefined;
+      this.triggerElementCache = null;
     }
   }
 

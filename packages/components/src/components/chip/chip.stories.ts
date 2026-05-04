@@ -1,10 +1,13 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
+import iconsManifest from '@momentum-design/icons/dist/manifest.json';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { hideControls, textControls } from '../../../config/storybook/utils';
+import { hideAllControls, hideControls } from '../../../config/storybook/utils';
+import { ROLE } from '../../utils/roles';
 
 import { COLOR } from './chip.constants';
 
@@ -14,21 +17,19 @@ const render = (args: Args) =>
     @keydown="${action('onkeydown')}"
     @keyup="${action('onkeyup')}"
     @focus="${action('onfocus')}"
-    color="${args.color}"
-    label="${args.label}"
-    icon-name="${args['icon-name']}"
+    color="${ifDefined(args.color)}"
+    label="${ifDefined(args.label)}"
+    icon-name="${ifDefined(args['icon-name'])}"
     ?disabled="${args.disabled}"
     ?auto-focus-on-mount="${args['auto-focus-on-mount']}"
+    ariaStateKey="${ifDefined(args.ariaStateKey)}"
   ></mdc-chip>`;
 
 const meta: Meta = {
-  title: 'Components/chip/label',
+  title: 'Components/chip/chip',
   tags: ['autodocs'],
   component: 'mdc-chip',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
     color: {
       control: 'select',
@@ -38,7 +39,8 @@ const meta: Meta = {
       control: 'text',
     },
     'icon-name': {
-      control: 'text',
+      control: 'select',
+      options: Object.keys(iconsManifest),
     },
     disabled: {
       control: 'boolean',
@@ -46,10 +48,25 @@ const meta: Meta = {
     'auto-focus-on-mount': {
       control: 'boolean',
     },
+    ariaStateKey: {
+      control: 'text',
+    },
     ...classArgType,
     ...styleArgType,
-    ...textControls(['--mdc-chip-color', '--mdc-chip-border-color', '--mdc-chip-background-color']),
-    ...hideControls(['soft-disabled', 'size', 'role', 'type', 'active']),
+    ...hideControls([
+      'soft-disabled',
+      'size',
+      'role',
+      'type',
+      'active',
+      'name',
+      'value',
+      '--mdc-button-background',
+      '--mdc-button-border-color',
+      '--mdc-button-height',
+      '--mdc-button-text-color',
+      'Slot Name: ""',
+    ]),
   },
 };
 
@@ -83,7 +100,8 @@ export const Disabled: StoryObj = {
 
 export const AllColors: StoryObj = {
   render: () =>
-    html` <div style="display: flex; gap: 0.5rem;">
+    html` <div style="display: flex; gap: 0.5rem;" role="${ROLE.MAIN}">
       ${Object.values(COLOR).map(color => html` <mdc-chip color="${color}" label="${color}"></mdc-chip> `)}
     </div>`,
+  ...hideAllControls(),
 };

@@ -1,10 +1,12 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
 import '.';
 import { html } from 'lit';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
+import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { hideControls, textControls } from '../../../config/storybook/utils';
+import { hideControls } from '../../../config/storybook/utils';
+import { POPOVER_PLACEMENT } from '../popover/popover.constants';
 
 import { ALLOWED_BADGE_TYPES, DEFAULTS } from './navmenuitem.constants';
 
@@ -26,8 +28,13 @@ const render = (args: Args) => html`
       ?active=${args.active}
       ?show-label=${args['show-label']}
       ?disable-aria-current=${args['disable-aria-current']}
-      aria-label=${args['aria-label']}
+      ?cannot-activate=${args['cannot-activate']}
+      aria-label=${ifDefined(args['aria-label'])}
       tooltip-text=${args['tooltip-text']}
+      tooltip-placement=${args['tooltip-placement']}
+      tooltip-type=${args['tooltip-type']}
+      tooltip-appearance=${args['tooltip-appearance']}
+      tooltip-boundary-padding=${args['tooltip-boundary-padding']}
     ></mdc-navmenuitem>
   </div>
 `;
@@ -37,10 +44,16 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-navmenuitem',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
   argTypes: {
+    'show-label': {
+      control: 'boolean',
+    },
+    active: {
+      control: 'boolean',
+    },
+    'cannot-activate': {
+      control: 'boolean',
+    },
     'nav-id': {
       control: 'text',
     },
@@ -61,13 +74,25 @@ const meta: Meta = {
       control: 'text',
       description: 'Label text displayed for the nav item.',
     },
+    'tooltip-text': {
+      control: 'text',
+    },
+    'tooltip-placement': {
+      control: 'select',
+      options: Object.values(POPOVER_PLACEMENT),
+    },
+    'tooltip-type': {
+      control: 'select',
+      options: ['description', 'label', 'none'],
+    },
+    'tooltip-appearance': {
+      control: 'select',
+      options: ['when-collapsed', 'always'],
+    },
+    'tooltip-boundary-padding': {
+      control: 'number',
+    },
     disabled: {
-      control: 'boolean',
-    },
-    active: {
-      control: 'boolean',
-    },
-    'show-label': {
       control: 'boolean',
     },
     'aria-label': {
@@ -76,22 +101,6 @@ const meta: Meta = {
     'disable-aria-current': {
       control: 'boolean',
     },
-    'tooltip-text': {
-      control: 'text',
-    },
-    ...textControls([
-      '--mdc-navmenuitem-color',
-      '--mdc-navmenuitem-border-color',
-      '--mdc-navmenuitem-disabled-color',
-      '--mdc-navmenuitem-expanded-width',
-      '--mdc-navmenuitem-hover-background-color',
-      '--mdc-navmenuitem-hover-active-background-color',
-      '--mdc-navmenuitem-pressed-background-color',
-      '--mdc-navmenuitem-pressed-active-background-color',
-      '--mdc-navmenuitem-disabled-background-color',
-      '--mdc-navmenuitem-disabled-active-background-color',
-      '--mdc-navmenuitem-rest-active-background-color',
-    ]),
     ...hideControls([
       '--mdc-listitem-default-background-color',
       '--mdc-listitem-background-color-hover',
@@ -126,14 +135,14 @@ export default meta;
 
 export const Example: StoryObj = {
   args: {
+    'show-label': true,
+    active: false,
     'nav-id': '1',
     'icon-name': 'placeholder-bold',
     'badge-type': ALLOWED_BADGE_TYPES.COUNTER,
     counter: 3,
     'max-counter': DEFAULTS.MAX_COUNTER,
     disabled: false,
-    active: false,
-    'show-label': true,
     label: 'Dashboard',
   },
 };

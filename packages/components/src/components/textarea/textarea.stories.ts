@@ -1,15 +1,15 @@
 import type { Meta, StoryObj, Args } from '@storybook/web-components';
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import '.';
 import { html } from 'lit';
 
 import { classArgType, styleArgType } from '../../../config/storybook/commonArgTypes';
-import { disableControls, textControls, hideControls } from '../../../config/storybook/utils';
+import { disableControls, hideControls } from '../../../config/storybook/utils';
 import { VALIDATION } from '../formfieldwrapper/formfieldwrapper.constants';
 import { AUTO_CAPITALIZE } from '../input/input.constants';
 import { ValidationType } from '../formfieldwrapper/formfieldwrapper.types';
-import { POPOVER_PLACEMENT } from '../popover/popover.constants';
+import { POPOVER_PLACEMENT, STRATEGY } from '../popover/popover.constants';
 
 import type Textarea from './textarea.component';
 import { AUTO_COMPLETE, DEFAULTS, WRAP } from './textarea.constants';
@@ -35,7 +35,7 @@ const render = (args: Args) =>
     ?required="${args.required}"
     ?disabled="${args.disabled}"
     ?readonly="${args.readonly}"
-    ?resize-button="${args['resize-button']}"
+    ?resizable="${args.resizable}"
     data-aria-label="${ifDefined(args['data-aria-label'])}"
     maxlength="${ifDefined(args.maxlength)}"
     minlength="${ifDefined(args.minlength)}"
@@ -44,10 +44,13 @@ const render = (args: Args) =>
     autocomplete="${args.autocomplete}"
     dirname="${ifDefined(args.dirname)}"
     validation-message="${args['validation-message']}"
-    toggletip-placement="${args['toggletip-placement']}"
     toggletip-text="${args['toggletip-text']}"
+    toggletip-placement="${args['toggletip-placement']}"
+    toggletip-strategy="${args['toggletip-strategy']}"
     info-icon-aria-label="${args['info-icon-aria-label']}"
     max-character-limit="${ifDefined(args['max-character-limit'])}"
+    character-limit-announcement="${ifDefined(args['character-limit-announcement'])}"
+    resize-button-aria-label="${ifDefined(args['resize-button-aria-label'])}"
   ></mdc-textarea>`;
 
 const meta: Meta = {
@@ -55,9 +58,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-textarea',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     ...classArgType,
     ...styleArgType,
@@ -83,6 +84,9 @@ const meta: Meta = {
       control: 'boolean',
     },
     disabled: {
+      control: 'boolean',
+    },
+    resizable: {
       control: 'boolean',
     },
     rows: {
@@ -135,26 +139,20 @@ const meta: Meta = {
       control: 'select',
       options: Object.values(POPOVER_PLACEMENT),
     },
+    'toggletip-strategy': {
+      control: 'select',
+      options: Object.values(STRATEGY),
+    },
     'info-icon-aria-label': {
       control: 'text',
     },
+    'character-limit-announcement': {
+      control: 'text',
+    },
+    'resize-button-aria-label': {
+      control: 'text',
+    },
     ...hideControls(['characterLimitExceedingFired', 'textarea', 'validity', 'willValidate']),
-    ...textControls([
-      '--mdc-textarea-disabled-border-color',
-      '--mdc-textarea-disabled-text-color',
-      '--mdc-textarea-disabled-background-color',
-      '--mdc-textarea-border-color',
-      '--mdc-textarea-text-color',
-      '--mdc-textarea-background-color',
-      '--mdc-textarea-hover-background-color',
-      '--mdc-textarea-focused-background-color',
-      '--mdc-textarea-focused-border-color',
-      '--mdc-textarea-error-border-color',
-      '--mdc-textarea-warning-border-color',
-      '--mdc-textarea-success-border-color',
-      '--mdc-textarea-primary-border-color',
-      '--mdc-textarea-text-secondary-normal',
-    ]),
   },
 };
 
@@ -165,7 +163,6 @@ export const Example: StoryObj = {
     name: 'textarea',
     label: 'Label',
     rows: DEFAULTS.ROWS,
-    cols: DEFAULTS.COLS,
     wrap: DEFAULTS.WRAP,
     required: true,
     placeholder: 'Placeholder',
@@ -174,9 +171,11 @@ export const Example: StoryObj = {
     'help-text-type': VALIDATION.DEFAULT,
     readonly: false,
     disabled: false,
+    resizable: true,
     autocapitalize: AUTO_CAPITALIZE.OFF,
     autocomplete: AUTO_COMPLETE.OFF,
     'data-aria-label': '',
+    'resize-button-aria-label': 'Resize textarea',
   },
 };
 
@@ -184,8 +183,8 @@ const commonArgs = {
   name: 'textarea',
   label: 'Label',
   rows: DEFAULTS.ROWS,
-  cols: DEFAULTS.COLS,
   wrap: DEFAULTS.WRAP,
+  resizable: true,
 };
 
 export const DisabledTextarea: StoryObj = {
@@ -237,6 +236,8 @@ export const AllVariants: StoryObj = {
             help-text="${validation} helper text"
             placeholder="Placeholder"
             value="${validation}_value"
+            resizable
+            resize-button-aria-label="Resize textarea"
           ></mdc-textarea>`,
       )}
       <mdc-textarea
@@ -245,6 +246,8 @@ export const AllVariants: StoryObj = {
         help-text-type="default"
         required
         placeholder="Textarea is required"
+        resizable
+        resize-button-aria-label="Resize textarea"
       ></mdc-textarea>
       <mdc-textarea
         label="Textarea within character limit"
@@ -254,6 +257,8 @@ export const AllVariants: StoryObj = {
         readonly
         placeholder="Placeholder"
         max-character-limit="75"
+        resizable
+        resize-button-aria-label="Resize textarea"
       ></mdc-textarea>
       <mdc-textarea
         label="Textarea exceeding character limit"
@@ -262,6 +267,8 @@ export const AllVariants: StoryObj = {
         help-text-type="error"
         placeholder="Placeholder"
         max-character-limit="75"
+        resizable
+        resize-button-aria-label="Resize textarea"
         >Momentum is how webex design the future of work. This design system exist to create a shared design language.
       </mdc-textarea>
     </div>`,
@@ -282,7 +289,14 @@ export const AllVariants: StoryObj = {
 };
 
 export const TextareaWithCharacterCounter: StoryObj = {
-  render: () => {
+  args: {
+    required: true,
+    placeholder: `Write what's on your mind`,
+    'max-character-limit': 75,
+    'character-limit-announcement': '%{number-of-characters} out of %{max-character-limit} characters are typed.',
+    resizable: true,
+  },
+  render: (args: Args) => {
     let helpText = '';
     let helpTextType: ValidationType = VALIDATION.DEFAULT;
 
@@ -321,9 +335,12 @@ export const TextareaWithCharacterCounter: StoryObj = {
             @limitexceeded=${handleCharacterLimitCheck}
             help-text="${helpText}"
             help-text-type="${helpTextType}"
-            required
-            max-character-limit="75"
-            placeholder="Write what's on your mind"
+            ?required="${args.required}"
+            max-character-limit="${args['max-character-limit']}"
+            placeholder="${args.placeholder}"
+            character-limit-announcement="${args['character-limit-announcement']}"
+            resizable
+            resize-button-aria-label="Resize textarea"
           ></mdc-textarea>
           <div style="display: flex; gap: 0.25rem; margin-top: 0.25rem">
             <mdc-button type="submit" size="24">Submit</mdc-button>
@@ -338,9 +355,9 @@ export const TextareaWithCharacterCounter: StoryObj = {
       description: {
         story:
           'To add a character counter to the textarea, use the `max-character-limit` attribute. ' +
-          'The character counter will be displayed below the textarea with the max character limit.' +
-          'User needs to listen to the `limitexceeded` event to handle the character limit check.' +
-          'The event will contain the current character count, the max character limit & current value of the textarea.' +
+          'The character counter will be displayed below the textarea with the max character limit. ' +
+          'User needs to listen to the `limitexceeded` event to handle the character limit check. ' +
+          'The event will contain the current character count, the max character limit & current value of the textarea. ' +
           'Based on which the user can update the help text and help text type dynamically.',
       },
     },
@@ -367,6 +384,8 @@ export const TextareaInsideForm: StoryObj = {
             required
             placeholder="Write what's on your mind"
             validation-message="Tweet is required"
+            resizable
+            resize-button-aria-label="Resize textarea"
           ></mdc-textarea>
           <div style="display: flex; gap: 0.25rem; margin-top: 0.25rem">
             <mdc-button type="submit" size="24">Submit</mdc-button>
@@ -427,6 +446,8 @@ export const TextareaInsideFormWithHelpTextValidation: StoryObj = {
             required
             placeholder="Write what's on your mind"
             max-character-limit="${MAX_CHAR_LIMIT}"
+            resizable
+            resize-button-aria-label="Resize textarea"
           ></mdc-textarea>
           <div style="display: flex; gap: 0.25rem; margin-top: 0.25rem">
             <mdc-button type="submit" size="24">Submit</mdc-button>
@@ -441,5 +462,6 @@ export const TextareaInsideFormWithHelpTextValidation: StoryObj = {
     'help-text': '',
     'help-text-type': 'default',
     'max-character-limit': 75,
+    resizable: true,
   },
 };

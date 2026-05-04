@@ -1,9 +1,9 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-restricted-syntax */
-import { expect } from '@playwright/test';
-
-import { ComponentsPage, test } from '../../../config/playwright/setup';
+import { ComponentsPage, test, expect } from '../../../config/playwright/setup';
 import StickerSheet from '../../../config/playwright/setup/utils/Stickersheet';
+import { imageFixtures } from '../../../config/playwright/setup/utils/imageFixtures';
+import { KEYS } from '../../utils/keys';
 
 import { TOAST_VARIANT } from './toast.constants';
 
@@ -45,7 +45,9 @@ const setup = async (options: ToastSetupOptions) => {
     showMoreText && `show-more-text="${showMoreText}"`,
     showLessText && `show-less-text="${showLessText}"`,
     closeButtonAriaLabel && `close-button-aria-label="${closeButtonAriaLabel}"`,
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const dir = rtl ? 'dir="rtl"' : '';
 
@@ -89,7 +91,7 @@ test.describe('Toast Feature Scenarios', () => {
         <mdc-icon slot="content-prefix" name="placeholder-bold" size="1.5"></mdc-icon>
         <mdc-text slot="toast-body-normal" tagname="span">
           Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-          <mdc-link>Link to page</mdc-link>
+          <mdc-link href="#">Link to page</mdc-link>
         </mdc-text>
         <mdc-text slot="toast-body-detailed" tagname="span">More detailed content goes here.</mdc-text>
         <mdc-button slot="footer-button-secondary">Cancel</mdc-button>
@@ -112,7 +114,7 @@ test.describe('Toast Feature Scenarios', () => {
       });
 
       // Avatar prefix
-      const src = 'https://picsum.photos/id/63/256';
+      const src = imageFixtures.avatar;
       toastSheet.setAttributes({ ...COMMON_ATTRS, 'header-text': '' });
       toastSheet.setChildren(`
         <mdc-avatar slot="content-prefix" src="${src}" size="24"></mdc-avatar>
@@ -226,8 +228,8 @@ test.describe('Toast Feature Scenarios', () => {
           `,
         });
         await expect(toast).toHaveAttribute('show-more-text', SHOW_MORE_TEXT);
-        await expect(toast).toHaveAttribute('show-less-text', SHOW_LESS_TEXT);     
-        const showMoreBtn = componentsPage.page.locator('mdc-linkbutton[part="footer-button-toggle"]');
+        await expect(toast).toHaveAttribute('show-less-text', SHOW_LESS_TEXT);
+        const showMoreBtn = componentsPage.page.locator('mdc-button[part="footer-button-toggle"]');
         await expect(showMoreBtn).toHaveText(SHOW_MORE_TEXT);
       });
     });
@@ -242,7 +244,7 @@ test.describe('Toast Feature Scenarios', () => {
 
         const bodySlot = toast.locator('mdc-text[slot="toast-body-normal"]');
         await expect(bodySlot).toContainText(body);
-        await expect(toast.locator('mdc-linkbutton[part="footer-button-toggle"]')).not.toBeVisible();
+        await expect(toast.locator('mdc-button[part="footer-button-toggle"]')).not.toBeVisible();
       });
 
       await test.step('Toast renders normal and detailed body content', async () => {
@@ -261,7 +263,7 @@ test.describe('Toast Feature Scenarios', () => {
 
         const bodySlot = toast.locator('mdc-text[slot="toast-body-normal"]');
         const detailedSlot = toast.locator('mdc-text[slot="toast-body-detailed"]');
-        const showMoreBtn = toast.locator('mdc-linkbutton[part="footer-button-toggle"]');
+        const showMoreBtn = toast.locator('mdc-button[part="footer-button-toggle"]');
 
         await expect(bodySlot).toContainText(normalBody);
         await expect(detailedSlot).toHaveText(detailedBody);
@@ -276,15 +278,16 @@ test.describe('Toast Feature Scenarios', () => {
         const toast = await setup({
           componentsPage,
           headerText: 'Action Completed',
-          children: '<mdc-text tagname="span" slot="toast-body-normal">Your file has been successfully uploaded</mdc-text>',
+          children:
+            '<mdc-text tagname="span" slot="toast-body-normal">Your file has been successfully uploaded</mdc-text>',
         });
 
         const closeBtn = componentsPage.page.locator('mdc-toast [part="toast-close-btn"]');
         await closeBtn.waitFor();
 
-        const closePromise = componentsPage.waitForEvent(toast, 'close');
+        const waitForCloseEvent = await componentsPage.waitForEvent(toast, 'close');
         await closeBtn.click();
-        await closePromise;
+        await expect(waitForCloseEvent).toEventEmitted();
       });
 
       await test.step('User expands/collapses toast body using mouse', async () => {
@@ -301,7 +304,7 @@ test.describe('Toast Feature Scenarios', () => {
           `,
         });
 
-        const toggleBtn = toast.locator('mdc-linkbutton[part="footer-button-toggle"]');
+        const toggleBtn = toast.locator('mdc-button[part="footer-button-toggle"]');
         const detailedSlot = toast.locator('mdc-text[slot="toast-body-detailed"]');
 
         await expect(toggleBtn.locator('mdc-icon[name="arrow-down-bold"]')).toBeVisible();
@@ -350,16 +353,17 @@ test.describe('Toast Feature Scenarios', () => {
         const toast = await setup({
           componentsPage,
           headerText: 'Action Completed',
-          children: '<mdc-text tagname="span" slot="toast-body-normal">Your file has been successfully uploaded</mdc-text>',
+          children:
+            '<mdc-text tagname="span" slot="toast-body-normal">Your file has been successfully uploaded</mdc-text>',
         });
 
         await componentsPage.actionability.pressTab();
         const closeBtn = componentsPage.page.locator('mdc-toast [part="toast-close-btn"]');
         await expect(closeBtn).toBeFocused();
 
-        const closePromise = componentsPage.waitForEvent(toast, 'close');
+        const waitForCloseEvent = await componentsPage.waitForEvent(toast, 'close');
         await closeBtn.press('Enter');
-        await closePromise;
+        await expect(waitForCloseEvent).toEventEmitted();
       });
 
       await test.step('User expands/collapses toast body with keyboard', async () => {
@@ -376,14 +380,14 @@ test.describe('Toast Feature Scenarios', () => {
           `,
         });
 
-        const toggleBtn = toast.locator('mdc-linkbutton[part="footer-button-toggle"]');
+        const toggleBtn = toast.locator('mdc-button[part="footer-button-toggle"]');
         const detailedSlot = toast.locator('mdc-text[slot="toast-body-detailed"]');
 
         await toggleBtn.focus();
         await componentsPage.visualRegression.takeScreenshot('mdc-toast', {
           source: 'userflow',
           fileNameSuffix: 'collapsed-view',
-          element: toast
+          element: toast,
         });
         await componentsPage.accessibility.checkForA11yViolations('toast-collapsed-view');
 
@@ -395,7 +399,7 @@ test.describe('Toast Feature Scenarios', () => {
         await componentsPage.visualRegression.takeScreenshot('mdc-toast', {
           source: 'userflow',
           fileNameSuffix: 'expanded-view',
-          element: toast
+          element: toast,
         });
         await componentsPage.accessibility.checkForA11yViolations('toast-expanded-view');
 
@@ -407,9 +411,32 @@ test.describe('Toast Feature Scenarios', () => {
         await componentsPage.visualRegression.takeScreenshot('mdc-toast', {
           source: 'userflow',
           fileNameSuffix: 'collapsed-view',
-          element: toast
+          element: toast,
         });
       });
+    });
+
+    await test.step('spatial navigation', async () => {
+      await setup({
+        componentsPage,
+        children: `
+            <mdc-text tagname="span" slot="toast-body-normal">Normal</mdc-text>
+            <mdc-text tagname="span" slot="toast-body-detailed">Detailed</mdc-text>
+            <mdc-button slot="footer-button-primary">Primary</mdc-button>
+            <mdc-button slot="footer-button-secondary">Secondary</mdc-button>
+          `,
+      });
+      await componentsPage.wrapElement({ wrapperTagName: 'mdc-spatialnavigationprovider' });
+      const { keyboard } = componentsPage.page;
+
+      await keyboard.press(KEYS.ARROW_RIGHT);
+      await expect(componentsPage.page.locator('mdc-toast [part="toast-close-btn"]')).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_DOWN);
+      await expect(componentsPage.page.locator('mdc-button[slot="footer-button-primary"]')).toBeFocused();
+
+      await keyboard.press(KEYS.ARROW_LEFT);
+      await expect(componentsPage.page.locator('mdc-button[slot="footer-button-secondary"]')).toBeFocused();
     });
   });
 });

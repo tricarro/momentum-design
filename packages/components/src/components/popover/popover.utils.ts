@@ -1,10 +1,24 @@
 import { ROLE } from '../../utils/roles';
 
 import type Popover from './popover.component';
+import { PopoverPortal, TAG_NAME as POPOVER_PORTAL_TAG_NAME } from './popover.portal.component';
 
 export class PopoverUtils {
   /** @internal */
   private popover: Popover;
+
+  /**
+   * The portal element used when the popover is appended to another container.
+   * @internal
+   */
+  private portalElement: PopoverPortal | null = null;
+
+  /**
+   * Flag to indicate if the popover was diconnected because it was appended to another container, or
+   * it was actually removed from the DOM.
+   * @internal
+   */
+  private disconnectAfterAppendTo: boolean = false;
 
   /** @internal */
   private arrowPixelChange: boolean = false;
@@ -43,40 +57,57 @@ export class PopoverUtils {
    * @param placement - The placement of the popover.
    */
   setupHoverBridge(placement: string) {
-    const hoverBridge = this.popover.renderRoot.querySelector('.popover-hover-bridge') as HTMLElement;
+    const hoverBridge = this.popover.renderRoot.querySelector('div[part="popover-hover-bridge"]') as HTMLElement;
     Object.assign(hoverBridge.style, {
       top: '',
       left: '',
       right: '',
       bottom: '',
     });
-    const bridgeSize = `calc(${this.popover.showArrow ? '0.75rem + ' : ''}${this.popover.offset}px)`;
-    const popoverHeight = this.popover.offsetHeight || 0;
-    const popoverWidth = this.popover.offsetWidth || 0;
+    const triggerEl = this.popover.triggerElement;
 
-    if (hoverBridge) {
+    if (hoverBridge && triggerEl) {
+      const popoverBBox = this.popover.getBoundingClientRect();
+      const triggerBBox = triggerEl.getBoundingClientRect();
+      let bridgeSize = 0;
+
+      if (!triggerBBox) return;
+
+      const popoverHeight = this.popover.offsetHeight || 0;
+      const popoverWidth = this.popover.offsetWidth || 0;
       const side = placement.split('-')[0];
+
+      // bridgeSize calculated here because, floating UI might flip side on the main axis, also it can be negative if the trigger and popover are overlapping
+      if (side === 'top' || side === 'bottom') {
+        bridgeSize = Math.max(0, Math.max(popoverBBox.top - triggerBBox.bottom, triggerBBox.top - popoverBBox.bottom));
+      } else if (side === 'left' || side === 'right') {
+        bridgeSize = Math.max(0, Math.max(triggerBBox.left - popoverBBox.right, popoverBBox.left - triggerBBox.right));
+      }
+
+      // ensure bridge overlap
+      bridgeSize += 1;
+
       switch (side) {
         case 'top':
-          hoverBridge.style.height = bridgeSize;
-          hoverBridge.style.bottom = `calc(-1 * (${bridgeSize}))`;
+          hoverBridge.style.height = `${bridgeSize}px`;
+          hoverBridge.style.bottom = `calc(-1 * (${bridgeSize}px))`;
           hoverBridge.style.left = '50%';
           hoverBridge.style.width = `${popoverWidth}px`;
           break;
         case 'left':
           hoverBridge.style.height = `${popoverHeight}px`;
-          hoverBridge.style.width = bridgeSize;
-          hoverBridge.style.right = `calc(-1.5 * (${bridgeSize}))`;
+          hoverBridge.style.width = `${bridgeSize}px`;
+          hoverBridge.style.right = `calc(-1.5 * (${bridgeSize}px))`;
           break;
         case 'right':
           hoverBridge.style.height = `${popoverHeight}px`;
-          hoverBridge.style.width = bridgeSize;
-          hoverBridge.style.left = `calc(-0.5 * (${bridgeSize}))`;
+          hoverBridge.style.width = `${bridgeSize}px`;
+          hoverBridge.style.left = `calc(-0.5 * (${bridgeSize}px))`;
           break;
         case 'bottom':
         default:
-          hoverBridge.style.height = bridgeSize;
-          hoverBridge.style.top = `calc(-1 * (${bridgeSize}))`;
+          hoverBridge.style.height = `${bridgeSize}px`;
+          hoverBridge.style.top = `calc(-1 * (${bridgeSize}px))`;
           hoverBridge.style.left = '50%';
           hoverBridge.style.width = `${popoverWidth}px`;
           break;
@@ -90,11 +121,30 @@ export class PopoverUtils {
    */
   setupAppendTo() {
     if (this.popover.appendTo) {
-      const appendToElement = document.getElementById(this.popover.appendTo);
-      if (appendToElement) {
-        appendToElement.appendChild(this.popover);
+      const appendToEl = document.getElementById(this.popover.appendTo);
+      if (appendToEl && !Array.from(appendToEl.children).includes(this.popover)) {
+        this.disconnectAfterAppendTo = true;
+
+        this.portalElement = document.createElement(POPOVER_PORTAL_TAG_NAME) as PopoverPortal;
+        this.portalElement.onDisconnect = () => {
+          this.popover.remove();
+          this.portalElement = null;
+        };
+        this.popover.parentElement?.appendChild?.(this.portalElement);
+        appendToEl.appendChild(this.popover);
       }
     }
+  }
+
+  /**
+   * Remove portal component to when the popover appended to somewhere else and removed from the DOM
+   */
+  cleanupAppendTo() {
+    if (!this.disconnectAfterAppendTo && this.portalElement) {
+      this.portalElement.remove();
+    }
+
+    this.disconnectAfterAppendTo = false;
   }
 
   /**
@@ -106,7 +156,8 @@ export class PopoverUtils {
         this.popover.ariaLabel =
           this.popover.triggerElement?.ariaLabel || this.popover.triggerElement?.textContent || '';
       }
-      if (!this.popover.ariaLabelledby) {
+      if (!this.popover.ariaLabelledby && !this.popover.ariaLabel) {
+        // If no aria-label is provided, link the popover to the trigger element via aria-labelledby
         this.popover.ariaLabelledby = this.popover.triggerElement?.id || '';
       }
     }

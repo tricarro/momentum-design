@@ -1,13 +1,15 @@
-import { action } from '@storybook/addon-actions';
+import { action } from 'storybook/actions';
 import type { Args, Meta, StoryObj } from '@storybook/web-components';
 import { html } from 'lit';
 
 import '.';
-import { hideControls, textControls } from '../../../config/storybook/utils';
+import { hideControls } from '../../../config/storybook/utils';
 import '../button';
+import '../link';
 import '../list';
 import '../listitem';
 import '../popover';
+import '../text';
 import { COLOR, DEFAULTS as POPOVER_DEFAULTS, POPOVER_PLACEMENT } from '../popover/popover.constants';
 
 import { DEFAULTS, TOOLTIP_TYPES } from './tooltip.constants';
@@ -39,9 +41,7 @@ const meta: Meta = {
   tags: ['autodocs'],
   component: 'mdc-tooltip',
   render,
-  parameters: {
-    badges: ['stable'],
-  },
+
   argTypes: {
     children: {
       control: 'text',
@@ -74,24 +74,10 @@ const meta: Meta = {
     triggerID: {
       control: 'text',
     },
-    ...textControls([
-      '--mdc-tooltip-max-width',
-      '--mdc-tooltip-padding',
-      '--mdc-tooltip-text-color',
-      '--mdc-tooltip-text-color-contrast',
-      '--mdc-popover-arrow-border-radius',
-      '--mdc-popover-arrow-border',
-      '--mdc-popover-primary-background-color',
-      '--mdc-popover-border-color',
-      '--mdc-popover-inverted-background-color',
-      '--mdc-popover-inverted-border-color',
-      '--mdc-popover-inverted-text-color',
-      '--mdc-popover-elevation-3',
-    ]),
     ...hideControls([
       'trigger',
       'z-index',
-      'flip',
+      'disable-flip',
       'role',
       'focus-trap',
       'prevent-scroll',
@@ -143,6 +129,50 @@ export const Example: StoryObj = {
   },
 };
 
+export const TooltipOnTextOverflow: StoryObj = {
+  render: () => {
+    let toggle = false;
+    const smallWidth = 'width: 100px;';
+
+    const toggleWidth = () => {
+      toggle = !toggle;
+
+      const textElement = document.getElementById('text');
+      const buttonElement = document.getElementById('button');
+
+      const defaultStyles = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+
+      if (toggle) {
+        textElement!.setAttribute('style', defaultStyles);
+        buttonElement!.setAttribute('style', defaultStyles);
+      } else {
+        textElement!.setAttribute('style', smallWidth + defaultStyles);
+        buttonElement!.setAttribute('style', smallWidth + defaultStyles);
+      }
+    };
+
+    return html`
+      <mdc-text
+        id="text"
+        style="width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+        tagname="h1"
+        >This is really long text that will overflow</mdc-text
+      >
+      <mdc-tooltip triggerID="text" only-show-when-trigger-overflows tooltip-type="none" placement="right"
+        >This is really long text that will overflow</mdc-tooltip
+      >
+      <br />
+      <mdc-button id="button" style="width: 100px;"> This is really long text that will overflow </mdc-button>
+      <mdc-tooltip triggerID="button" only-show-when-trigger-overflows tooltip-type="none" placement="right"
+        >This is really long text that will overflow</mdc-tooltip
+      >
+
+      <hr />
+      <mdc-button @click=${toggleWidth}>Toggle Width</mdc-button>
+    `;
+  },
+};
+
 export const TooltipInsidePopover: StoryObj = {
   render: () => html`
     <mdc-popover visible hide-on-outside-click>
@@ -170,5 +200,22 @@ export const TooltipInsidePopover: StoryObj = {
         </mdc-popover>
       </div>
     </mdc-popover>
+  `,
+};
+
+export const TooltipOnInlineLink: StoryObj = {
+  render: () => html`
+    <div style="margin: 100px; max-width: 300px;">
+      <mdc-text type="body-large-regular" tagname="p">
+        Here is some text with a
+        <mdc-link id="inline-link-trigger" inline style="display: inline;">
+          longer inline link that should wrap across multiple lines to demonstrate positioning
+        </mdc-link>
+        and more text after the link.
+      </mdc-text>
+      <mdc-tooltip triggerid="inline-link-trigger" placement="top" inline>
+        This tooltip is attached to an inline link
+      </mdc-tooltip>
+    </div>
   `,
 };
