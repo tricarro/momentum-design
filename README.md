@@ -2,8 +2,6 @@
 
 [![license: mit](https://img.shields.io/badge/License-MIT-blueviolet?style=flat-square)](https://github.com/momentum-design/momentum-design/blob/main/LICENSE) ![state: alpha](https://img.shields.io/badge/State-Alpha-blue?style=flat-square)
 
-## Overview
-
 **Momentum Design** is a monorepo that acts as the single source of truth for the Momentum design system. The goal is to keep **tokens**, **visual assets**, and **UI components** aligned with one design language so product teams can ship consistent experiences. Published libraries ship under the **`@momentum-design`** scope on npm. For interactive examples and guidance, see **[momentum.design](https://momentum.design)**.
 
 This repository also contains **documentation site source**, **internal build tooling** (CLIs and pipelines), and **contributor resources**. Those support the published packages but are not what most applications depend on directly.
