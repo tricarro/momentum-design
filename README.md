@@ -29,4 +29,4 @@ For install commands, version guidance, and non-npm consumption options, see **[
 
 ## Contribution
 
-For how to contribute to this repository—workflow, standards, and package-specific notes—see **[CONTRIBUTING.md](./CONTRIBUTING.md)**.
+For how to contribute to this repository's workflow, standards, and packages, see **[CONTRIBUTING.md](./CONTRIBUTING.md)**.
