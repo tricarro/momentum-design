@@ -17,7 +17,7 @@ This currently includes the following delivered distributables:
 
 ## Consumption
 
-Please see [consumption guide](https://github.com/momentum-design/momentum-design/blob/main/CONSUMPTION.md) for resources on how to consume this project.
+Please seee [consumption guide](https://github.com/momentum-design/momentum-design/blob/main/CONSUMPTION.md) for resources on how to consume this project.
 
 ## Contributing
 
